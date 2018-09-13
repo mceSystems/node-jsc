@@ -21,6 +21,7 @@
     'node_shared_openssl%': 'false',
     'node_v8_options%': '',
     'node_enable_v8_vtunejit%': 'false',
+    'node_engine%': 'v8',
     'node_core_target_name%': 'node',
     'library_files': [
       'lib/internal/bootstrap_node.js',
@@ -278,13 +279,25 @@
         'src/util.h',
         'src/util-inl.h',
         'deps/http_parser/http_parser.h',
-        'deps/v8/include/v8.h',
-        'deps/v8/include/v8-debug.h',
         # javascript files to make for an even more pleasant IDE experience
         '<@(library_files)',
         # node.gyp is added to the project by default.
         'common.gypi',
         '<(SHARED_INTERMEDIATE_DIR)/node_javascript.cc',
+      ],
+
+      'conditions': [
+        [ 'node_engine=="v8"', {
+          'sources': [
+            'deps/v8/include/v8.h',
+            'deps/v8/include/v8-debug.h',
+          ],
+        }],
+        ['node_engine=="jsc"', {
+          'sources': [
+            'deps/jscshim/include/v8.h'
+          ],
+        }],
       ],
 
       'variables': {
@@ -802,10 +815,22 @@
       'include_dirs': [
         'src',
         'tools/msvs/genfiles',
-        'deps/v8/include',
         'deps/cares/include',
         'deps/uv/include',
         '<(SHARED_INTERMEDIATE_DIR)', # for node_natives.h
+      ],
+
+      'conditions': [
+        [ 'node_engine=="v8"', {
+          'include_dirs': [
+            'deps/v8/include'
+          ],
+        }],
+        ['node_engine=="jsc"', {
+          'include_dirs': [
+            'deps/jscshim/include'
+          ],
+        }],
       ],
 
       'defines': [ 'NODE_WANT_INTERNALS=1' ],
@@ -942,7 +967,7 @@
             'deps/nghttp2/lib/includes'
           ]
         }],
-        [ 'node_use_v8_platform=="true"', {
+        [ 'node_use_v8_platform=="true" and node_engine=="v8"', {
           'dependencies': [
             'deps/v8/src/v8.gyp:v8_libplatform',
           ],
@@ -993,8 +1018,17 @@
           'sources+': [
             'src/node_main.cc',
           ],
-          'include_dirs': [
-            'deps/v8/include',
+          'conditions': [
+            [ 'node_engine=="v8"', {
+              'include_dirs': [
+                'deps/v8/include',
+              ],
+            }],
+            ['node_engine=="jsc"', {
+              'include_dirs': [
+                'deps/jscshim/include',
+              ],
+            }],
           ],
           'xcode_settings': {
             'OTHER_LDFLAGS': [

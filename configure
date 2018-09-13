@@ -59,7 +59,7 @@ from gyp_node import run_gyp
 parser = optparse.OptionParser()
 
 valid_os = ('win', 'mac', 'solaris', 'freebsd', 'openbsd', 'linux',
-            'android', 'aix')
+            'ios', 'android', 'aix')
 valid_arch = ('arm', 'arm64', 'ia32', 'mips', 'mipsel', 'mips64el', 'ppc',
               'ppc64', 'x32','x64', 'x86', 's390', 's390x')
 valid_arm_float_abi = ('soft', 'softfp', 'hard')
@@ -528,6 +528,12 @@ parser.add_option('--without-inspector',
     dest='without_inspector',
     help='disable the V8 inspector protocol')
 
+parser.add_option('--engine',
+    action='store',
+    dest='engine',
+    default='chakracore',
+    help='Use specified JS engine (default is JavaScriptCore)')
+
 parser.add_option('--shared',
     action='store_true',
     dest='shared',
@@ -851,6 +857,8 @@ def configure_mips(o):
 def configure_node(o):
   if options.dest_os == 'android':
     o['variables']['OS'] = 'android'
+  if options.dest_os == 'ios':
+    o['variables']['OS'] = 'ios'
   o['variables']['node_prefix'] = options.prefix
   o['variables']['node_install_npm'] = b(not options.without_npm)
   o['default_configuration'] = 'Debug' if options.debug else 'Release'
@@ -963,7 +971,9 @@ def configure_node(o):
   o['variables']['node_shared'] = b(options.shared)
   node_module_version = getmoduleversion.get_version()
 
-  if sys.platform == 'darwin':
+  if options.dest_os == 'android':
+    shlib_suffix = 'so'
+  elif sys.platform == 'darwin':
     shlib_suffix = '%s.dylib'
   elif sys.platform.startswith('aix'):
     shlib_suffix = '%s.a'
@@ -1380,6 +1390,14 @@ def configure_inspector(o):
                        options.without_ssl)
   o['variables']['v8_enable_inspector'] = 0 if disable_inspector else 1
 
+def configure_engine(o):
+  engine = options.engine.lower()
+  o['variables']['node_engine'] = engine
+  if engine != 'v8':
+    o['variables']['node_use_bundled_v8'] = b(False)
+    if engine == 'jsc':
+        o['variables']['jsc_build_config'] = o['default_configuration']
+        o['variables']['node_use_v8_platform'] = 0
 
 def make_bin_override():
   if sys.platform == 'win32':
@@ -1446,6 +1464,7 @@ configure_openssl(output)
 configure_intl(output)
 configure_static(output)
 configure_inspector(output)
+configure_engine(output)
 
 # variables should be a root level element,
 # move everything else to target_defaults

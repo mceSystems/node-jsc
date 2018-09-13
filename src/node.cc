@@ -324,7 +324,10 @@ static struct {
   std::unique_ptr<tracing::Agent> tracing_agent_;
   NodePlatform* platform_;
 #else  // !NODE_USE_V8_PLATFORM
-  void Initialize(int thread_pool_size, uv_loop_t* loop) {}
+  void Initialize(int thread_pool_size, uv_loop_t* loop) {
+    tracing::TraceEventHelper::SetTracingController(
+      new v8::TracingController());
+  }
   void Dispose() {}
   void DrainVMTasks() {}
   bool StartInspector(Environment *env, const char* script_path,
@@ -3495,8 +3498,10 @@ void SetupProcessObject(Environment* env,
                     Integer::New(env->isolate(), uv_os_getpid()));
   READONLY_PROPERTY(process, "features", GetFeatures(env));
 
-  process->SetAccessor(FIXED_ONE_BYTE_STRING(env->isolate(), "ppid"),
-                       GetParentProcessId);
+  // jscshim: Taken updated call with env->context() from node's master
+  CHECK(process->SetAccessor(env->context(),
+                             FIXED_ONE_BYTE_STRING(env->isolate(), "ppid"),
+                             GetParentProcessId).FromJust());
 
   auto scheduled_immediate_count =
       FIXED_ONE_BYTE_STRING(env->isolate(), "_scheduledImmediateCount");

@@ -44,6 +44,7 @@ set enable_static=
 set build_addons_napi=
 set test_node_inspect=
 set test_check_deopts=
+set engine=jsc
 set js_test_suites=default async-hooks known_issues
 set v8_test_options=
 set v8_build_options=
@@ -60,6 +61,7 @@ if /i "%1"=="clean"         set target=Clean&goto arg-ok
 if /i "%1"=="ia32"          set target_arch=x86&goto arg-ok
 if /i "%1"=="x86"           set target_arch=x86&goto arg-ok
 if /i "%1"=="x64"           set target_arch=x64&goto arg-ok
+if /i "%1"=="arm"           set target_arch=arm&goto arg-ok
 @rem args should be vs2017 and vs2015. keeping vc2015 for backward compatibility (undocumented)
 if /i "%1"=="vc2015"        set target_env=vs2015&goto arg-ok
 if /i "%1"=="vs2015"        set target_env=vs2015&goto arg-ok
@@ -92,6 +94,7 @@ if /i "%1"=="test-v8"       set test_v8=1&set custom_v8_test=1&goto arg-ok
 if /i "%1"=="test-v8-intl"  set test_v8_intl=1&set custom_v8_test=1&goto arg-ok
 if /i "%1"=="test-v8-benchmarks" set test_v8_benchmarks=1&set custom_v8_test=1&goto arg-ok
 if /i "%1"=="test-v8-all"       set test_v8=1&set test_v8_intl=1&set test_v8_benchmarks=1&set custom_v8_test=1&goto arg-ok
+if /i "%1"=="test-jscshim"  set test_v8=1&set jscshim_test=1&goto arg-ok
 if /i "%1"=="lint-cpp"      set lint_cpp=1&goto arg-ok
 if /i "%1"=="lint-js"       set lint_js=1&goto arg-ok
 if /i "%1"=="jslint"        set lint_js=1&echo Please use lint-js instead of jslint&goto arg-ok
@@ -112,6 +115,8 @@ if /i "%1"=="ignore-flaky"  set test_args=%test_args% --flaky-tests=dontcare&got
 if /i "%1"=="enable-vtune"  set enable_vtune_arg=1&goto arg-ok
 if /i "%1"=="dll"           set dll=1&goto arg-ok
 if /i "%1"=="static"        set enable_static=1&goto arg-ok
+if /i "%1"=="v8"            set engine=v8&goto arg-ok
+if /i "%1"=="jsc"           set engine=jsc&goto arg-ok
 if /i "%1"=="no-NODE-OPTIONS"	set no_NODE_OPTIONS=1&goto arg-ok
 if /i "%1"=="debug-http2"   set debug_http2=1&goto arg-ok
 if /i "%1"=="debug-nghttp2" set debug_nghttp2=1&goto arg-ok
@@ -162,6 +167,12 @@ if defined i18n_arg         set configure_flags=%configure_flags% --with-intl=%i
 if defined config_flags     set configure_flags=%configure_flags% %config_flags%
 if defined target_arch      set configure_flags=%configure_flags% --dest-cpu=%target_arch%
 if defined TAG              set configure_flags=%configure_flags% --tag=%TAG%
+if defined engine           set configure_flags=%configure_flags% --engine=%engine%
+
+if "%engine%"=="jsc" (
+  @rem jscshim currently doesn't support the inspector
+  set configure_flags=%configure_flags% --without-bundled-v8 --without-inspector
+)
 
 if not exist "%~dp0deps\icu" goto no-depsicu
 if "%target%"=="Clean" echo deleting %~dp0deps\icu
@@ -276,6 +287,7 @@ set "msbcpu=/m:2"
 if "%NUMBER_OF_PROCESSORS%"=="1" set "msbcpu=/m:1"
 set "msbplatform=Win32"
 if "%target_arch%"=="x64" set "msbplatform=x64"
+if "%target_arch%"=="arm" set "msbplatform=ARM"
 msbuild node.sln %msbcpu% /t:%target% /p:Configuration=%config% /p:Platform=%msbplatform% /clp:NoSummary;NoItemAndPropertyList;Verbosity=minimal /nologo
 if errorlevel 1 goto exit
 if "%target%" == "Clean" goto exit
@@ -480,8 +492,14 @@ if defined enable_static goto test-v8
 call :run-python tools\test.py %test_args%
 
 :test-v8
-if not defined custom_v8_test goto lint-cpp
+if not defined custom_v8_test goto test-jscshim
 call tools/test-v8.bat
+if errorlevel 1 goto exit
+goto test-jscshim
+
+:test-jscshim
+if not defined jscshim_test goto lint-cpp
+call :run-python deps/jscshim/test/tools/run-tests.py
 if errorlevel 1 goto exit
 goto lint-cpp
 

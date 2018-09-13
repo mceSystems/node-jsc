@@ -117,6 +117,37 @@
         }],
       ],
     }],
+    ['node_engine=="jsc"', {
+      'dependencies': [
+        'deps/jscshim/jscshim.gyp:jscshim',
+        'deps/jscshim/jscshim.gyp:jscshim_tests'
+      ],
+      'include_dirs': [
+        'deps/jscshim', # include/v8_platform.h
+      ],
+      'defines': [
+        'STATICALLY_LINKED_WITH_JavaScriptCore=1',
+        'STATICALLY_LINKED_WITH_WTF=1',
+      ],
+      'conditions': [
+        # -force_load is not applicable for the static library
+        [ 'node_target_type!="static_library"', {
+          'xcode_settings': {
+            'OTHER_LDFLAGS': [
+              '-Wl,-force_load,<(JSCSHIM_BASE)',
+            ],
+          },
+        }],
+        ['OS=="win"', {
+          # TODO: This shouldn't really be here since it's a node dependency, but node seems to work because v8.gyp adds this
+          'link_settings':  {
+            'libraries': [
+              '-ldbghelp.lib'
+            ]
+          }
+        }],
+      ],
+    }],
     [ 'node_shared_zlib=="false"', {
       'dependencies': [ 'deps/zlib/zlib.gyp:zlib' ],
     }],
@@ -175,9 +206,17 @@
       ],
     }],
     [ '(OS=="freebsd" or OS=="linux") and node_shared=="false" and coverage=="false"', {
-      'ldflags': [ '-Wl,-z,noexecstack',
-                   '-Wl,--whole-archive <(V8_BASE)',
-                   '-Wl,--no-whole-archive' ]
+      'ldflags': [ '-Wl,-z,noexecstack' ],
+      'conditions': [
+      [ 'node_engine=="v8"', {
+        'ldflags': [ '-Wl,--whole-archive <(V8_BASE)',
+                     '-Wl,--no-whole-archive' ],
+      }],
+      ['node_engine=="jsc"', {
+        'ldflags': [ '-Wl,--whole-archive <(JSCSHIM_BASE)',
+                     '-Wl,--no-whole-archive' ],
+      }],
+      ]
     }],
     [ '(OS=="freebsd" or OS=="linux") and node_shared=="false" and coverage=="true"', {
       'ldflags': [ '-Wl,-z,noexecstack',
@@ -205,6 +244,11 @@
     }],
     [ 'OS=="sunos"', {
       'ldflags': [ '-Wl,-M,/usr/lib/ld/map.noexstk' ],
+    }],
+    [ 'OS=="android" or OS=="ios"', {
+      'defines': [
+        'NODE_MOBILE',
+      ],
     }],
   ],
 }
