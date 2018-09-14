@@ -7,9 +7,9 @@ Currently based on node v8.11.1, with slightly newer npm version, but will be up
 A separate project, [node-native-script](https://github.com/mceSystems/node-native-script) native extension, allows javascript code running in node-jsc to directly call iOS platform APIs.
 
 # How?
-The core part of what makes node-jsc work is jscshim, which implements the the parts of V8 APIs used by node.js on top of JavaScriptCore (JSC), WebKit's javascript engine.
-Similar to [node-chakracore](https://github.com/nodejs/node-chakracore)'s ChakraShim and [spidernode](https://github.com/mozilla/spidernode)'s spidershim, jscshim aims to implement as much of V8's APIs as possible, as close as possible, hopefully making it transperant to node.js and native extensions.
-See [jscshim's documentation](https://github.com/mceSystems/node-jsc/blob/master/deps/jscshim/docs/jscshim.md) for more detailed design and implementation information. Note that as V8 API is quite extensive, jscshim currently doesn't implement all of it. See [jscshim status and known issues](https://github.com/mceSystems/node-jsc/blob/master/deps/jscshim/docs/jscshim_status_and_known_issues.md) to see what jscshim currently implements.
+The core part of what makes node-jsc work is jscshim, which implements the parts of v8's API used by node.js on top of JavaScriptCore (JSC), WebKit's javascript engine.
+Similar to [node-chakracore](https://github.com/nodejs/node-chakracore)'s ChakraShim and [spidernode](https://github.com/mozilla/spidernode)'s spidershim, jscshim aims to implement as much of v8's APIs as possible, as close as possible, hopefully making it transperant to node.js and native extensions.
+See [jscshim's documentation](https://github.com/mceSystems/node-jsc/blob/master/deps/jscshim/docs/jscshim.md) for more detailed design and implementation information. Note that as v8 API is quite extensive, jscshim currently doesn't implement all of it. See [jscshim status and known issues](https://github.com/mceSystems/node-jsc/blob/master/deps/jscshim/docs/jscshim_status_and_known_issues.md) to see what jscshim currently implements.
 
 jscshim uses its own fork of WebKit. See [WebKit fork and compilation](https://github.com/mceSystems/node-jsc/blob/master/deps/jscshim/docs/webkit_fork_and_compilation.md) for more information, or see our fork's [repo](https://github.com/mceSystems/WebKit).
 
@@ -30,16 +30,16 @@ node-jsc's initial goal was to eventually provide a stable, production ready, no
   - How much work will it take to make it work on iOS, arm based, devices?
   - How well will it work and perform on iOS devices?
   - What about bug fixes?
-  This is not to say node-chakracore and nodejs-mobile (and ChakraCore) haven't done great job and progress, it just that they had more "risks" regarding iOS.
+  This is not to say node-chakracore and nodejs-mobile (and ChakraCore) haven't done great job and progress, it's just that they had more "risks" regarding iOS.
 - [spidernode](https://github.com/mozilla/spidernode), which seemed less active and less maintained. And again, I wasn't sure how well SpiderMonkey will support iOS.
 
 Evantually, I chose JavaScriptCore for mainly two reasons:
 - As the javascript engine used by Safari, it officially supports, and optimized for, iOS devices. 
 - Officially supports "interpreter mode" only (since it's not possible to allocate executable memory in iOS apps), which is successfully used by [React Native](https://facebook.github.io/react-native/docs/javascript-environment) and [NativeScript](https://docs.nativescript.org/angular/core-concepts/ios-runtime/Overview). This was important, as it means this mode is already tested by applications built on those frameworks, hopefully providing decent (enough) performance. 
-  - This will also allow integration with such projects, which bridge javascript and native code, to allow javascript code running in node-jsc to access the native platform's APIs. [node-native-script](https://github.com/mceSystems/node-native-script) achieves it, based on NativeScript.
+  - This will also allow integration with such projects, which bridge javascript and native code, to allow javascript code running in node-jsc access the native platform's APIs. [node-native-script](https://github.com/mceSystems/node-native-script) achieves it, based on NativeScript.
 
 Besides that:
-- JavaScriptCore has a very flexible and powerful API for embedders (when interfacing with JavaScriptCore classes directly, not through the "official API" which is too limited for our needs), and see
+- JavaScriptCore has a very flexible and powerful API for embedders (when interfacing with JavaScriptCore classes directly, not through the "official API" which is too limited for our needs).
 - There were already [node-chakra](https://github.com/nodejs/node-chakracore) and [spidernode](https://github.com/mozilla/spidernode), so why not node-jsc? :)
 
 ## Building
@@ -56,7 +56,7 @@ Besides that:
     ```bash
     xcode-select --install
     ```
-* **Python 2**: If not installed, see [this](https://docs.python-guide.org/starting/install/osx/) for installing using Homebrew.
+* **Python 2**: If not installed, see [this](https://docs.python-guide.org/starting/install/osx/) for instructions on how to install Python 2 with Homebrew.
 * **CMake**: To install using Homebrew:
   ```bash
   brew install cmake
@@ -71,7 +71,7 @@ Besides that:
   sudo deps/jscshim/webkit/Tools/Scripts/configure-xcode-for-ios-development
   ```
 
-**Building for iOS**
+**Building for iOS**  
 To build node-jsc, use `build_ios.sh` from the root directory. Before using it for the first time, make sure the script is executable:
 ```bash
 chmod +x build_ios.sh
@@ -82,20 +82,20 @@ then:
 ```
 
 Which will build:
-* Webkit (JavaScriptCore and WTF only), node.js and the rest of it's dependecies (including jscshim) as static libraries.
+* Webkit (JavaScriptCore and WTF only), node.js and the rest of its dependecies (including jscshim) as static libraries.
 * **NodeIOS iOS framework**, which bundles all of the compiled static libraries and provides a simple function for running node (in NodeIOS.h):
   ```c
   int node_start(int argc, char *argv[]);
   ```
-  ***It is highly recommended to use the NodeIOS framework, rather then using the libraries directly.***
+  ***It is highly recommended to use the NodeIOS framework, rather than using the libraries directly.***
 
 ### Building on Windows
 
 **Prerequisites**
   * Follow **"Installing Development Tools" from [Webkit's Windows build instructions](https://webkit.org/webkit-on-windows/), steps 1-9**.
 
-**Building**
-From the command line, at node-jsc's root directory, use vcbuild.bat to generate a Visual Studio solution and build it:
+**Building**  
+From the command line, at the node-jsc root directory, use vcbuild.bat to generate a Visual Studio solution and build it:
 ```
 vcbuild.bat vs2017 x64 nosnapshot noetw noperfctr jsc
 ```
@@ -109,7 +109,7 @@ If you try to build\run node-jsc on another platform - let us know if it works, 
 
 ## Using node-jsc in your app
 It is recommended to use the iOS framework (built by `build_ios.sh`), found at tools/NodeIOS/Release-iphoneos:
-1) Add the framework to your Xcode project
+1) Add the framework to your Xcode project.
 2) Add your node.js source files, in a directory, to you project.
 3) In your native source code:
    * Objecive-C:
@@ -123,13 +123,13 @@ It is recommended to use the iOS framework (built by `build_ios.sh`), found at t
         const char * nodeArgs[] = { "node", [loaderFilePath UTF8String] }; 
         node_start(2, nodeArgs);
         ```
-        Note that node_start is blocking, so it is recommended to run it it's own thread (see [NodeIOS Demo Project](https://github.com/mceSystems/NodeIOS-Demo-Project) for an example
+        Note that node_start is blocking, so it is recommended to run it in its own thread (see [NodeIOS Demo Project](https://github.com/mceSystems/NodeIOS-Demo-Project) for an example).
 4) Since the current directory is not the js sources directory, it is recommended to change the current dir from the javascript code. For example:
   ```javascript
     process.chdir(__dirname);
   ```
 
-See [NodeIOS Demo Project]() for an example project, which:
+See [NodeIOS Demo Project](https://github.com/mceSystems/NodeIOS-Demo-Project) for an example project, which:
 * Uses the NodeIOS framework
 * Bundles a sample javascript application
   * All javascript related files are bundled in a separate folder
@@ -138,7 +138,7 @@ See [NodeIOS Demo Project]() for an example project, which:
     process.chdir(__dirname + "/app");
     require("./app");
     ```
-    While javascript app itself is under the js/app directory
+    While the javascript app itself is under the js/app directory
 * Redirects the console into a TextView
 * Runs node in a new thread
 
@@ -153,9 +153,9 @@ Prerequisites:
   For more information, see ["inside-code-signing"](https://www.objc.io/issues/17-security/inside-code-signing/).
 
 To build your native extension project for arm64, from the terminal:
-1. Compile the extension ("node-jsc dir" is the path of your local node-jsc repo):
+1. Compile the extension ("\<node-jsc dir\>" is the path of your local node-jsc repo):
     ```bash
-    <node-jsc dir>/deps/npm/node_modules/node-gyp/bin/node-gyp.js configure --nodedir=<node-jsc dir> --arch=arm64 --OS=ios   --node_engine=jsc
+    <node-jsc dir>/deps/npm/node_modules/node-gyp/bin/node-gyp.js configure --nodedir=<node-jsc dir> --arch=arm64 --OS=ios --node_engine=jsc
     <node-jsc dir>/deps/npm/node_modules/node-gyp/bin/node-gyp.js build --nodedir=<node-jsc dir> --arch=arm64 --OS=ios --node_engine=jsc
     ```
 2. Sign the extension's executable file:
@@ -168,7 +168,7 @@ See [node-native-script's build script](https://github.com/mceSystems/node-nativ
 
 ## What's Missing\TODO
 As node-jsc is experminetal and still an early proof of concept, a lot is still missing:
-- **Inspector\debugger support**                                                                                              - Debugging support is obviously critical, and is the next big thing I'll work on.
+- **Inspector\debugger support**: Debugging support is obviously critical, and is the next big thing I'll work on.
   - A possible course of action will be to intergrate [NativeScript](https://www.nativescript.org)'s [iOS Runtime debugging support](https://docs.nativescript.org/tooling/debugging/debugging), which
     seems great. On iOS, NativeScript's [iOS Runtime](https://docs.nativescript.org/core-concepts/ios-runtime/Overview) is based on JavaScriptCore, and supports debugging with either WebKit's inspector or Chrome DevTools.
 - iOS simulator support (should be mainly build script\gyp file related changes)
@@ -182,7 +182,7 @@ As node-jsc is experminetal and still an early proof of concept, a lot is still 
 As node-jsc isn't the first project trying to use another javascript engine or support iOS, the great work done in other projects really helped node-jsc's development:
 - [node-chakracore](https://github.com/nodejs/node-chakracore) was used as a reference project, using ideas and actual pieces of code when possible.
 - [nodejs-mobile](https://github.com/janeasystems/nodejs-mobile), a node-chakracore fork targeting Android and iOS, has done great job in preparing node.js to be compiled and used on iOS. Parts of node-jsc's build process and gyp configuration were taken from nodejs-mobile, while nodejs-mobile's patches to libuv, node-gyp and gyp were merged into node-jsc to help everything compile for iOS and to support native extensions. 
-- [spidernode](https://github.com/mozilla/spidernode) and [SpiderMonkey](https://github.com/mozilla/spidernode/tree/master/deps/spidershim/spidermonkey), also used as a reference,  while existing code was taken when possible.
+- [spidernode](https://github.com/mozilla/spidernode) and [SpiderMonkey](https://github.com/mozilla/spidernode/tree/master/deps/spidershim/spidermonkey), also used as a reference, while existing code was taken when possible.
 - NativeScript's [iOS Runtime](https://docs.nativescript.org/core-concepts/ios-runtime/Overview) was used as a reference for compiling WebKit for iOS using CMake.
 
 ## Further Reading
