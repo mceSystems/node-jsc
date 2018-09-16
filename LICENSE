@@ -1199,6 +1199,12 @@ The externally maintained libraries used by Node.js are:
     IN THE SOFTWARE.
   """
 
+- WebKit:
+  """
+    WebKit is open source software with portions licensed under the LGPL and BSD
+    licenses available here: https://webkit.org/licensing-webkit/.
+  """
+
 - node-chakracore (chakrashim):
   """
     Copyright Microsoft. All rights reserved.
