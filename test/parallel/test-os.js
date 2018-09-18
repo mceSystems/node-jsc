@@ -100,7 +100,7 @@ assert.ok(type.length > 0);
 const release = os.release();
 is.string(release);
 assert.ok(release.length > 0);
-//TODO: Check format on more than just AIX
+// TODO: Check format on more than just AIX
 if (common.isAIX)
   assert.ok(/^\d+\.\d+$/.test(release));
 
@@ -113,7 +113,7 @@ is.string(arch);
 assert.ok(arch.length > 0);
 
 if (!common.isSunOS) {
-  // not implemeneted yet
+  // not implemented yet
   assert.ok(os.loadavg().length > 0);
   assert.ok(os.freemem() > 0);
   assert.ok(os.totalmem() > 0);
@@ -130,8 +130,8 @@ switch (platform) {
     const expected = [{
       address: '127.0.0.1',
       netmask: '255.0.0.0',
-      mac: '00:00:00:00:00:00',
       family: 'IPv4',
+      mac: '00:00:00:00:00:00',
       internal: true,
       cidr: '127.0.0.1/8'
     }];
@@ -146,8 +146,8 @@ switch (platform) {
     const expected = [{
       address: '127.0.0.1',
       netmask: '255.0.0.0',
-      mac: '00:00:00:00:00:00',
       family: 'IPv4',
+      mac: '00:00:00:00:00:00',
       internal: true,
       cidr: '127.0.0.1/8'
     }];

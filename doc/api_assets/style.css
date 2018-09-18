@@ -29,10 +29,13 @@ h6 { font-size: 1rem }
 
 h1, h2, h3, h4, h5, h6 {
   margin: 1.5rem 0 1rem;
+  text-rendering: optimizeLegibility;
+  font-weight: 700;
+  position: relative;
 }
 
 pre, tt, code, .pre, span.type, a.type {
-  font-family: Monaco, Consolas, "Lucida Console", monospace;
+  font-family: SFMono-Regular, Menlo, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: .9em;
 }
 
@@ -183,10 +186,6 @@ ol.version-picker li:last-child a {
   background-color: #4EBA0F;
 }
 
-.api_stability_3 {
-  background-color: #0084B6;
-}
-
 .api_metadata {
   font-size: .85rem;
   margin-bottom: 1rem;
@@ -226,6 +225,8 @@ table {
 
 th, td {
   border: 1px solid #aaa;
+  padding: .75rem 1rem .75rem 1rem;
+  vertical-align: top;
 }
 
 th {
@@ -259,12 +260,6 @@ dd + dt.pre {
   margin-top: 1.6rem;
 }
 
-h1, h2, h3, h4, h5, h6 {
-  text-rendering: optimizeLegibility;
-  font-weight: 700;
-  position: relative;
-}
-
 #apicontent {
   padding-top: 1rem;
 }
@@ -286,6 +281,11 @@ h3 + h3 {
 h2, h3, h4, h5 {
   position: relative;
   padding-right: 40px;
+}
+
+.srclink {
+  float: right;
+  font-size: smaller;
 }
 
 h1 span, h2 span, h3 span, h4 span {
@@ -373,9 +373,6 @@ hr {
 #toc .stability_0::after {
   background-color: #d50027;
   color: #fff;
-}
-
-#toc .stability_0::after {
   content: "deprecated";
   margin-left: .25rem;
   padding: 1px 3px;
@@ -493,11 +490,6 @@ span > .mark:hover, span > .mark:focus, span > .mark:active {
   background: none;
 }
 
-th, td {
-  padding: .75rem 1rem .75rem 1rem;
-  vertical-align: top;
-}
-
 th > *:last-child, td > *:last-child {
   margin-bottom: 0;
 }
@@ -515,6 +507,11 @@ th > *:last-child, td > *:last-child {
   height: 0;
   clear: both;
   visibility: hidden;
+}
+
+.github_icon {
+  vertical-align: middle;
+  margin: -2px 3px 0 0;
 }
 
 @media only screen and (max-width: 1024px) {

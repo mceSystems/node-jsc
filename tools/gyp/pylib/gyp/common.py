@@ -442,7 +442,6 @@ def CopyTool(flavor, out_path, generator_flags={}):
       'aix': 'flock',
       'solaris': 'flock',
       'mac': 'mac',
-      'ios': 'mac',
       'win': 'win'
       }.get(flavor, None)
   if not prefix:

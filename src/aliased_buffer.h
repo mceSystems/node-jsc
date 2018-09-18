@@ -1,6 +1,7 @@
-
 #ifndef SRC_ALIASED_BUFFER_H_
 #define SRC_ALIASED_BUFFER_H_
+
+#if defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
 
 #include "v8.h"
 #include "util-inl.h"
@@ -126,19 +127,33 @@ class AliasedBuffer {
           index_(that.index_) {
     }
 
-    template <typename T>
-    inline Reference& operator=(const T& val) {
+    inline Reference& operator=(const NativeT& val) {
       aliased_buffer_->SetValue(index_, val);
       return *this;
     }
 
-    // This is not caught by the template operator= above.
     inline Reference& operator=(const Reference& val) {
       return *this = static_cast<NativeT>(val);
     }
 
     operator NativeT() const {
       return aliased_buffer_->GetValue(index_);
+    }
+
+    inline Reference& operator+=(const NativeT& val) {
+      const NativeT current = aliased_buffer_->GetValue(index_);
+      aliased_buffer_->SetValue(index_, current + val);
+      return *this;
+    }
+
+    inline Reference& operator+=(const Reference& val) {
+      return this->operator+=(static_cast<NativeT>(val));
+    }
+
+    inline Reference& operator-=(const NativeT& val) {
+      const NativeT current = aliased_buffer_->GetValue(index_);
+      aliased_buffer_->SetValue(index_, current - val);
+      return *this;
     }
 
    private:
@@ -220,5 +235,7 @@ class AliasedBuffer {
   bool free_buffer_;
 };
 }  // namespace node
+
+#endif  // defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
 
 #endif  // SRC_ALIASED_BUFFER_H_

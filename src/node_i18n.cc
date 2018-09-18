@@ -46,9 +46,10 @@
 
 #include "node.h"
 #include "node_buffer.h"
+#include "node_errors.h"
 #include "env-inl.h"
 #include "util-inl.h"
-#include "base-object-inl.h"
+#include "base_object-inl.h"
 #include "v8.h"
 
 #include <unicode/utypes.h>
@@ -86,6 +87,7 @@ namespace node {
 using v8::Context;
 using v8::FunctionCallbackInfo;
 using v8::HandleScope;
+using v8::Int32;
 using v8::Isolate;
 using v8::Local;
 using v8::MaybeLocal;
@@ -126,7 +128,7 @@ struct Converter {
 
   explicit Converter(UConverter* converter,
                      const char* sub = nullptr) : conv(converter) {
-    CHECK_NE(conv, nullptr);
+    CHECK_NOT_NULL(conv);
     UErrorCode status = U_ZERO_ERROR;
     if (sub != nullptr) {
       ucnv_setSubstChars(conv, sub, strlen(sub), &status);
@@ -249,6 +251,12 @@ class ConverterObject : public BaseObject, Converter {
     }
   }
 
+  void MemoryInfo(MemoryTracker* tracker) const override {
+    tracker->TrackThis(this);
+  }
+
+  ADD_MEMORY_INFO_NAME(ConverterObject)
+
  protected:
   ConverterObject(Environment* env,
                   v8::Local<v8::Object> wrap,
@@ -258,7 +266,7 @@ class ConverterObject : public BaseObject, Converter {
                   BaseObject(env, wrap),
                   Converter(converter, sub),
                   ignoreBOM_(ignoreBOM) {
-    MakeWeak<ConverterObject>(this);
+    MakeWeak();
 
     switch (ucnv_getType(converter)) {
       case UCNV_UTF8:
@@ -447,7 +455,7 @@ void Transcode(const FunctionCallbackInfo<Value>&args) {
   UErrorCode status = U_ZERO_ERROR;
   MaybeLocal<Object> result;
 
-  THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
+  CHECK(Buffer::HasInstance(args[0]));
   SPREAD_BUFFER_ARG(args[0], ts_obj);
   const enum encoding fromEncoding = ParseEncoding(isolate, args[1], BUFFER);
   const enum encoding toEncoding = ParseEncoding(isolate, args[2], BUFFER);
@@ -495,7 +503,8 @@ void Transcode(const FunctionCallbackInfo<Value>&args) {
 
 void ICUErrorName(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
-  UErrorCode status = static_cast<UErrorCode>(args[0]->Int32Value());
+  CHECK(args[0]->IsInt32());
+  UErrorCode status = static_cast<UErrorCode>(args[0].As<Int32>()->Value());
   args.GetReturnValue().Set(
       String::NewFromUtf8(env->isolate(),
                           u_errorName(status),
@@ -523,7 +532,7 @@ const char* GetVersion(const char* type,
   } else if (!strcmp(type, TYPE_UNICODE)) {
     return U_UNICODE_VERSION;
   } else if (!strcmp(type, TYPE_TZ)) {
-    return TimeZone::getTZDataVersion(*status);
+    return icu::TimeZone::getTZDataVersion(*status);
   } else if (!strcmp(type, TYPE_CLDR)) {
     UVersionInfo versionArray;
     ulocdata_getCLDRVersion(versionArray, status);
@@ -545,7 +554,7 @@ void GetVersion(const FunctionCallbackInfo<Value>& args) {
             TYPE_ICU ","
             TYPE_UNICODE ","
             TYPE_CLDR ","
-            TYPE_TZ));
+            TYPE_TZ, v8::NewStringType::kNormal).ToLocalChecked());
   } else {
     CHECK_GE(args.Length(), 1);
     CHECK(args[0]->IsString());
@@ -558,7 +567,7 @@ void GetVersion(const FunctionCallbackInfo<Value>& args) {
       // Success.
       args.GetReturnValue().Set(
           String::NewFromUtf8(env->isolate(),
-          versionString));
+          versionString, v8::NewStringType::kNormal).ToLocalChecked());
     }
   }
 }
@@ -788,7 +797,8 @@ static int GetColumnWidth(UChar32 codepoint,
       if (ambiguous_as_full_width) {
         return 2;
       }
-      // Fall through if ambiguous_as_full_width if false.
+      // If ambiguous_as_full_width is false:
+      // Fall through
     case U_EA_NEUTRAL:
       if (u_hasBinaryProperty(codepoint, UCHAR_EMOJI_PRESENTATION)) {
         return 2;
@@ -807,13 +817,13 @@ static void GetStringWidth(const FunctionCallbackInfo<Value>& args) {
   if (args.Length() < 1)
     return;
 
-  bool ambiguous_as_full_width = args[1]->BooleanValue();
-  bool expand_emoji_sequence = args[2]->BooleanValue();
+  bool ambiguous_as_full_width = args[1]->IsTrue();
+  bool expand_emoji_sequence = args[2]->IsTrue();
 
   if (args[0]->IsNumber()) {
-    args.GetReturnValue().Set(
-        GetColumnWidth(args[0]->Uint32Value(),
-                       ambiguous_as_full_width));
+    uint32_t val;
+    if (!args[0]->Uint32Value(env->context()).To(&val)) return;
+    args.GetReturnValue().Set(GetColumnWidth(val, ambiguous_as_full_width));
     return;
   }
 
@@ -851,10 +861,10 @@ static void GetStringWidth(const FunctionCallbackInfo<Value>& args) {
   args.GetReturnValue().Set(width);
 }
 
-void Init(Local<Object> target,
-          Local<Value> unused,
-          Local<Context> context,
-          void* priv) {
+void Initialize(Local<Object> target,
+                Local<Value> unused,
+                Local<Context> context,
+                void* priv) {
   Environment* env = Environment::GetCurrent(context);
   env->SetMethod(target, "toUnicode", ToUnicode);
   env->SetMethod(target, "toASCII", ToASCII);
@@ -874,6 +884,6 @@ void Init(Local<Object> target,
 }  // namespace i18n
 }  // namespace node
 
-NODE_BUILTIN_MODULE_CONTEXT_AWARE(icu, node::i18n::Init)
+NODE_BUILTIN_MODULE_CONTEXT_AWARE(icu, node::i18n::Initialize)
 
 #endif  // NODE_HAVE_I18N_SUPPORT
