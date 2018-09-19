@@ -72,4 +72,27 @@ DEFINE_NEW_TYPED_ARRAY_FUNCTIONS(Uint32)
 DEFINE_NEW_TYPED_ARRAY_FUNCTIONS(Float32)
 DEFINE_NEW_TYPED_ARRAY_FUNCTIONS(Float64)
 
+Local<BigInt64Array> BigInt64Array::New(Local<ArrayBuffer> array_buffer, size_t byte_offset, size_t length)
+{
+	// TODO: IMPLEMENT
+	return Local<BigInt64Array>();
+}
+
+Local<BigInt64Array> BigInt64Array::New(Local<SharedArrayBuffer> shared_array_buffer, size_t byte_offset, size_t length)
+{
+	// TODO: IMPLEMENT
+	return Local<BigInt64Array>();
+}
+
+Local<BigUint64Array> BigUint64Array::New(Local<ArrayBuffer> array_buffer, size_t byte_offset, size_t length)
+{
+	// TODO: IMPLEMENT
+	return Local<BigUint64Array>(JSC::jsUndefined());
+}
+Local<BigUint64Array> BigUint64Array::New(Local<SharedArrayBuffer> shared_array_buffer, size_t byte_offset, size_t length)
+{
+	// TODO: IMPLEMENT
+	return Local<BigUint64Array>(JSC::jsUndefined());
+}
+
 } // v8

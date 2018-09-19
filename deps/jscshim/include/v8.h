@@ -99,7 +99,9 @@ class AccessorSignature;
 class Array;
 class ArrayBuffer;
 class BigInt;
+class BigInt64Array;
 class BigIntObject;
+class BigUint64Array;
 class Boolean;
 class BooleanObject;
 class Context;
@@ -244,7 +246,9 @@ private:
 	friend class ArrayBuffer;
 	friend class ArrayBufferView;
 	friend class BigInt;
+    friend class BigInt64Array;
 	friend class BigIntObject;
+    friend class BigUint64Array;
 	friend class BooleanObject;
 	friend class Context;
 	friend class DataView;
@@ -1176,6 +1180,10 @@ public:
 	bool IsFloat32Array() const;
 
 	bool IsFloat64Array() const;
+
+	bool IsBigInt64Array() const;
+
+	bool IsBigUint64Array() const;
 
 	bool IsDataView() const;
 
@@ -2201,6 +2209,34 @@ public:
 
 private:
 	Float64Array();
+};
+
+class V8_EXPORT BigInt64Array : public TypedArray {
+public:
+	static Local<BigInt64Array> New(Local<ArrayBuffer> array_buffer,
+									size_t byte_offset,
+									size_t length);
+	static Local<BigInt64Array> New(Local<SharedArrayBuffer> shared_array_buffer,
+									size_t byte_offset,
+									size_t length);
+	V8_INLINE static BigInt64Array* Cast(Value* obj);
+
+private:
+	BigInt64Array();
+};
+
+class V8_EXPORT BigUint64Array : public TypedArray {
+public:
+	static Local<BigUint64Array> New(Local<ArrayBuffer> array_buffer,
+									 size_t byte_offset,
+									 size_t length);
+	static Local<BigUint64Array> New(Local<SharedArrayBuffer> shared_array_buffer,
+									 size_t byte_offset,
+									 size_t length);
+	V8_INLINE static BigUint64Array* Cast(Value* obj);
+
+private:
+	BigUint64Array();
 };
 
 class V8_EXPORT DataView : public ArrayBufferView {
@@ -4106,6 +4142,20 @@ Float64Array* Float64Array::Cast(v8::Value* value)
 	CheckCast(value);
 #endif
 	return static_cast<Float64Array*>(value);
+}
+
+BigInt64Array* BigInt64Array::Cast(v8::Value* value) {
+#ifdef V8_ENABLE_CHECKS
+  CheckCast(value);
+#endif
+  return static_cast<BigInt64Array*>(value);
+}
+
+BigUint64Array* BigUint64Array::Cast(v8::Value* value) {
+#ifdef V8_ENABLE_CHECKS
+  CheckCast(value);
+#endif
+  return static_cast<BigUint64Array*>(value);
 }
 
 Boolean* Boolean::Cast(v8::Value* value)

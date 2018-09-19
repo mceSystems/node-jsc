@@ -212,6 +212,18 @@ bool Value::IsGeneratorObject() const
 	return JSC::JSObject::defaultHasInstance(exec, jscshim::GetValue(this), global->generatorPrototype());
 }
 
+bool Value::IsBigInt64Array() const
+{
+	// TODO: IMPLEMENT
+	return false;
+}
+
+bool Value::IsBigUint64Array() const
+{
+	// TODO: IMPLEMENT
+	return false;
+}
+
 bool Value::IsSharedArrayBuffer() const
 {
 	JSC::JSArrayBuffer * arrayBuffer = jscshim::GetJscCellFromV8Checked<JSC::JSArrayBuffer>(jscshim::GetCurrentVM(), this);
