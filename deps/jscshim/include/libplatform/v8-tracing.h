@@ -110,6 +110,9 @@ class V8_PLATFORM_EXPORT TracingController
 
   void StartTracing(TraceConfig* trace_config);
   void StopTracing();
+
+protected:
+	virtual int64_t CurrentTimestampMicroseconds();
 };
 
 }  // namespace tracing

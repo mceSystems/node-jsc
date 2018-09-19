@@ -7,6 +7,8 @@
 #include "v8.h"
 #include "libplatform/v8-tracing.h"
 
+#include <JavaScriptCore/JSCInlines.h>
+
 namespace v8 { namespace platform { namespace tracing
 {
 
@@ -32,6 +34,12 @@ void TracingController::StartTracing(TraceConfig* trace_config)
 void TracingController::StopTracing()
 {
 	// TODO: IMPLEMENT
+}
+
+int64_t TracingController::CurrentTimestampMicroseconds()
+{
+	// TODO: IMPLEMENT
+	return 0;
 }
 
 TraceWriter * TraceWriter::CreateJSONTraceWriter(std::ostream& stream)
