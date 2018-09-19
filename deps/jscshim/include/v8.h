@@ -2163,20 +2163,6 @@ private:
 	Int16Array();
 };
 
-class V8_EXPORT Int32Array : public TypedArray
-{
-public:
-	static Local<Int32Array> New(Local<ArrayBuffer> array_buffer,
-								 size_t byte_offset, size_t length);
-	static Local<Int32Array> New(Local<SharedArrayBuffer> array_buffer,
-								 size_t byte_offset, size_t length);
-
-	V8_INLINE static Int32Array* Cast(Value* obj);
-
-private:
-	Int32Array();
-};
-
 class V8_EXPORT Uint32Array : public TypedArray
 {
 public:
@@ -2189,6 +2175,20 @@ public:
 
 private:
 	Uint32Array();
+};
+
+class V8_EXPORT Int32Array : public TypedArray
+{
+public:
+	static Local<Int32Array> New(Local<ArrayBuffer> array_buffer,
+								 size_t byte_offset, size_t length);
+	static Local<Int32Array> New(Local<SharedArrayBuffer> array_buffer,
+								 size_t byte_offset, size_t length);
+
+	V8_INLINE static Int32Array* Cast(Value* obj);
+
+private:
+	Int32Array();
 };
 
 class V8_EXPORT Float32Array : public TypedArray
