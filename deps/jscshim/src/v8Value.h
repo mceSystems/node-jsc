@@ -35,6 +35,7 @@
 #include <JavaScriptCore/JSArrayBufferView.h>
 #include <JavaScriptCore/JSDataView.h>
 
+#include <JavaScriptCore/BigIntObject.h>
 #include <JavaScriptCore/BooleanObject.h>
 #include <JavaScriptCore/NumberObject.h>
 #include <JavaScriptCore/StringObject.h>

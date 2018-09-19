@@ -38,6 +38,8 @@ bool V8::Initialize()
 	JSC::Options::useJIT() = false;
 #endif
 
+	JSC::Options::useBigInt() = true;
+
 	return true;
 }
 

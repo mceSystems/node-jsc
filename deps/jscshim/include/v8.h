@@ -98,6 +98,8 @@ namespace v8
 class AccessorSignature;
 class Array;
 class ArrayBuffer;
+class BigInt;
+class BigIntObject;
 class Boolean;
 class BooleanObject;
 class Context;
@@ -241,6 +243,8 @@ private:
 	friend class Array;
 	friend class ArrayBuffer;
 	friend class ArrayBufferView;
+	friend class BigInt;
+	friend class BigIntObject;
 	friend class BooleanObject;
 	friend class Context;
 	friend class DataView;
@@ -1123,6 +1127,8 @@ public:
 
 	bool IsObject() const;
 
+	bool IsBigInt() const;
+
 	bool IsBoolean() const;
 
 	bool IsNumber() const;
@@ -1136,6 +1142,8 @@ public:
 	bool IsDate() const;
 
 	bool IsArgumentsObject() const;
+
+	bool IsBigIntObject() const;
 
 	bool IsBooleanObject() const;
 
@@ -1317,6 +1325,27 @@ public:
 
 private:
 	Uint32();
+};
+
+class V8_EXPORT BigInt : public Primitive {
+public:
+	static Local<BigInt> New(Isolate* isolate, int64_t value);
+	static Local<BigInt> NewFromUnsigned(Isolate* isolate, uint64_t value);
+
+	static MaybeLocal<BigInt> NewFromWords(Local<Context> context, int sign_bit, int word_count, const uint64_t* words);
+
+	uint64_t Uint64Value(bool* lossless = nullptr) const;
+
+	int64_t Int64Value(bool* lossless = nullptr) const;
+
+	int WordCount() const;
+
+	void ToWordsArray(int* sign_bit, int* word_count, uint64_t* words) const;
+
+	V8_INLINE static BigInt* Cast(v8::Value* obj);
+
+private:
+	BigInt();
 };
 
 class V8_EXPORT Name : public Primitive
@@ -2204,6 +2233,15 @@ public:
 	double ValueOf() const;
 
 	V8_INLINE static NumberObject* Cast(Value* obj);
+};
+
+class V8_EXPORT BigIntObject : public Object {
+public:
+	static Local<Value> New(Isolate* isolate, int64_t value);
+
+	Local<BigInt> ValueOf() const;
+
+	V8_INLINE static BigIntObject* Cast(Value* obj);
 };
 
 class V8_EXPORT BooleanObject : public Object
@@ -3902,6 +3940,14 @@ NumberObject* NumberObject::Cast(v8::Value* value)
 	return static_cast<NumberObject*>(value);
 }
 
+BigIntObject* BigIntObject::Cast(v8::Value* value)
+{
+#ifdef V8_ENABLE_CHECKS
+	CheckCast(value);
+#endif
+	return static_cast<BigIntObject*>(value);
+}
+
 BooleanObject* BooleanObject::Cast(v8::Value* value)
 {
 #ifdef V8_ENABLE_CHECKS
@@ -4108,6 +4154,14 @@ Uint32* Uint32::Cast(v8::Value* value)
 	CheckCast(value);
 #endif
 	return static_cast<Uint32*>(value);
+}
+
+BigInt* BigInt::Cast(v8::Value* value)
+{
+#ifdef V8_ENABLE_CHECKS
+	CheckCast(value);
+#endif
+	return static_cast<BigInt*>(value);
 }
 
 //
