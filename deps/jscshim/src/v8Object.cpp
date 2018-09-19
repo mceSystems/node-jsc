@@ -17,6 +17,7 @@
 #include <JavaScriptCore/StructureChain.h>
 #include <JavaScriptCore/JSPromise.h>
 #include <JavaScriptCore/JSWeakMap.h>
+#include <JavaScriptCore/JSWeakSet.h>
 #include <JavaScriptCore/JSCInlines.h>
 
 /* For it's PromiseWrap\promise hooks, node uses an internal field on promises, configured at build time 
@@ -200,6 +201,44 @@ void CloneArrayStorageSparseMap(JSC::VM&		  vm,
 	}
 
 	targetArrayStorage->m_sparseMap.set(vm, targetObject, targetSparseMap);
+}
+
+
+template <typename MapOrSetType>
+JSC::JSArray * WeakMapOrSetAsArray(MapOrSetType * object)
+{
+	JSC::ExecState * exec = v8::jscshim::GetCurrentExecState();
+	JSC::VM& vm = exec->vm();
+	DECLARE_SHIM_EXCEPTION_SCOPE(exec);
+
+	bool hasKeyValue = object->isWeakMap();
+
+	// Allocate an uninitialized array with the needed size
+	JSC::ObjectInitializationScope objectScope(vm);
+	JSC::JSArray * array = JSC::JSArray::tryCreateUninitializedRestricted(objectScope,
+																		 exec->lexicalGlobalObject()->arrayStructureForIndexingTypeDuringAllocation(JSC::ArrayWithContiguous),
+																		 hasKeyValue ? (object->size() * 2) : object->size());
+	RELEASE_ASSERT(array);
+
+	/* This is how weak map\set entries are accessed in JSC's inspector/JSInjectedScriptHost.cpp.
+	 * TODO: This is not not efficent, as we we'll copy the items again to our array.
+	 * We could make JSC::WeakMapImpl's forEach function public, and fill our array directly. */
+	JSC::MarkedArgumentBuffer buffer;
+	object->takeSnapshot(buffer, object->size());
+
+	/* Note that we're using initializeIndex and not array->butterfly()->contiguous().data()
+	 * directly, since if we're "having a bad time" (globalObject->isHavingABadTime()), 
+	 * the array won't be contiguous, but a "slow put" array. 
+	 * See https://github.com/WebKit/webkit/commit/1c4a32c94c1f6c6aa35cf04a2b40c8fe29754b8e for more info
+	 * about what's a "bad time". */
+	size_t itemCount = buffer.size();
+	JSC::IndexingType arrayIndexingType = array->indexingType();
+	for (size_t i = 0; i < itemCount; i++)
+	{
+		array->initializeIndex(objectScope, i, buffer.at(i), arrayIndexingType);
+	}
+
+	return array;
 }
 
 } // (anonymous) namespace
@@ -852,8 +891,10 @@ Maybe<bool> Object::SetAccessor(Local<Context> context,
 								AccessorNameSetterCallback setter,
 								MaybeLocal<Value> data,
 								AccessControl settings,
-								PropertyAttribute attribute)
+								PropertyAttribute attribute,
+								SideEffectType getter_side_effect_type)
 {
+	// TODO: Handle getter_side_effect_type?
 	return SetObjectAccessor(context, this, name.val_, getter, setter, data.val_, settings, attribute, false);
 }
 
@@ -1276,6 +1317,39 @@ Isolate * Object::GetIsolate()
 {
 	SETUP_OBJECT_USE_IN_MEMBER(Isolate::GetCurrent()->GetCurrentContext());
 	return jscshim::GetV8ContextForObject(thisObj)->GetIsolate();
+}
+
+MaybeLocal<Array> Object::PreviewEntries(bool * is_key_value)
+{
+	if (IsMap())
+	{
+		*is_key_value = true;
+		return Map::Cast(this)->AsArray();
+	}
+	if (IsSet())
+	{
+		*is_key_value = false;
+		return Set::Cast(this)->AsArray();
+	}
+
+	if (IsWeakMap())
+	{
+		*is_key_value = true;
+		return  v8::Local<v8::Array>(WeakMapOrSetAsArray(jscshim::GetJscCellFromV8<JSC::JSWeakMap>(this)));
+	}
+
+	if (IsWeakSet())
+	{
+		*is_key_value = true;
+		return  v8::Local<v8::Array>(WeakMapOrSetAsArray(jscshim::GetJscCellFromV8<JSC::JSWeakSet>(this)));
+	}
+
+	/* TODO: We should also support (JS)MapIterator and (JS)SetIterator, though according to
+	 * https://github.com/WebKit/webkit/commit/0cf9fa0aced9a69b83213166f6f75e6c75a7cc68, since
+	 * map\set iterators were optimized with intrinsic, the iterators are only used by WebCore, 
+	 * "So they are not used in user observable JS.". */
+
+	return v8::MaybeLocal<v8::Array>();
 }
 
 } // v8

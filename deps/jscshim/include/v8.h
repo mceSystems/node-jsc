@@ -1913,6 +1913,8 @@ public:
 
 	V8_DEPRECATE_SOON("Keep track of isolate correctly", Isolate* GetIsolate());
 
+	MaybeLocal<Array> PreviewEntries(bool* is_key_value);
+
 	static Local<Object> New(Isolate* isolate);
 
 	V8_INLINE static Object* Cast(Value* obj);
