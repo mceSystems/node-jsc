@@ -34,9 +34,7 @@ DEFINE_IS_OBJECT_TYPE_FUNCTION(Promise, JSPromise)
 DEFINE_IS_OBJECT_TYPE_FUNCTION(AsyncFunction, JSAsyncFunction)
 DEFINE_IS_OBJECT_TYPE_FUNCTION(GeneratorFunction, JSGeneratorFunction)
 DEFINE_IS_OBJECT_TYPE_FUNCTION(Set, JSSet)
-DEFINE_IS_OBJECT_TYPE_FUNCTION(SetIterator, JSSetIterator)
 DEFINE_IS_OBJECT_TYPE_FUNCTION(Map, JSMap)
-DEFINE_IS_OBJECT_TYPE_FUNCTION(MapIterator, JSMapIterator)
 DEFINE_IS_OBJECT_TYPE_FUNCTION(WeakMap, JSWeakMap)
 DEFINE_IS_OBJECT_TYPE_FUNCTION(WeakSet, JSWeakSet)
 DEFINE_IS_OBJECT_TYPE_FUNCTION(BigIntObject, BigIntObject)
@@ -45,6 +43,13 @@ DEFINE_IS_OBJECT_TYPE_FUNCTION(NumberObject, NumberObject)
 DEFINE_IS_OBJECT_TYPE_FUNCTION(StringObject, StringObject)
 DEFINE_IS_OBJECT_TYPE_FUNCTION(SymbolObject, SymbolObject)
 DEFINE_IS_OBJECT_TYPE_FUNCTION(BigInt, JSBigInt)
+
+/* TODO: According to https://github.com/WebKit/webkit/commit/0cf9fa0aced9a69b83213166f6f75e6c75a7cc68,
+ * since map\set iterators were optimized with intrinsic, the iterators are only used by WebCore,
+ * "So they are not used in user observable JS.". Since the iterators are not exposed through
+ * v8's api, this is currently seems pointless. Should we do something else? */
+DEFINE_IS_OBJECT_TYPE_FUNCTION(MapIterator, JSMapIterator)
+DEFINE_IS_OBJECT_TYPE_FUNCTION(SetIterator, JSSetIterator)
 
 DEFINE_IS_TYPED_ARRAY_FUNCTION(Uint8)
 DEFINE_IS_TYPED_ARRAY_FUNCTION(Uint8Clamped)
