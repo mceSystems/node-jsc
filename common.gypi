@@ -10,6 +10,7 @@
     'component%': 'static_library',   # NB. these names match with what V8 expects
     'msvs_multi_core_compile': '0',   # we do enable multicore compiles, but not using the V8 way
     'python%': 'python',
+    'node_engine%': 'v8',
 
     'node_shared%': 'false',
     'force_dynamic_crt%': 0,
@@ -54,13 +55,16 @@
         'conditions': [
           [ 'build_v8_with_gn=="true"', {
             'v8_base': '<(PRODUCT_DIR)/obj/deps/v8/gypfiles/v8_monolith.gen/gn/obj/libv8_monolith.a',
+            'jscshim_base': '<(PRODUCT_DIR)/obj/deps/jscshim/<(STATIC_LIB_PREFIX)jscshim<(STATIC_LIB_SUFFIX)',
           }, {
             'v8_base': '<(PRODUCT_DIR)/obj/deps/v8/gypfiles/libv8_base.a',
+            'jscshim_base': '<(PRODUCT_DIR)/obj/deps/jscshim/<(STATIC_LIB_PREFIX)jscshim<(STATIC_LIB_SUFFIX)',
           }],
         ]
        }, {
         'obj_dir%': '<(PRODUCT_DIR)/obj.target',
         'v8_base': '<(PRODUCT_DIR)/obj.target/deps/v8/gypfiles/libv8_base.a',
+        'jscshim_base': '<(PRODUCT_DIR)/obj/deps/jscshim/<(STATIC_LIB_PREFIX)jscshim<(STATIC_LIB_SUFFIX)',
       }],
       ['OS == "win"', {
         'os_posix': 0,
@@ -71,9 +75,10 @@
         'os_posix': 1,
         'v8_postmortem_support%': 'true',
       }],
-      ['OS == "mac"', {
+      ['OS=="mac" or OS=="ios"', {
         'obj_dir%': '<(PRODUCT_DIR)/obj.target',
         'v8_base': '<(PRODUCT_DIR)/libv8_base.a',
+        'jscshim_base': '<(PRODUCT_DIR)/<(STATIC_LIB_PREFIX)jscshim<(STATIC_LIB_SUFFIX)',
       }],
       ['build_v8_with_gn == "true"', {
         'conditions': [
@@ -89,7 +94,7 @@
       }, {
         'openssl_product': '<(STATIC_LIB_PREFIX)openssl<(STATIC_LIB_SUFFIX)',
       }],
-      ['OS=="mac"', {
+      ['OS=="mac" or OS=="ios"', {
         'clang%': 1,
       }, {
         'clang%': 0,
@@ -109,6 +114,12 @@
         'conditions': [
           ['target_arch=="x64"', {
             'msvs_configuration_platform': 'x64',
+          }],
+          ['target_arch=="arm"', {
+            'msvs_configuration_platform': 'ARM',
+          }],
+          ['target_arch=="arm64"', {
+            'msvs_configuration_platform': 'ARM64',
           }],
           ['OS=="aix"', {
             'variables': {'real_os_name': '<!(uname -s)',},
@@ -165,16 +176,23 @@
         'variables': {
           'v8_enable_handle_zapping': 0,
         },
+        'defines': [ 'NDEBUG' ],
         'cflags': [ '-O3' ],
         'conditions': [
           ['target_arch=="x64"', {
             'msvs_configuration_platform': 'x64',
           }],
+          ['target_arch=="arm"', {
+            'msvs_configuration_platform': 'ARM',
+          }],
+          ['target_arch=="arm64"', {
+            'msvs_configuration_platform': 'ARM64',
+          }],
           ['OS=="solaris"', {
             # pull in V8's postmortem metadata
             'ldflags': [ '-Wl,-z,allextract' ]
           }],
-          ['OS!="mac" and OS!="win"', {
+          ['OS!="mac" and OS != "ios" and OS!="win"', {
             'cflags': [ '-fno-omit-frame-pointer' ],
           }],
           ['OS=="linux"', {
@@ -308,7 +326,7 @@
     },
     'msvs_disabled_warnings': [4351, 4355, 4800],
     'conditions': [
-      ['asan == 1 and OS != "mac"', {
+      ['asan == 1 and OS != "mac" and OS != "ios"', {
         'cflags+': [
           '-fno-omit-frame-pointer',
           '-fsanitize=address',
@@ -317,7 +335,7 @@
         'cflags!': [ '-fomit-frame-pointer' ],
         'ldflags': [ '-fsanitize=address' ],
       }],
-      ['asan == 1 and OS == "mac"', {
+      ['asan == 1 and ( OS == "mac" or OS == "ios" )', {
         'xcode_settings': {
           'OTHER_CFLAGS+': [
             '-fno-omit-frame-pointer',
@@ -435,6 +453,80 @@
             'defines': [ '_GLIBCXX_USE_C99_MATH' ],
             'libraries': [ '-llog' ],
           }],
+        ],
+      }],
+      ['OS=="ios"', {
+        'defines': ['_DARWIN_USE_64_BIT_INODE=1'],
+        'xcode_settings': {
+          'ALWAYS_SEARCH_USER_PATHS': 'NO',
+          'GCC_CW_ASM_SYNTAX': 'NO',                # No -fasm-blocks
+          'GCC_DYNAMIC_NO_PIC': 'NO',               # No -mdynamic-no-pic
+                                                    # (Equivalent to -fPIC)
+          'GCC_ENABLE_CPP_EXCEPTIONS': 'NO',        # -fno-exceptions
+          'GCC_ENABLE_CPP_RTTI': 'NO',              # -fno-rtti
+          'GCC_ENABLE_PASCAL_STRINGS': 'NO',        # No -mpascal-strings
+          'GCC_THREADSAFE_STATICS': 'NO',           # -fno-threadsafe-statics
+          'PREBINDING': 'NO',                       # No -Wl,-prebind
+          'IPHONEOS_DEPLOYMENT_TARGET': '9.0',      # -miphoneos-version-min=9.0
+          'USE_HEADERMAP': 'NO',
+          'OTHER_CFLAGS': [
+            '-fno-strict-aliasing',
+          ],
+          'WARNING_CFLAGS': [
+            '-Wall',
+            '-Wendif-labels',
+            '-W',
+            '-Wno-unused-parameter',
+          ],
+        },
+        'target_conditions': [
+          ['_type!="static_library"', {
+            'xcode_settings': {
+              'OTHER_LDFLAGS': [
+                '-Wl,-no_pie',
+                '-Wl,-search_paths_first',
+              ],
+            },
+          }],
+        ],
+        'conditions': [
+          ['target_arch=="ia32"', {
+            'xcode_settings': {'ARCHS': ['i386']},
+          }],
+          ['target_arch=="x64"', {
+            'xcode_settings': {'ARCHS': ['x86_64']},
+          }],
+          [ 'target_arch in "arm64 arm armv7s"', {
+            'xcode_settings': {
+              'OTHER_CFLAGS': [
+                #'-fembed-bitcode'
+              ],
+              'OTHER_CPLUSPLUSFLAGS': [
+                #'-fembed-bitcode'
+              ],
+            }
+          }],
+          [ 'target_arch=="arm64"', {
+            'xcode_settings': {'ARCHS': ['arm64']},
+          }],
+          [ 'target_arch=="arm"', {
+            'xcode_settings': {'ARCHS': ['armv7']},
+          }],
+          [ 'target_arch=="armv7s"', {
+            'xcode_settings': {'ARCHS': ['armv7s']},
+          }],
+          ['clang==1', {
+            'xcode_settings': {
+              'GCC_VERSION': 'com.apple.compilers.llvm.clang.1_0',
+              'CLANG_CXX_LANGUAGE_STANDARD': 'gnu++17',  # -std=gnu++17
+              'CLANG_CXX_LIBRARY': 'libc++',
+            },
+          }],
+          ['target_arch=="x64" or target_arch=="ia32"', {
+		    'xcode_settings': { 'SDKROOT': 'iphonesimulator'	},
+		   }, {
+		    'xcode_settings': { 'SDKROOT': 'iphoneos', 'ENABLE_BITCODE': 'NO'},
+		  }],
         ],
       }],
       ['OS=="mac"', {

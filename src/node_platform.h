@@ -1,7 +1,7 @@
 #ifndef SRC_NODE_PLATFORM_H_
 #define SRC_NODE_PLATFORM_H_
 
-#if defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
+#if (defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS) && NODE_USE_V8_PLATFORM
 
 #include <queue>
 #include <unordered_map>
@@ -162,6 +162,6 @@ class NodePlatform : public MultiIsolatePlatform {
 
 }  // namespace node
 
-#endif  // defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
+#endif  // (defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS) && NODE_USE_V8_PLATFORM
 
 #endif  // SRC_NODE_PLATFORM_H_

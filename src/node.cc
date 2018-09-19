@@ -368,7 +368,10 @@ static struct {
   tracing::AgentWriterHandle tracing_file_writer_;
   NodePlatform* platform_;
 #else  // !NODE_USE_V8_PLATFORM
-  void Initialize(int thread_pool_size) {}
+  void Initialize(int thread_pool_size) {
+    tracing::TraceEventHelper::SetTracingController(
+      new v8::TracingController());
+  }
   void Dispose() {}
   void DrainVMTasks(Isolate* isolate) {}
   void CancelVMTasks(Isolate* isolate) {}
@@ -390,7 +393,7 @@ static struct {
     return nullptr;
   }
 
-  NodePlatform* Platform() {
+  MultiIsolatePlatform* Platform() {
     return nullptr;
   }
 #endif  // !NODE_USE_V8_PLATFORM
@@ -2994,7 +2997,11 @@ MultiIsolatePlatform* GetMainThreadMultiIsolatePlatform() {
 MultiIsolatePlatform* CreatePlatform(
     int thread_pool_size,
     TracingController* tracing_controller) {
+#if NODE_USE_V8_PLATFORM
   return new NodePlatform(thread_pool_size, tracing_controller);
+#else
+  return nullptr;
+#endif
 }
 
 

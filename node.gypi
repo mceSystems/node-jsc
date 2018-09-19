@@ -128,6 +128,37 @@
         }],
       ],
     }],
+    ['node_engine=="jsc"', {
+      'dependencies': [
+        'deps/jscshim/jscshim.gyp:jscshim',
+        'deps/jscshim/jscshim.gyp:jscshim_tests'
+      ],
+      'include_dirs': [
+        'deps/jscshim', # include/v8_platform.h
+      ],
+      'defines': [
+        'STATICALLY_LINKED_WITH_JavaScriptCore=1',
+        'STATICALLY_LINKED_WITH_WTF=1',
+      ],
+      'conditions': [
+        # -force_load is not applicable for the static library
+        [ 'node_target_type!="static_library"', {
+          'xcode_settings': {
+            'OTHER_LDFLAGS': [
+              '-Wl,-force_load,<(jscshim_base)',
+            ],
+          },
+        }],
+        ['OS=="win"', {
+          # TODO: This shouldn't really be here since it's a node dependency, but node seems to work because v8.gyp adds this
+          'link_settings':  {
+            'libraries': [
+              '-ldbghelp.lib'
+            ]
+          }
+        }],
+      ],
+    }],
     [ 'node_shared_zlib=="false"', {
       'dependencies': [ 'deps/zlib/zlib.gyp:zlib' ],
       'conditions': [
@@ -260,9 +291,17 @@
     }],
     [ '(OS=="freebsd" or OS=="linux") and node_shared=="false"'
         ' and force_load=="true"', {
-      'ldflags': [ '-Wl,-z,noexecstack',
-                   '-Wl,--whole-archive <(v8_base)',
-                   '-Wl,--no-whole-archive' ]
+      'ldflags': [ '-Wl,-z,noexecstack' ],
+      'conditions': [
+        ['node_engine=="v8"', {
+          'ldflags': [ '-Wl,--whole-archive <(v8_base)',
+                       '-Wl,--no-whole-archive' ],
+        }],
+        ['node_engine=="jsc"', {
+          'ldflags': [ '-Wl,--whole-archive <(jscshim_base)',
+                       '-Wl,--no-whole-archive' ],
+        }],
+      ]
     }],
     [ 'OS in "mac freebsd linux" and node_shared=="false"'
         ' and coverage=="true"', {
@@ -340,6 +379,12 @@
 
     }, {
       'defines': [ 'HAVE_OPENSSL=0' ]
+    }],
+
+    [ 'OS=="android" or OS=="ios"', {
+      'defines': [
+        'NODE_MOBILE',
+      ],
     }],
 
   ],

@@ -1,3 +1,5 @@
+#if NODE_USE_V8_PLATFORM
+
 #include "node_platform.h"
 #include "node_internals.h"
 
@@ -498,3 +500,5 @@ std::queue<std::unique_ptr<T>> TaskQueue<T>::PopAll() {
 }
 
 }  // namespace node
+
+#endif // NODE_USE_V8_PLATFORM

@@ -21,6 +21,7 @@
     'node_shared_openssl%': 'false',
     'node_v8_options%': '',
     'node_enable_v8_vtunejit%': 'false',
+    'node_engine%': 'v8',
     'node_core_target_name%': 'node',
     'node_lib_target_name%': 'node_lib',
     'node_intermediate_lib_type%': 'static_library',
@@ -235,10 +236,19 @@
         'node.gypi'
       ],
       'include_dirs': [
-        'src',
-        'deps/v8/include',
+        'src'
       ],
       'conditions': [
+         ['node_engine=="v8"', {
+          'include_dirs': [
+            'deps/v8/include',
+          ],
+        }],
+        ['node_engine=="jsc"', {
+          'include_dirs': [
+            'deps/jscshim/include',
+          ],
+        }],
         [ 'node_intermediate_lib_type=="static_library" and '
             'node_shared=="true" and OS=="aix"', {
           # For AIX, shared lib is linked by static lib and .exp. In the
@@ -452,12 +462,24 @@
         'src/util.h',
         'src/util-inl.h',
         'deps/http_parser/http_parser.h',
-        'deps/v8/include/v8.h',
         # javascript files to make for an even more pleasant IDE experience
         '<@(library_files)',
         # node.gyp is added to the project by default.
         'common.gypi',
         '<(SHARED_INTERMEDIATE_DIR)/node_javascript.cc',
+      ],
+
+      'conditions': [
+        ['node_engine=="v8"', {
+          'sources': [
+            'deps/v8/include/v8.h',
+          ],
+        }],
+        ['node_engine=="jsc"', {
+          'sources': [
+            'deps/jscshim/include/v8.h'
+          ],
+        }],
       ],
 
       'variables': {
@@ -608,7 +630,7 @@
                 '<(SHARED_INTERMEDIATE_DIR)/node_dtrace_provider.o'
               ],
             }],
-            [ 'OS!="mac" and OS!="linux"', {
+            [ 'OS!="mac" and OS!="ios" and OS!="linux"', {
               'sources': [
                 'src/node_dtrace_ustack.cc',
                 'src/node_dtrace_provider.cc',
@@ -795,7 +817,7 @@
       'target_name': 'node_dtrace_provider',
       'type': 'none',
       'conditions': [
-        [ 'node_use_dtrace=="true" and OS!="mac" and OS!="linux"', {
+        [ 'node_use_dtrace=="true" and OS!="mac" and OS!="ios" and OS!="linux"', {
           'actions': [
             {
               'action_name': 'node_dtrace_provider_o',
@@ -830,7 +852,7 @@
       'target_name': 'node_dtrace_ustack',
       'type': 'none',
       'conditions': [
-        [ 'node_use_dtrace=="true" and OS!="mac" and OS!="linux"', {
+        [ 'node_use_dtrace=="true" and OS!="mac" and OS!="ios" and OS!="linux"', {
           'actions': [
             {
               'action_name': 'node_dtrace_ustack_constants',
@@ -949,10 +971,22 @@
       'include_dirs': [
         'src',
         'tools/msvs/genfiles',
-        'deps/v8/include',
         'deps/cares/include',
         'deps/uv/include',
         '<(SHARED_INTERMEDIATE_DIR)', # for node_natives.h
+      ],
+
+      'conditions': [
+        ['node_engine=="v8"', {
+          'include_dirs': [
+            'deps/v8/include'
+          ],
+        }],
+        ['node_engine=="jsc"', {
+          'include_dirs': [
+            'deps/jscshim/include'
+          ],
+        }],
       ],
 
       'defines': [ 'NODE_WANT_INTERNALS=1' ],
@@ -1032,7 +1066,18 @@
           'dependencies': [ '<(node_lib_target_name)' ],
           'include_dirs': [
             'src',
-            'deps/v8/include',
+          ],
+          'conditions': [
+            ['node_engine=="v8"', {
+              'include_dirs': [
+                'deps/v8/include',
+              ],
+            }],
+            ['node_engine=="jsc"', {
+              'include_dirs': [
+                'deps/jscshim/include',
+              ],
+            }],
           ],
           'sources': [
             '<@(library_files)',
