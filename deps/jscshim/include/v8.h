@@ -1762,6 +1762,8 @@ enum PropertyFilter {
 	SKIP_SYMBOLS = 16
 };
 
+enum class SideEffectType { kHasSideEffect, kHasNoSideEffect };
+
 enum class KeyCollectionMode { kOwnOnly, kIncludePrototypes };
 
 enum class IndexFilter { kIncludeIndices, kSkipIndices };
@@ -1825,7 +1827,8 @@ public:
 							AccessorNameSetterCallback setter = 0,
 							MaybeLocal<Value> data = MaybeLocal<Value>(),
 							AccessControl settings = DEFAULT,
-							PropertyAttribute attribute = None);
+							PropertyAttribute attribute = None,
+							SideEffectType getter_side_effect_type = SideEffectType::kHasSideEffect);
 
 	V8_WARN_UNUSED_RESULT Maybe<bool> SetNativeDataProperty(
 		Local<Context> context, Local<Name> name,
