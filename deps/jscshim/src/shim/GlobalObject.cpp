@@ -28,6 +28,7 @@
 #include <JavaScriptCore/ErrorConstructor.h>
 #include <JavaScriptCore/GCDeferralContext.h>
 #include <JavaScriptCore/GCDeferralContextInlines.h>
+#include <JavaScriptCore/ObjectConstructor.h>
 #include <JavaScriptCore/JSCInlines.h>
 
 #ifdef JSCSHIM_PROMISE_INTERNAL_FIELD_COUNT
@@ -104,6 +105,7 @@ void GlobalObject::visitChildren(JSC::JSCell* cell, JSC::SlotVisitor& visitor)
 #endif
 
 	visitor.append(thisObject->m_objectProtoToString);
+	visitor.append(thisObject->m_extrasBindingObject);
 }
 
 JSC::JSValue GlobalObject::getValueFromEmbedderData(int index)
@@ -156,6 +158,8 @@ void GlobalObject::finishCreation(JSC::VM& vm)
 		init.set(JSC::JSWeakMap::create(init.vm, init.owner->weakMapStructure()));
 	});
 #endif
+
+	m_extrasBindingObject.set(vm, this, JSC::constructEmptyObject(m_contextExec));
 }
 
 void GlobalObject::initShimStructuresAndPrototypes(JSC::VM& vm)

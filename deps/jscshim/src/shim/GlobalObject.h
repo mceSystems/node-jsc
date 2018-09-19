@@ -56,6 +56,8 @@ private:
 	/* Used by v8::Object::ObjectProtoToString, which accroding to v8 must always call the original Object.prototype.toString,
 	 * even if the user has overridden it. Thus, We'll store it right after the creation of our global .*/
 	JSC::WriteBarrier<JSC::Unknown> m_objectProtoToString;
+
+	JSC::WriteBarrier<JSC::JSObject> m_extrasBindingObject;
 	
 public:
 	typedef JSC::JSGlobalObject Base;
@@ -90,6 +92,8 @@ public:
 #endif
 
 	JSC::JSValue objectProtoToString() const { return m_objectProtoToString.get(); }
+
+	JSC::JSObject * extrasBindingObject() const { return m_extrasBindingObject.get(); }
 	
 	Isolate * isolate() const { return m_isolate; }
 	JSC::ExecState * v8ContextExec() const { return m_contextExec; }

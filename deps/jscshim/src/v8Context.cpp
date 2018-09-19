@@ -136,6 +136,12 @@ Local<Value> Context::GetEmbedderData(int index)
 	return Local<Value>::New(context->getValueFromEmbedderData(index));
 }
 
+Local<Object> Context::GetExtrasBindingObject()
+{
+	jscshim::GlobalObject * context = GET_JSC_THIS();
+	return Local<Object>::New(context->extrasBindingObject());
+}
+
 void Context::SetEmbedderData(int index, Local<Value> value)
 {
 	jscshim::GlobalObject * context = GET_JSC_THIS();

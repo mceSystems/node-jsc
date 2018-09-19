@@ -826,6 +826,8 @@ public:
 
 	Local<Value> GetEmbedderData(int index);
 
+	Local<Object> GetExtrasBindingObject();
+
 	void SetEmbedderData(int index, Local<Value> value);
 
 	void * GetAlignedPointerFromEmbedderData(int index);
