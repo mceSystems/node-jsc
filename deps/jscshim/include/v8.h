@@ -1093,6 +1093,9 @@ public:
 							  Local<String> name = Local<String>());
 
 	static Local<Private> ForApi(Isolate* isolate, Local<String> name);
+
+private:
+	Private();
 };
 
 class V8_EXPORT Value : public Data
@@ -1280,6 +1283,9 @@ public:
 	double Value() const;
 	V8_INLINE static Number* Cast(v8::Value* obj);
 	static Local<Number> New(Isolate* isolate, double value);
+
+private:
+	Number();
 };
 
 class V8_EXPORT Integer : public Number
@@ -1289,6 +1295,8 @@ public:
 	static Local<Integer> NewFromUnsigned(Isolate* isolate, uint32_t value);
 	int64_t Value() const;
 	V8_INLINE static Integer* Cast(v8::Value* obj);
+private:
+	Integer();
 };
 
 class V8_EXPORT Int32 : public Integer
@@ -1296,6 +1304,9 @@ class V8_EXPORT Int32 : public Integer
 public:
 	int32_t Value() const;
 	V8_INLINE static Int32* Cast(v8::Value* obj);
+
+private:
+	Int32();
 };
 
 class V8_EXPORT Uint32 : public Integer
@@ -1303,6 +1314,9 @@ class V8_EXPORT Uint32 : public Integer
 public:
 	uint32_t Value() const;
 	V8_INLINE static Uint32* Cast(v8::Value* obj);
+
+private:
+	Uint32();
 };
 
 class V8_EXPORT Name : public Primitive
@@ -1335,6 +1349,9 @@ public:
 	static Local<Symbol> GetUnscopables(Isolate* isolate);
 
 	V8_INLINE static Symbol* Cast(Value* obj);
+
+private:
+	Symbol();
 };
 
 enum class NewStringType { kNormal, kInternalized };
@@ -1858,6 +1875,9 @@ public:
 	static Local<Object> New(Isolate* isolate);
 
 	V8_INLINE static Object* Cast(Value* obj);
+
+private:
+	Object();
 };
 
 enum class PromiseHookType { kInit, kResolve, kBefore, kAfter };
@@ -1927,6 +1947,9 @@ public:
 	PromiseState State();
 
 	V8_INLINE static Promise* Cast(Value* obj);
+
+private:
+	Promise();
 };
 
 enum class MicrotasksPolicy { kExplicit, kScoped, kAuto };
@@ -1939,6 +1962,9 @@ public:
 	static Local<Array> New(Isolate* isolate, int length = 0);
 
 	V8_INLINE static Array* Cast(Value* obj);
+
+private:
+	Array();
 };
 
 class V8_EXPORT Map : public Object
@@ -2002,6 +2028,9 @@ public:
 	size_t ByteLength();
 
 	V8_INLINE static ArrayBufferView* Cast(Value* obj);
+
+private:
+	ArrayBufferView();
 };
 
 class V8_EXPORT TypedArray : public ArrayBufferView
@@ -2010,6 +2039,9 @@ public:
 	size_t Length();
 
 	V8_INLINE static TypedArray* Cast(Value* obj);
+
+private:
+	TypedArray();
 };
 
 class V8_EXPORT Uint8Array : public TypedArray
@@ -2021,6 +2053,9 @@ public:
 								 size_t byte_offset, size_t length);
 
 	V8_INLINE static Uint8Array* Cast(Value* obj);
+
+private:
+	Uint8Array();
 };
 
 class V8_EXPORT Uint8ClampedArray : public TypedArray
@@ -2032,6 +2067,9 @@ public:
 										size_t byte_offset, size_t length);
 
 	V8_INLINE static Uint8ClampedArray* Cast(Value* obj);
+
+private:
+	Uint8ClampedArray();
 };
 
 class V8_EXPORT Int8Array : public TypedArray
@@ -2043,6 +2081,9 @@ public:
 								size_t byte_offset, size_t length);
 
 	V8_INLINE static Int8Array* Cast(Value* obj);
+
+private:
+	Int8Array();
 };
 
 class V8_EXPORT Uint16Array : public TypedArray
@@ -2054,6 +2095,9 @@ public:
 								  size_t byte_offset, size_t length);
 
 	V8_INLINE static Uint16Array* Cast(Value* obj);
+
+private:
+	Uint16Array();
 };
 
 class V8_EXPORT Int16Array : public TypedArray
@@ -2065,6 +2109,9 @@ public:
 								 size_t byte_offset, size_t length);
 
 	V8_INLINE static Int16Array* Cast(Value* obj);
+
+private:
+	Int16Array();
 };
 
 class V8_EXPORT Int32Array : public TypedArray
@@ -2076,6 +2123,9 @@ public:
 								 size_t byte_offset, size_t length);
 
 	V8_INLINE static Int32Array* Cast(Value* obj);
+
+private:
+	Int32Array();
 };
 
 class V8_EXPORT Uint32Array : public TypedArray
@@ -2087,6 +2137,9 @@ public:
 								  size_t byte_offset, size_t length);
 
 	V8_INLINE static Uint32Array* Cast(Value* obj);
+
+private:
+	Uint32Array();
 };
 
 class V8_EXPORT Float32Array : public TypedArray
@@ -2098,6 +2151,9 @@ public:
 								   size_t byte_offset, size_t length);
 
 	V8_INLINE static Float32Array* Cast(Value* obj);
+
+private:
+	Float32Array();
 };
 
 class V8_EXPORT Float64Array : public TypedArray
@@ -2109,6 +2165,9 @@ public:
 								   size_t byte_offset, size_t length);
 
 	V8_INLINE static Float64Array* Cast(Value* obj);
+
+private:
+	Float64Array();
 };
 
 class V8_EXPORT DataView : public ArrayBufferView {
@@ -2351,6 +2410,9 @@ public:
 								 Local<Object> local_handler);
 
 	V8_INLINE static Proxy* Cast(Value* obj);
+
+private:
+	Proxy();
 };
 
 template<typename T>
@@ -2429,6 +2491,9 @@ public:
 	Local<Value> GetBoundFunction() const;
 
 	V8_INLINE static Function* Cast(Value* obj);
+
+private:
+	Function();
 };
 
 class V8_EXPORT Template : public Data
@@ -2456,6 +2521,9 @@ public:
 		Local<Value> data = Local<Value>(), PropertyAttribute attribute = None,
 		Local<AccessorSignature> signature = Local<AccessorSignature>(),
 		AccessControl settings = DEFAULT);
+
+private:
+	Template();
 };
 
 class V8_EXPORT ObjectTemplate : public Template
@@ -2484,6 +2552,9 @@ public:
 	void SetHandler(const IndexedPropertyHandlerConfiguration& configuration);
 
 	void SetCallAsFunctionHandler(FunctionCallback callback, Local<Value> data = Local<Value>());
+
+private:
+	ObjectTemplate();
 };
 
 class V8_EXPORT FunctionTemplate : public Template
@@ -2519,6 +2590,9 @@ public:
 	void RemovePrototype();
 
 	bool HasInstance(Local<Value> object);
+
+private:
+	FunctionTemplate();
 };
 
 class V8_EXPORT Signature : public Data
@@ -2612,6 +2686,9 @@ public:
 	Contents GetContents();
 
 	V8_INLINE static ArrayBuffer* Cast(Value* obj);
+
+private:
+	ArrayBuffer();
 };
 
 class V8_EXPORT SharedArrayBuffer : public Object
@@ -2668,6 +2745,9 @@ public:
 	Contents GetContents();
 
 	V8_INLINE static SharedArrayBuffer* Cast(Value* obj);
+
+private:
+	SharedArrayBuffer();
 };
 
 /* (jscshim) Regarding function argument access:
@@ -3247,6 +3327,9 @@ public:
 	static void FromJustIsNothing();
 	static void ToLocalEmpty();
 	static void InternalFieldOutOfBounds(int index);
+
+private:
+	V8();
 };
 
 template <class T>
@@ -3315,6 +3398,9 @@ public:
 	static Local<AccessorSignature> New(
 		Isolate* isolate,
 		Local<FunctionTemplate> receiver = Local<FunctionTemplate>());
+
+private:
+	AccessorSignature();
 };
 
 
