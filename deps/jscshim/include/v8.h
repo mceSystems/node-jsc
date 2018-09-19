@@ -8,9 +8,9 @@
 
 // Taken from v8-version.h (this is important to nan, for example)
 #define V8_MAJOR_VERSION 6
-#define V8_MINOR_VERSION 2
-#define V8_BUILD_NUMBER 414
-#define V8_PATCH_LEVEL 50
+#define V8_MINOR_VERSION 8
+#define V8_BUILD_NUMBER 275
+#define V8_PATCH_LEVEL 30
 
 /* (jscshim) When compiling jscshim, we'll include the JSC headers we need. Including these headers when 
  * compiling node is problematic:
