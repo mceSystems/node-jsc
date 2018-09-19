@@ -159,6 +159,7 @@
       'src/v8Map.cpp',
       'src/v8Message.cpp',
       'src/v8Module.cpp',
+      'src/v8Name.cpp',
       'src/v8Number.cpp',
       'src/v8NumberObject.cpp',
       'src/v8Object.cpp',

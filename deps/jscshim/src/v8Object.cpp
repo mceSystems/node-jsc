@@ -1112,6 +1112,14 @@ MaybeLocal<Array> Object::GetOwnPropertyNames(Local<Context> context, PropertyFi
 	return GetPropertyNames(context, KeyCollectionMode::kOwnOnly, filter, IndexFilter::kIncludeIndices);
 }
 
+int Object::GetIdentityHash()
+{
+	// TODO: IMPLEMENT?
+	
+	// From v8's documentation: "The return value will never be 0. Also, it is not guaranteed to be unique".
+	return 1;
+}
+
 /* We can mimic JSC's Object.assign implementation, but it seems inefficient, since we know 
  * we're only cloning one object. It also goes through the object's method table functions
  * for accessing the properties, which means it will go through interceptors. Looking 

@@ -1322,6 +1322,8 @@ private:
 class V8_EXPORT Name : public Primitive
 {
 public:
+	int GetIdentityHash();
+
 	V8_INLINE static Name* Cast(v8::Value* obj);
 };
 
@@ -1853,6 +1855,8 @@ public:
 
 	V8_WARN_UNUSED_RESULT Maybe<PropertyAttribute> GetRealNamedPropertyAttributes(
 		Local<Context> context, Local<Name> key);
+
+	int GetIdentityHash();
 
 	Local<Object> Clone();
 
