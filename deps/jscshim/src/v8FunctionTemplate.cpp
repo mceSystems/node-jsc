@@ -18,11 +18,15 @@
 namespace v8
 {
 
+// TODO: ConstructorBehavior
+// TODO: SideEffectType
 Local<FunctionTemplate> FunctionTemplate::New(Isolate * isolate, 
 											  FunctionCallback callback, 
 											  Local<Value> data, 
 											  Local<Signature> signature,
-											  int length)
+											  int length,
+											  ConstructorBehavior behavior,
+											  SideEffectType side_effect_type)
 {
 	JSC::ExecState * exec = jscshim::GetExecStateForV8Isolate(isolate);
 	JSC::VM& vm = exec->vm();

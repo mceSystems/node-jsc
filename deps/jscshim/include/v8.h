@@ -2649,8 +2649,9 @@ public:
 	static Local<FunctionTemplate> New(
 		Isolate* isolate, FunctionCallback callback = 0,
 		Local<Value> data = Local<Value>(),
-		Local<Signature> signature = Local<Signature>(), int length = 0/*
-		ConstructorBehavior behavior = ConstructorBehavior::kAllow*/);
+		Local<Signature> signature = Local<Signature>(), int length = 0,
+		ConstructorBehavior behavior = ConstructorBehavior::kAllow,
+		SideEffectType side_effect_type = SideEffectType::kHasSideEffect);
 
 	V8_DEPRECATE_SOON("Use maybe version", Local<Function> GetFunction());
 	V8_WARN_UNUSED_RESULT MaybeLocal<Function> GetFunction(Local<Context> context);
