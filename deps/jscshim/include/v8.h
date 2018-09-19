@@ -1245,21 +1245,22 @@ class V8_EXPORT Integer : public Number
 {
 public:
 	static Local<Integer> New(Isolate* isolate, int32_t value);
-
 	static Local<Integer> NewFromUnsigned(Isolate* isolate, uint32_t value);
-
+	int64_t Value() const;
 	V8_INLINE static Integer* Cast(v8::Value* obj);
 };
 
 class V8_EXPORT Int32 : public Integer
 {
 public:
+	int32_t Value() const;
 	V8_INLINE static Int32* Cast(v8::Value* obj);
 };
 
 class V8_EXPORT Uint32 : public Integer
 {
 public:
+	uint32_t Value() const;
 	V8_INLINE static Uint32* Cast(v8::Value* obj);
 };
 

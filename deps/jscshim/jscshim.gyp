@@ -153,7 +153,7 @@
       'src/v8Function.cpp',
       'src/v8FunctionTemplate.cpp',
       'src/v8globals.cpp',
-      'src/v8Integer.cpp',
+      'src/v8Integers.cpp',
       'src/v8Isolate.cpp',
       'src/v8json.cpp',
       'src/v8Map.cpp',
