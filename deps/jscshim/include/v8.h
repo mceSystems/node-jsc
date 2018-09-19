@@ -146,6 +146,7 @@ template <class T, class M = NonCopyablePersistentTraits<T> > class Persistent;
 template <class T> class PersistentBase;
 class Platform;
 class Primitive;
+class PrimitiveArray;
 class Private;
 class Promise;
 class PromiseRejectMessage;
@@ -157,6 +158,7 @@ class RetainedObjectInfo;
 template <typename T> class ReturnValue;
 class Script;
 class ScriptCompiler;
+class ScriptOrModule;
 class Set;
 class SharedArrayBuffer;
 class Signature;
@@ -278,6 +280,7 @@ private:
 	template <class F> friend class ReturnValue;
 	friend class Script;
 	friend class ScriptCompiler;
+	friend class ScriptOrModule;
 	friend class Set;
 	friend class SharedArrayBuffer;
 	friend class Signature;
@@ -904,6 +907,21 @@ class V8_EXPORT Data
 {
 private:
 	Data();
+};
+
+class V8_EXPORT ScriptOrModule {
+public:
+	Local<Value> GetResourceName();
+
+	Local<PrimitiveArray> GetHostDefinedOptions();
+};
+
+class V8_EXPORT PrimitiveArray {
+public:
+	static Local<PrimitiveArray> New(Isolate* isolate, int length);
+	int Length() const;
+	void Set(int index, Local<Primitive> item);
+	Local<Primitive> Get(int index);
 };
 
 class V8_EXPORT Location {
