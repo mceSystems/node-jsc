@@ -158,6 +158,18 @@ bool Value::IsProxy() const
 	return (value.isCell() && (JSC::ProxyObjectType == value.asCell()->type()));
 }
 
+bool Value::IsWebAssemblyCompiledModule() const
+{
+	// TODO: IMEPLEMENT when we support Web Assembly
+	return false;
+}
+
+bool Value::IsModuleNamespaceObject() const
+{
+	// TODO: IMEPLEMENT
+	return false;
+}
+
 bool Value::IsName() const
 {
 	JSC::JSValue value = jscshim::GetValue(this);

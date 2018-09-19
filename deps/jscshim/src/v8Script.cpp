@@ -182,4 +182,10 @@ MaybeLocal<Module> ScriptCompiler::CompileModule(Isolate* isolate, Source* sourc
 	return Local<Module>();
 }
 
+ScriptCompiler::CachedData * ScriptCompiler::CreateCodeCache(Local<UnboundScript> unbound_script)
+{
+	// TODO: IMPLEMENT
+	return nullptr;
+}
+
 } // v8

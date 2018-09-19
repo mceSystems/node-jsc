@@ -522,6 +522,14 @@ typedef void* (*CreateHistogramCallback)(const char* name,
 
 typedef void (*AddHistogramSampleCallback)(void* histogram, int sample);
 
+typedef MaybeLocal<Promise> (*HostImportModuleDynamicallyCallback)(
+    Local<Context> context, Local<ScriptOrModule> referrer,
+    Local<String> specifier);
+
+typedef void (*HostInitializeImportMetaObjectCallback)(Local<Context> context,
+                                                       Local<Module> module,
+                                                       Local<Object> meta);
+
 class ScriptOriginOptions {
 public:
 	V8_INLINE ScriptOriginOptions(bool is_shared_cross_origin = false,
@@ -710,6 +718,9 @@ public:
 	bool IsConstructor() const;
 };
 
+typedef bool (*AllowWasmCodeGenerationCallback)(Local<Context> context,
+                                                Local<String> source);
+
 enum GCType {
 	kGCTypeScavenge = 1 << 0,
 	kGCTypeMarkSweepCompact = 1 << 1,
@@ -833,6 +844,10 @@ public:
 	void * GetAlignedPointerFromEmbedderData(int index);
 
 	void SetAlignedPointerInEmbedderData(int index, void* value);
+
+	void AllowCodeGenerationFromStrings(bool allow);
+
+	bool IsCodeGenerationFromStringsAllowed();
 
 	class Scope 
 	{
@@ -1048,6 +1063,8 @@ public:
 
 	static V8_WARN_UNUSED_RESULT MaybeLocal<Module> CompileModule(
 		Isolate* isolate, Source* source);
+
+	static CachedData* CreateCodeCache(Local<UnboundScript> unbound_script);
 };
 
 class V8_EXPORT UnboundScript
@@ -1178,6 +1195,10 @@ public:
 	bool IsWeakSet() const;
 
 	bool IsProxy() const;
+
+	bool IsWebAssemblyCompiledModule() const;
+
+	bool IsModuleNamespaceObject() const;
 
 	V8_WARN_UNUSED_RESULT MaybeLocal<Uint32> ToArrayIndex(Local<Context> context) const;
 
@@ -2233,6 +2254,9 @@ public:
 		virtual ~Delegate() {}
 
 		virtual MaybeLocal<Object> ReadHostObject(Isolate* isolate);
+
+		virtual MaybeLocal<SharedArrayBuffer> GetSharedArrayBufferFromId(
+			Isolate* isolate, uint32_t clone_id);
 	};
 
 	ValueDeserializer(Isolate* isolate, const uint8_t* data, size_t size, Delegate* delegate);
@@ -3059,6 +3083,19 @@ public:
 		Scope& operator=(const Scope&) = delete;
 	};
 
+	class V8_EXPORT DisallowJavascriptExecutionScope {
+	public:
+		enum OnFailure { CRASH_ON_FAILURE, THROW_ON_FAILURE };
+
+		DisallowJavascriptExecutionScope(Isolate* isolate, OnFailure on_failure);
+		~DisallowJavascriptExecutionScope();
+
+		DisallowJavascriptExecutionScope(const DisallowJavascriptExecutionScope&) =
+			delete;
+		DisallowJavascriptExecutionScope& operator=(
+			const DisallowJavascriptExecutionScope&) = delete;
+	};
+
 	enum MessageErrorLevel
 	{
 		kMessageLog = (1 << 0),
@@ -3074,6 +3111,10 @@ public:
 
 	static Isolate* GetCurrent();
 
+	void SetHostImportModuleDynamicallyCallback(HostImportModuleDynamicallyCallback callback);
+
+	void SetHostInitializeImportMetaObjectCallback(HostInitializeImportMetaObjectCallback callback);
+
 	void Dispose();
 
 	typedef bool(*AbortOnUncaughtExceptionCallback)(Isolate*);
@@ -3083,11 +3124,15 @@ public:
 
 	void Exit();
 
+	void DiscardThreadSpecificMetadata();
+
 	void SetData(uint32_t slot, void * data);
 	
 	void * GetData(uint32_t slot);
 
 	static uint32_t GetNumberOfDataSlots();
+
+	void SetIdle(bool is_idle);
 
 	bool InContext();
 
@@ -3160,6 +3205,8 @@ public:
 												   StackTrace::StackTraceOptions options = StackTrace::kOverview);
 
 	void SetFatalErrorHandler(FatalErrorCallback that);
+
+	void SetAllowWasmCodeGenerationCallback(AllowWasmCodeGenerationCallback callback);
 
 	void SetCounterFunction(CounterLookupCallback);
 

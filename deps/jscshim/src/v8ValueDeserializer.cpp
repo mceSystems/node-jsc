@@ -17,6 +17,12 @@ MaybeLocal<Object> ValueDeserializer::Delegate::ReadHostObject(Isolate* isolate)
 	return Local<Object>();
 }
 
+MaybeLocal<SharedArrayBuffer> ValueDeserializer::Delegate::GetSharedArrayBufferFromId(Isolate* isolate, uint32_t clone_id)
+{
+	// TODO: IMPLEMENT
+	return Local<SharedArrayBuffer>();
+}
+
 ValueDeserializer::ValueDeserializer(Isolate* isolate,
 									 const uint8_t* data,
 									 size_t size,

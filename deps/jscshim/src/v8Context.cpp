@@ -166,4 +166,15 @@ void Context::SetAlignedPointerInEmbedderData(int index, void* value)
 	context->setAlignedPointerInEmbedderData(index, value);
 }
 
+void Context::AllowCodeGenerationFromStrings(bool allow)
+{
+	// TODO: IMPLEMENT
+}
+
+bool IsCodeGenerationFromStringsAllowed()
+{
+	// TODO: IMPLEMENT
+	return true;
+}
+
 } // v8

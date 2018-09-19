@@ -16,6 +16,18 @@
 
 namespace v8
 {
+
+Isolate::DisallowJavascriptExecutionScope::DisallowJavascriptExecutionScope(Isolate * isolate, OnFailure on_failure)
+{
+	/* TODO: IMPLEMENT using JSC::DisallowVMReentry? but it seems to be ASSERT based,
+	 * thus only works on debug builds */
+}
+
+Isolate::DisallowJavascriptExecutionScope::~DisallowJavascriptExecutionScope()
+{
+	// TODO: IMPLEMENT
+}
+
 Isolate * Isolate::New(const CreateParams& params)
 {
 	return TO_V8_ISOLATE(jscshim::Isolate::New(params));
@@ -24,6 +36,16 @@ Isolate * Isolate::New(const CreateParams& params)
 Isolate * Isolate::GetCurrent()
 {
 	return TO_V8_ISOLATE(jscshim::Isolate::GetCurrent());
+}
+
+void Isolate::SetHostImportModuleDynamicallyCallback(HostImportModuleDynamicallyCallback callback)
+{
+	// TODO: IMPLEMENT
+}
+
+void Isolate::SetHostInitializeImportMetaObjectCallback(HostInitializeImportMetaObjectCallback callback)
+{
+	// TODO: IMPLEMENT
 }
 
 void Isolate::Dispose()
@@ -46,6 +68,11 @@ void Isolate::Exit()
 	TO_JSC_ISOLATE(this)->Exit();
 }
 
+void Isolate::DiscardThreadSpecificMetadata()
+{
+	// TODO: IMPLEMENT? Does JSC have a way to do this?
+}
+
 void Isolate::SetData(uint32_t slot, void * data)
 {
 	TO_JSC_ISOLATE(this)->SetData(slot, data);
@@ -59,6 +86,11 @@ void * Isolate::GetData(uint32_t slot)
 uint32_t Isolate::GetNumberOfDataSlots()
 {
 	return jscshim::Isolate::GetNumberOfDataSlots();
+}
+
+void Isolate::SetIdle(bool is_idle)
+{
+	// TODO: IMPLEMENT
 }
 
 bool Isolate::InContext()
@@ -220,6 +252,11 @@ void Isolate::SetCaptureStackTraceForUncaughtExceptions(bool capture,
 void Isolate::SetFatalErrorHandler(FatalErrorCallback that)
 {
 	TO_JSC_ISOLATE(this)->SetFatalErrorHandler(that);
+}
+
+void Isolate::SetAllowWasmCodeGenerationCallback(AllowWasmCodeGenerationCallback callback)
+{
+	// TODO: IMPLEMENT
 }
 
 void Isolate::SetCounterFunction(CounterLookupCallback callback)
