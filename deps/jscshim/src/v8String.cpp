@@ -540,7 +540,7 @@ String::Utf8Value::~Utf8Value()
 	}
 }
 
-String::Value::Value(Local<v8::Value> obj)
+String::Value::Value(Isolate * isolate, Local<v8::Value> obj)
 {
 	Local<String> strVal = obj->ToString();
 	if (strVal.IsEmpty())

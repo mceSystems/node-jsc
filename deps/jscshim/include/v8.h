@@ -1542,7 +1542,7 @@ public:
 	class V8_EXPORT Value
 	{
 	public:
-		explicit Value(Local<v8::Value> obj);
+		explicit Value(Isolate* isolate, Local<v8::Value> obj);
 		~Value();
 		uint16_t* operator*() { return str_; }
 		const uint16_t* operator*() const { return str_; }
