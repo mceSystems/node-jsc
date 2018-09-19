@@ -2077,6 +2077,9 @@ private:
 class V8_EXPORT TypedArray : public ArrayBufferView
 {
 public:
+	// (jscshim) TODO: Is this right for JSC too? does it matter?
+	static constexpr size_t kMaxLength = sizeof(void*) == 4 ? (1u << 30) - 1 : (1u << 31) - 1;
+
 	size_t Length();
 
 	V8_INLINE static TypedArray* Cast(Value* obj);
