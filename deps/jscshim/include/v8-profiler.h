@@ -9,6 +9,11 @@
 
 namespace v8 {
 
+class HeapGraphNode;
+struct HeapStatsUpdate;
+
+typedef uint32_t SnapshotObjectId;
+
 // jscshim: TODO
 //struct CpuProfileDeoptFrame {
 //  int script_id;
@@ -123,20 +128,245 @@ class V8_EXPORT CpuProfiler {
   CpuProfiler& operator=(const CpuProfiler&);*/
 };
 
-class V8_EXPORT HeapProfiler {
+class V8_EXPORT HeapGraphEdge {
  public:
-  typedef RetainedObjectInfo* (*WrapperInfoCallback)(uint16_t class_id,
-                                                     Local<Value> wrapper);
+	 enum Type {
+		 kContextVariable = 0,
+		 kElement = 1,
+		 kProperty = 2,
+		 kInternal = 3,
+		 kHidden = 4,
+		 kShortcut = 5,
+		 kWeak = 6
+	 };
 
-  void SetWrapperClassInfoProvider(uint16_t class_id, WrapperInfoCallback callback)
-  {
-    // TODO: IMPLEMENT
-  }
+	 Type GetType() const
+	 {
+		 // TODO: IMPLEMENT
+		 return kInternal;
+	 }
 
-  void StartTrackingHeapObjects(bool track_allocations = false)
-  {
-    // TODO: IMPLEMENT
+	 Local<Value> GetName() const
+	 {
+		 // TODO: IMPLEMENT
+		 return Local<Value>();
+	 }
+
+	 const HeapGraphNode* GetFromNode() const
+	 {
+		 // TODO: IMPLEMENT
+		 return nullptr;
+	 }
+
+	 const HeapGraphNode* GetToNode() const
+	 {
+		 // TODO: IMPLEMENT
+		 return nullptr;
+	 }
+};
+
+class V8_EXPORT HeapGraphNode {
+public:
+	enum Type {
+		kHidden = 0,
+		kArray = 1,
+		kString = 2,
+		kObject = 3,
+		kCode = 4,
+		kClosure = 5,
+		kRegExp = 6,
+		kHeapNumber = 7,
+		kNative = 8,
+		kSynthetic = 9,
+
+		kConsString = 10,
+		kSlicedString = 11,
+		kSymbol = 12,
+		kBigInt = 13
+	};
+
+	Type GetType() const
+	{
+		// TODO: IMPLEMENT
+		return kHidden;
+	}
+
+	Local<String> GetName() const
+	{
+		// TODO: IMPLEMENT
+		return Local<String>();
+	}
+
+	SnapshotObjectId GetId() const
+	{
+		return 0;
+	}
+
+	size_t GetShallowSize() const
+	{
+		// TODO: IMPLEMENT
+		return 0;
+	}
+
+	int GetChildrenCount() const
+	{
+		// TODO: IMPLEMENT
+		return 0;
+	}
+
+	const HeapGraphEdge* GetChild(int index) const
+	{
+		// TODO: IMPLEMENT
+		return nullptr;
+	}
+};
+
+class V8_EXPORT OutputStream {
+ public:
+  enum WriteResult {
+    kContinue = 0,
+    kAbort = 1
+  };
+  virtual ~OutputStream() {}
+
+  virtual void EndOfStream() = 0;
+
+  virtual int GetChunkSize() { return 1024; }
+
+  virtual WriteResult WriteAsciiChunk(char* data, int size) = 0;
+
+  virtual WriteResult WriteHeapStatsChunk(HeapStatsUpdate* data, int count) {
+    return kAbort;
   }
+};
+
+class V8_EXPORT HeapSnapshot {
+public:
+	enum SerializationFormat {
+		kJSON = 0
+	};
+
+	const HeapGraphNode* GetRoot() const
+	{
+		// TODO: IMPLEMENT
+		return nullptr;
+	}
+
+	const HeapGraphNode* GetNodeById(SnapshotObjectId id) const
+	{
+		// TODO: IMPLEMENT
+		return nullptr;
+	}
+
+	int GetNodesCount() const
+	{
+		// TODO: IMPLEMENT
+		return 0;
+	}
+
+	const HeapGraphNode* GetNode(int index) const
+	{
+		// TODO: IMPLEMENT
+		return nullptr;
+	}
+
+	SnapshotObjectId GetMaxSnapshotJSObjectId() const
+	{
+		// TODO: IMPLEMENT
+		return 0;
+	}
+
+	void Delete()
+	{
+		// TODO: IMPLEMENT
+	}
+
+	void Serialize(OutputStream* stream, SerializationFormat format = kJSON) const
+	{
+		// TODO: IMPLEMENT
+	}
+};
+
+class V8_EXPORT EmbedderGraph {
+public:
+	class Node {
+	public:
+		Node() = default;
+		virtual ~Node() = default;
+		virtual const char* Name() = 0;
+		virtual size_t SizeInBytes() = 0;
+		virtual Node* WrapperNode() { return nullptr; }
+		virtual bool IsRootNode() { return false; }
+		virtual bool IsEmbedderNode() { return true; }
+		virtual const char* NamePrefix() { return nullptr; }
+
+	private:
+		Node(const Node&) = delete;
+		Node& operator=(const Node&) = delete;
+	};
+
+	virtual Node* V8Node(const v8::Local<v8::Value>& value) = 0;
+
+	virtual Node* AddNode(std::unique_ptr<Node> node) = 0;
+
+	virtual void AddEdge(Node* from, Node* to) = 0;
+
+	virtual ~EmbedderGraph() = default;
+};
+
+class V8_EXPORT ActivityControl {
+public:
+	enum ControlOption {
+		kContinue = 0,
+		kAbort = 1
+	};
+	virtual ~ActivityControl() {}
+
+	virtual ControlOption ReportProgressValue(int done, int total) = 0;
+};
+
+class V8_EXPORT HeapProfiler {
+public:
+	typedef RetainedObjectInfo* (*WrapperInfoCallback)(uint16_t class_id, Local<Value> wrapper);
+
+	typedef void (*BuildEmbedderGraphCallback)(v8::Isolate* isolate,
+											   v8::EmbedderGraph* graph,
+											   void* data);
+
+	class ObjectNameResolver {
+	public:
+		virtual const char* GetName(Local<Object> object) = 0;
+
+	protected:
+		virtual ~ObjectNameResolver() {}
+	};
+
+	const HeapSnapshot* TakeHeapSnapshot(ActivityControl* control = NULL,
+										 ObjectNameResolver* global_object_name_resolver = NULL)
+	{
+		// TODO: IMPLEMENT
+		return nullptr;
+	}
+
+	void SetWrapperClassInfoProvider(uint16_t class_id, WrapperInfoCallback callback)
+	{
+		// TODO: IMPLEMENT
+	}
+
+	void StartTrackingHeapObjects(bool track_allocations = false)
+	{
+		// TODO: IMPLEMENT
+	}
+
+	void AddBuildEmbedderGraphCallback(BuildEmbedderGraphCallback callback, void* data)
+	{
+		// TODO: IMPLEMENT
+	}
+
+	void RemoveBuildEmbedderGraphCallback(BuildEmbedderGraphCallback callback, void* data)
+	{
+		// TODO: IMPLEMENT
+	}
 };
 
 class V8_EXPORT RetainedObjectInfo {  // NOLINT
@@ -162,6 +392,14 @@ class V8_EXPORT RetainedObjectInfo {  // NOLINT
  private:
   RetainedObjectInfo(const RetainedObjectInfo&);
   RetainedObjectInfo& operator=(const RetainedObjectInfo&);
+};
+
+struct HeapStatsUpdate {
+  HeapStatsUpdate(uint32_t index, uint32_t count, uint32_t size)
+    : index(index), count(count), size(size) { }
+  uint32_t index;
+  uint32_t count;
+  uint32_t size;
 };
 
 }  // namespace v8
