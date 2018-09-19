@@ -7,6 +7,8 @@
 #include "v8.h"
 #include "libplatform/libplatform.h"
 
+#include <JavaScriptCore/JSCInlines.h>
+
 namespace v8 { namespace platform
 {
 
