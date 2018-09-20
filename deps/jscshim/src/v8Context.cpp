@@ -128,6 +128,11 @@ void Context::Exit()
 	isolate->RestoreCurrentContextFromSaved();
 }
 
+uint32_t Context::GetNumberOfEmbedderDataFields()
+{
+	return GET_JSC_THIS()->contextEmbedderDataSize();
+}
+
 Local<Value> Context::GetEmbedderData(int index)
 {
 	jscshim::GlobalObject * context = GET_JSC_THIS();

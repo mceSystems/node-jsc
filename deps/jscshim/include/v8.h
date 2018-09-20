@@ -845,6 +845,8 @@ public:
 
 	void Exit();
 
+	uint32_t GetNumberOfEmbedderDataFields();
+
 	Local<Value> GetEmbedderData(int index);
 
 	Local<Object> GetExtrasBindingObject();
