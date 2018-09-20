@@ -17,11 +17,13 @@
 namespace v8
 {
 
+// TODO: SideEffectType
 MaybeLocal<Function> Function::New(Local<Context> context,
 								   FunctionCallback callback,
 								   Local<Value> data,
 								   int length,
-								   ConstructorBehavior behavior)
+								   ConstructorBehavior behavior,
+								   SideEffectType side_effect_type)
 {
 	Local<FunctionTemplate> functionTemplate = FunctionTemplate::New(context->GetIsolate(), callback, data, Local<Signature>(), length);
 

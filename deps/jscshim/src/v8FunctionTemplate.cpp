@@ -99,7 +99,8 @@ void FunctionTemplate::SetClassName(Local<String> name)
 										 v8::jscshim::GetJscCellFromV8<JSC::JSString>(*name));
 }
 
-void FunctionTemplate::SetCallHandler(FunctionCallback callback, Local<Value> data)
+// TODO: SideEffectType
+void FunctionTemplate::SetCallHandler(FunctionCallback callback, Local<Value> data, SideEffectType side_effect_type)
 {
 	GET_JSC_THIS()->setCallHandler(callback, data.val_);
 }

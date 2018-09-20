@@ -24,7 +24,7 @@ MaybeLocal<Value> JSON::Parse(Local<Context> context, Local<String> json_string)
 }
 
 // Based on JSONStringify from JSC's JSONObject.h
-MaybeLocal<String> JSON::Stringify(Local<Context> context, Local<Object> json_object, Local<String> gap)
+MaybeLocal<String> JSON::Stringify(Local<Context> context, Local<Value> json_object, Local<String> gap)
 {
 	JSC::ExecState * exec = jscshim::GetExecStateForV8Context(*context);
 	DECLARE_SHIM_EXCEPTION_SCOPE(*context);

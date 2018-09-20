@@ -535,7 +535,7 @@ void Isolate::EnqueueMicrotask(Local<v8::Function> microtask)
 	// TODO: Use the user provided v8 platform
 }
 
-void Isolate::EnqueueMicrotask(MicrotaskCallback microtask, void* data)
+void Isolate::EnqueueMicrotask(MicrotaskCallback callback, void* data)
 {
 	// TODO: Use the user provided v8 platform
 }

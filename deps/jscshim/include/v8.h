@@ -581,13 +581,15 @@ public:
 		Local<Value> source_map_url = Local<Value>(),
 		Local<Boolean> resource_is_opaque = Local<Boolean>(),
 		Local<Boolean> is_wasm = Local<Boolean>(),
-		Local<Boolean> is_module = Local<Boolean>());
+		Local<Boolean> is_module = Local<Boolean>(),
+		Local<PrimitiveArray> host_defined_options = Local<PrimitiveArray>());
 
 	V8_INLINE Local<Value> ResourceName() const { return resource_name_; }
 	V8_INLINE Local<Integer> ResourceLineOffset() const { return resource_line_offset_; }
 	V8_INLINE Local<Integer> ResourceColumnOffset() const { return resource_column_offset_; }
 	V8_INLINE Local<Integer> ScriptID() const { return script_id_; }
 	V8_INLINE Local<Value> SourceMapUrl() const { return source_map_url_; }
+	V8_INLINE Local<PrimitiveArray> HostDefinedOptions() const { return host_defined_options_; }
 	V8_INLINE ScriptOriginOptions Options() const { return options_; }
 
 private:
@@ -597,6 +599,10 @@ private:
 	ScriptOriginOptions options_;
 	Local<Integer> script_id_;
 	Local<Value> source_map_url_;
+	Local<PrimitiveArray> host_defined_options_;
+};
+
+class V8_EXPORT UnboundModuleScript {
 };
 
 class V8_EXPORT Message
@@ -633,7 +639,7 @@ public:
 class V8_EXPORT TryCatch
 {
 public:
-	TryCatch(Isolate* isolate);
+	explicit TryCatch(Isolate* isolate);
 	~TryCatch();
 
 	bool HasCaught() const { return !!exception_; }
@@ -752,6 +758,9 @@ enum GCCallbackFlags {
 
 typedef void (*InterruptCallback)(Isolate* isolate, void* data);
 
+typedef size_t(*NearHeapLimitCallback)(void* data, size_t current_heap_limit,
+									   size_t initial_heap_limit);
+
 class V8_EXPORT HeapStatistics
 {
 private:
@@ -764,6 +773,8 @@ private:
 	size_t malloced_memory_;
 	size_t peak_malloced_memory_;
 	bool does_zap_garbage_;
+	size_t number_of_native_contexts_;
+	size_t number_of_detached_contexts_;
 
 public:
 	HeapStatistics() :
@@ -775,7 +786,9 @@ public:
 		heap_size_limit_(0),
 		malloced_memory_(0),
 		peak_malloced_memory_(0),
-		does_zap_garbage_(false)
+		does_zap_garbage_(false),
+		number_of_native_contexts_(0),
+		number_of_detached_contexts_(0)
 	{
 		// TODO: IMPLEMENT
 	}
@@ -788,6 +801,9 @@ public:
 	size_t heap_size_limit() { return heap_size_limit_; }
 	size_t malloced_memory() { return malloced_memory_; }
 	size_t peak_malloced_memory() { return peak_malloced_memory_; }
+	size_t number_of_native_contexts() { return number_of_native_contexts_; }
+	size_t number_of_detached_contexts() { return number_of_detached_contexts_; }
+
 	size_t does_zap_garbage() { return does_zap_garbage_; }
 };
 
@@ -1052,6 +1068,7 @@ public:
 		Local<Integer> resource_line_offset;
 		Local<Integer> resource_column_offset;
 		Local<Value> source_map_url;
+		Local<PrimitiveArray> host_defined_options;
 	};
 
 	enum CompileOptions
@@ -1060,16 +1077,39 @@ public:
 		kProduceParserCache,
 		kConsumeParserCache,
 		kProduceCodeCache,
-		kConsumeCodeCache
+		kProduceFullCodeCache,
+		kConsumeCodeCache,
+		kEagerCompile
+	};
+
+	enum NoCacheReason
+	{
+		kNoCacheNoReason = 0,
+		kNoCacheBecauseCachingDisabled,
+		kNoCacheBecauseNoResource,
+		kNoCacheBecauseInlineScript,
+		kNoCacheBecauseModule,
+		kNoCacheBecauseStreamingSource,
+		kNoCacheBecauseInspector,
+		kNoCacheBecauseScriptTooSmall,
+		kNoCacheBecauseCacheTooCold,
+		kNoCacheBecauseV8Extension,
+		kNoCacheBecauseExtensionModule,
+		kNoCacheBecausePacScript,
+		kNoCacheBecauseInDocumentWrite,
+		kNoCacheBecauseResourceWithNoCacheHandler,
+		kNoCacheBecauseDeferredProduceCodeCache
 	};
 
 	static V8_WARN_UNUSED_RESULT MaybeLocal<UnboundScript> CompileUnboundScript(
 		Isolate* isolate, Source* source,
-		CompileOptions options = kNoCompileOptions);
+		CompileOptions options = kNoCompileOptions,
+		NoCacheReason no_cache_reason = kNoCacheNoReason);
 
 	static V8_WARN_UNUSED_RESULT MaybeLocal<Script> Compile(
 		Local<Context> context, Source* source,
-		CompileOptions options = kNoCompileOptions);
+		CompileOptions options = kNoCompileOptions,
+		NoCacheReason no_cache_reason = kNoCacheNoReason);
 
 	static uint32_t CachedDataVersionTag();
 
@@ -1077,6 +1117,10 @@ public:
 		Isolate* isolate, Source* source);
 
 	static CachedData* CreateCodeCache(Local<UnboundScript> unbound_script);
+
+	static CachedData* CreateCodeCacheForFunction(Local<Function> function,
+		Local<String> source);
+	static CachedData* CreateCodeCacheForFunction(Local<Function> function);
 };
 
 class V8_EXPORT UnboundScript
@@ -1398,7 +1442,7 @@ enum class NewStringType { kNormal, kInternalized };
 class V8_EXPORT String : public Name
 {
 public:
-	static const int kMaxLength = (1 << 28) - 16;
+	static constexpr int kMaxLength = (1 << 28) - 16;
 
 	enum Encoding {
 		UNKNOWN_ENCODING = 0x1,
@@ -1629,6 +1673,8 @@ enum class PropertyHandlerFlags {
 	kNonMasking = 1 << 1,
 
 	kOnlyInterceptStrings = 1 << 2,
+
+	kHasNoSideEffect = 1 << 3,
 };
 
 struct NamedPropertyHandlerConfiguration
@@ -1779,6 +1825,8 @@ enum class KeyCollectionMode { kOwnOnly, kIncludePrototypes };
 
 enum class IndexFilter { kIncludeIndices, kSkipIndices };
 
+enum class KeyConversionMode { kConvertToString, kKeepNumbers };
+
 enum class IntegrityLevel { kFrozen, kSealed };
 
 class V8_EXPORT Object : public Value
@@ -1852,13 +1900,15 @@ public:
 	V8_WARN_UNUSED_RESULT MaybeLocal<Array> GetPropertyNames(Local<Context> context);
 	V8_WARN_UNUSED_RESULT MaybeLocal<Array> GetPropertyNames(
 		Local<Context> context, KeyCollectionMode mode,
-		PropertyFilter property_filter, IndexFilter index_filter);
+		PropertyFilter property_filter, IndexFilter index_filter,
+		KeyConversionMode key_conversion = KeyConversionMode::kKeepNumbers);
 
 	V8_DEPRECATE_SOON("Use maybe version", Local<Array> GetOwnPropertyNames());
 	V8_WARN_UNUSED_RESULT MaybeLocal<Array> GetOwnPropertyNames(Local<Context> context);
 
 	V8_WARN_UNUSED_RESULT MaybeLocal<Array> GetOwnPropertyNames(
-		Local<Context> context, PropertyFilter filter);
+		Local<Context> context, PropertyFilter filter,
+		KeyConversionMode key_conversion = KeyConversionMode::kKeepNumbers);
 
 	Local<Value> GetPrototype();
 
@@ -1939,7 +1989,9 @@ typedef void(*PromiseHook)(PromiseHookType type, Local<Promise> promise, Local<V
 enum PromiseRejectEvent
 {
 	kPromiseRejectWithNoHandler = 0,
-	kPromiseHandlerAddedAfterReject = 1
+	kPromiseHandlerAddedAfterReject = 1,
+	kPromiseRejectAfterResolved = 2,
+	kPromiseResolveAfterResolved = 3,
 };
 
 class PromiseRejectMessage {
@@ -2349,7 +2401,7 @@ class V8_EXPORT JSON {
       Local<Context> context, Local<String> json_string);
 
   static V8_WARN_UNUSED_RESULT MaybeLocal<String> Stringify(
-      Local<Context> context, Local<Object> json_object,
+      Local<Context> context, Local<Value> json_object,
       Local<String> gap = Local<String>());
 };
 
@@ -2487,7 +2539,7 @@ private:
 class V8_EXPORT Proxy : public Object
 {
 public:
-	Local<Object> GetTarget();
+	Local<Value> GetTarget();
 	Local<Value> GetHandler();
 	bool IsRevoked();
 	void Revoke();
@@ -2547,7 +2599,8 @@ public:
 	static MaybeLocal<Function> New(
 		Local<Context> context, FunctionCallback callback,
 		Local<Value> data = Local<Value>(), int length = 0,
-		ConstructorBehavior behavior = ConstructorBehavior::kAllow);
+		ConstructorBehavior behavior = ConstructorBehavior::kAllow,
+		SideEffectType side_effect_type = SideEffectType::kHasSideEffect);
 
 	static V8_DEPRECATE_SOON(
 		"Use maybe version",
@@ -2665,7 +2718,9 @@ public:
 
 	void SetClassName(Local<String> name);
 
-	void SetCallHandler(FunctionCallback callback, Local<Value> data = Local<Value>());
+	void SetCallHandler(
+		FunctionCallback callback, Local<Value> data = Local<Value>(),
+		SideEffectType side_effect_type = SideEffectType::kHasSideEffect);
 
 	void SetLength(int length);
 
@@ -3352,7 +3407,7 @@ public:
 
 	void EnqueueMicrotask(Local<Function> microtask);
 
-	void EnqueueMicrotask(MicrotaskCallback microtask, void* data = NULL);
+	void EnqueueMicrotask(MicrotaskCallback callback, void* data = nullptr);
 
 	void SetMicrotasksPolicy(MicrotasksPolicy policy);
 	V8_DEPRECATED("Use SetMicrotasksPolicy",
@@ -3479,6 +3534,35 @@ template <class T>
 inline Maybe<T> Just(const T& t) {
 	return Maybe<T>(t);
 }
+
+template <>
+class Maybe<void> {
+public:
+	V8_INLINE bool IsNothing() const { return !is_valid_; }
+	V8_INLINE bool IsJust() const { return is_valid_; }
+
+	V8_INLINE bool operator==(const Maybe& other) const {
+		return IsJust() == other.IsJust();
+	}
+
+	V8_INLINE bool operator!=(const Maybe& other) const {
+		return !operator==(other);
+	}
+
+private:
+	struct JustTag {};
+
+	Maybe() : is_valid_(false) {}
+	explicit Maybe(JustTag) : is_valid_(true) {}
+
+	bool is_valid_;
+
+	template <class U>
+	friend Maybe<U> Nothing();
+	friend Maybe<void> JustVoid();
+};
+
+inline Maybe<void> JustVoid() { return Maybe<void>(Maybe<void>::JustTag()); }
 
 class V8_EXPORT AccessorSignature : public Data
 {
@@ -4300,7 +4384,8 @@ ScriptOrigin::ScriptOrigin(Local<Value> resource_name,
 						   Local<Integer> script_id,
 						   Local<Value> source_map_url,
 						   Local<Boolean> resource_is_opaque,
-						   Local<Boolean> is_wasm, Local<Boolean> is_module)
+						   Local<Boolean> is_wasm, Local<Boolean> is_module,
+						   Local<PrimitiveArray> host_defined_options)
 	: resource_name_(resource_name),
 	  resource_line_offset_(resource_line_offset),
 	  resource_column_offset_(resource_column_offset),
@@ -4309,7 +4394,8 @@ ScriptOrigin::ScriptOrigin(Local<Value> resource_name,
 			   !is_wasm.IsEmpty() && is_wasm->IsTrue(),
 			   !is_module.IsEmpty() && is_module->IsTrue()),
 	script_id_(script_id),
-	source_map_url_(source_map_url) {}
+	source_map_url_(source_map_url),
+	host_defined_options_(host_defined_options) {}
 
 //
 // ScriptCompiler::Source members
@@ -4319,7 +4405,8 @@ V8_INLINE ScriptCompiler::Source::Source(Local<String> string, const ScriptOrigi
 	resource_name(origin.ResourceName()),
 	resource_line_offset(origin.ResourceLineOffset()),
 	resource_column_offset(origin.ResourceColumnOffset()),
-	source_map_url(origin.SourceMapUrl())
+	source_map_url(origin.SourceMapUrl()),
+	host_defined_options(origin.HostDefinedOptions())
 {
 }
 

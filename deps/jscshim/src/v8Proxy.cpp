@@ -16,10 +16,10 @@
 namespace v8
 {
 
-Local<Object> Proxy::GetTarget()
+Local<Value> Proxy::GetTarget()
 {
 	JSC::JSValue target(GET_JSC_THIS()->target());
-	return Local<Object>(target);
+	return Local<Value>(target);
 }
 
 Local<Value> Proxy::GetHandler()

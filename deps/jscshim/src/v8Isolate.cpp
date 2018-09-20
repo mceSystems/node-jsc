@@ -202,9 +202,9 @@ void Isolate::EnqueueMicrotask(Local<Function> microtask)
 	TO_JSC_ISOLATE(this)->EnqueueMicrotask(microtask);
 }
 
-void Isolate::EnqueueMicrotask(MicrotaskCallback microtask, void* data)
+void Isolate::EnqueueMicrotask(MicrotaskCallback callback, void* data)
 {
-	TO_JSC_ISOLATE(this)->EnqueueMicrotask(microtask, data);
+	TO_JSC_ISOLATE(this)->EnqueueMicrotask(callback, data);
 }
 
 void Isolate::SetMicrotasksPolicy(MicrotasksPolicy policy)

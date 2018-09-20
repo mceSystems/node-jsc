@@ -136,8 +136,9 @@ Local<Value> Script::Run()
 	return Run(jscshim::GetV8ContextForObject(GET_JSC_THIS())).FromMaybe(Local<Value>());
 }
 
-// TODO: Actually compile/parse here. UnlinkedProgramCodeBlock\prepareForRepeatCall?
-MaybeLocal<UnboundScript> ScriptCompiler::CompileUnboundScript(Isolate* isolate, Source* source, CompileOptions options)
+/* TODO: Actually compile/parse here. UnlinkedProgramCodeBlock\prepareForRepeatCall?
+ * TODO: no_cache_reason? */
+MaybeLocal<UnboundScript> ScriptCompiler::CompileUnboundScript(Isolate* isolate, Source* source, CompileOptions options, NoCacheReason no_cache_reason)
 {
 	JSC::ExecState * exec = jscshim::GetExecStateForV8Isolate(isolate);
 
@@ -152,8 +153,9 @@ MaybeLocal<UnboundScript> ScriptCompiler::CompileUnboundScript(Isolate* isolate,
 	return Local<UnboundScript>::New(JSC::JSValue(script));
 }
 
-// TODO: Actually compile/parse here. UnlinkedProgramCodeBlock\prepareForRepeatCall?
-MaybeLocal<Script> ScriptCompiler::Compile(Local<Context> context, Source* source, CompileOptions options)
+/* TODO: Actually compile/parse here. UnlinkedProgramCodeBlock\prepareForRepeatCall?
+ * TODO: no_cache_reason? */
+MaybeLocal<Script> ScriptCompiler::Compile(Local<Context> context, Source* source, CompileOptions options, NoCacheReason no_cache_reason)
 {
 	jscshim::GlobalObject * global = jscshim::GetGlobalObjectForV8Context(*context);
 	JSC::ExecState * exec = global->v8ContextExec();
@@ -183,6 +185,19 @@ MaybeLocal<Module> ScriptCompiler::CompileModule(Isolate* isolate, Source* sourc
 }
 
 ScriptCompiler::CachedData * ScriptCompiler::CreateCodeCache(Local<UnboundScript> unbound_script)
+{
+	// TODO: IMPLEMENT
+	return nullptr;
+}
+
+ScriptCompiler::CachedData * ScriptCompiler::CreateCodeCacheForFunction(Local<Function> function,
+																		Local<String> source)
+{
+	// TODO: IMPLEMENT
+	return nullptr;
+}
+
+ScriptCompiler::CachedData * ScriptCompiler::CreateCodeCacheForFunction(Local<Function> function)
 {
 	// TODO: IMPLEMENT
 	return nullptr;

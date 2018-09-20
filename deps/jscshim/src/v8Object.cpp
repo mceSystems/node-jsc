@@ -971,11 +971,13 @@ inline bool PropertyFilterHasFlag(PropertyFilter filter, PropertyFilter flag)
  *
  * TODO: Support ONLY_WRITABLE, and ONLY_CONFIGURABLE filters 
  * TODO: Handle IndexFilter
+ * TODO: Support KeyConversionMode::kKeepNumbers
  */
 MaybeLocal<Array> Object::GetPropertyNames(Local<Context>    context,
 										   KeyCollectionMode mode,
 										   PropertyFilter    property_filter,
-										   IndexFilter       index_filter)
+										   IndexFilter       index_filter,
+										   KeyConversionMode key_conversion)
 {
 	SETUP_OBJECT_USE_IN_MEMBER(context);
 
@@ -1129,10 +1131,12 @@ MaybeLocal<Array> Object::GetOwnPropertyNames(Local<Context> context)
 	return GetOwnPropertyNames(context, static_cast<PropertyFilter>(ONLY_ENUMERABLE | SKIP_SYMBOLS));
 }
 
-MaybeLocal<Array> Object::GetOwnPropertyNames(Local<Context> context, PropertyFilter filter)
+MaybeLocal<Array> Object::GetOwnPropertyNames(Local<Context> context, 
+											  PropertyFilter filter, 
+											  KeyConversionMode key_conversion)
 {
 	// Taken from v8
-	return GetPropertyNames(context, KeyCollectionMode::kOwnOnly, filter, IndexFilter::kIncludeIndices);
+	return GetPropertyNames(context, KeyCollectionMode::kOwnOnly, filter, IndexFilter::kIncludeIndices, key_conversion);
 }
 
 int Object::GetIdentityHash()
