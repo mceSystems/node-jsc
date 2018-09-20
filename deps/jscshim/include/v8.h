@@ -1150,6 +1150,8 @@ public:
 
 	static Local<Private> ForApi(Isolate* isolate, Local<String> name);
 
+	V8_INLINE static Private* Cast(Data* data);
+
 private:
 	Private();
 };
@@ -2693,6 +2695,8 @@ public:
 
 	void SetCallAsFunctionHandler(FunctionCallback callback, Local<Value> data = Local<Value>());
 
+	V8_INLINE static ObjectTemplate* Cast(Data* data);
+
 private:
 	ObjectTemplate();
 };
@@ -2734,6 +2738,8 @@ public:
 
 	bool HasInstance(Local<Value> object);
 
+	V8_INLINE static FunctionTemplate* Cast(Data* data);
+
 private:
 	FunctionTemplate();
 };
@@ -2744,6 +2750,8 @@ public:
 	static Local<Signature> New(
 		Isolate* isolate,
 		Local<FunctionTemplate> receiver = Local<FunctionTemplate>());
+
+	V8_INLINE static Signature* Cast(Data* data);
 
 private:
 	Signature();
@@ -3571,6 +3579,8 @@ public:
 		Isolate* isolate,
 		Local<FunctionTemplate> receiver = Local<FunctionTemplate>());
 
+	V8_INLINE static AccessorSignature* Cast(Data* data);
+
 private:
 	AccessorSignature();
 };
@@ -4268,6 +4278,14 @@ Name* Name::Cast(v8::Value* value)
 	return static_cast<Name*>(value);
 }
 
+Private* Private::Cast(v8::Data* data)
+{
+#ifdef V8_ENABLE_CHECKS
+	CheckCast(value);
+#endif
+	return static_cast<Private*>(data);
+}
+
 Number* Number::Cast(v8::Value* value)
 {
 #ifdef V8_ENABLE_CHECKS
@@ -4306,6 +4324,34 @@ BigInt* BigInt::Cast(v8::Value* value)
 	CheckCast(value);
 #endif
 	return static_cast<BigInt*>(value);
+}
+
+FunctionTemplate* FunctionTemplate::Cast(Data* data) {
+#ifdef V8_ENABLE_CHECKS
+	CheckCast(data);
+#endif
+	return reinterpret_cast<FunctionTemplate*>(data);
+}
+
+ObjectTemplate* ObjectTemplate::Cast(Data* data) {
+#ifdef V8_ENABLE_CHECKS
+	CheckCast(data);
+#endif
+	return reinterpret_cast<ObjectTemplate*>(data);
+}
+
+Signature* Signature::Cast(Data* data) {
+#ifdef V8_ENABLE_CHECKS
+	CheckCast(data);
+#endif
+	return reinterpret_cast<Signature*>(data);
+}
+
+AccessorSignature* AccessorSignature::Cast(Data* data) {
+#ifdef V8_ENABLE_CHECKS
+	CheckCast(data);
+#endif
+	return reinterpret_cast<AccessorSignature*>(data);
 }
 
 //
