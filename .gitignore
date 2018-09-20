@@ -67,6 +67,27 @@ ipch/
 /deps/v8/src/debug/obj
 /*.exe
 
+/config.mk
+/config.gypi
+/config.status
+/config_fips.gypi
+*-nodegyp*
+/gyp-mac-tool
+/npm.wxs
+/tools/msvs/npm.wixobj
+/tools/msvs/genfiles/
+/test/addons/??_*/
+email.md
+deps/v8-*
+deps/icu
+deps/icu*.zip
+deps/icu*.tgz
+deps/icu-tmp
+./node_modules
+android-toolchain/
+.svn/
 
 # node-jsc related
 deps/jscshim/webkit/WebKitBuild/
+!deps/jscshim/webkit/WebKitLibraries/win/tools/scripts
+deps/jscshim/webkit/WebKitLibraries/
