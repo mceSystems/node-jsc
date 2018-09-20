@@ -26,7 +26,7 @@ node-jsc is experimental, but:
 
 ## Why JavaScriptCore?
 node-jsc's initial goal was to eventually provide a stable, production ready, node.js running on iOS devices. When I started working on it, there were a few other projects to consider:
-- [node-chakracore](https://github.com/nodejs/node-chakracore): As [nodejs-mobile](https://github.com/janeasystems/nodejs-mobile) wasn't out yet (or at least I wasn't aware of it), I considered using node-chakracore and basically do what nodejs-mobile has done. But, as ChakraCore doesn't offically support iOS, I was concered about using it, as it raised a lot of questions, assuming it was possible to build it for iOS and in "interpreter mode" only (since it's not possible to allocate executable memory in iOS apps):
+- [node-chakracore](https://github.com/nodejs/node-chakracore): As [nodejs-mobile](https://github.com/janeasystems/nodejs-mobile) wasn't out yet (or at least I wasn't aware of it), I considered using node-chakracore and basically do what nodejs-mobile has done. But, as ChakraCore doesn't officially support iOS, I was concered about using it, as it raised a lot of questions, assuming it was possible to build it for iOS and in "interpreter mode" only (since it's not possible to allocate executable memory in iOS apps):
   - How much work will it take to make it work on iOS, arm based, devices?
   - How well will it work and perform on iOS devices?
   - What about bug fixes?
