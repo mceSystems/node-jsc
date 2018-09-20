@@ -920,24 +920,6 @@ Maybe<bool> Object::DefineProperty(Local<Context> context, Local<Name> key, Prop
 	return Just(thisObj->methodTable(vm)->defineOwnProperty(thisObj, exec, jscKey, *descriptor.get_private(), false));
 }
 
-Maybe<bool> Object::ForceSet(Local<Context> context,
-							 Local<Value> key,
-							 Local<Value> value,
-							 PropertyAttribute attribs)
-{
-	SETUP_OBJECT_USE_IN_MEMBER(context);
-
-	JSC::PropertyName jscKey = jscshim::JscValueToPropertyName(exec, key.val_);
-	SHIM_RETURN_IF_EXCEPTION(Nothing<bool>());
-
-	SetMemberFunctionNameIfNecessary(vm, key.val_, value.val_);
-
-	bool result = thisObj->putDirect(vm, jscKey, value.val_);
-	SHIM_RETURN_IF_EXCEPTION(Nothing<bool>());
-
-	return Just(result);
-}
-
 Maybe<bool> Object::HasPrivate(Local<Context> context, Local<Private> key)
 {
 	return HasOwnProperty(context, Local<Name>(key.val_));

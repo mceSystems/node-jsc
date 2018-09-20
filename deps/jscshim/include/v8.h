@@ -619,10 +619,10 @@ public:
 	int GetStartPosition() const;
 	int GetEndPosition() const;
 
-	V8_DEPRECATE_SOON("Use maybe version", int GetStartColumn() const);
+	int GetStartColumn() const;
 	V8_WARN_UNUSED_RESULT Maybe<int> GetStartColumn(Local<Context> context) const;
 
-	V8_DEPRECATED("Use maybe version", int GetEndColumn() const);
+	int GetEndColumn() const;
 	V8_WARN_UNUSED_RESULT Maybe<int> GetEndColumn(Local<Context> context) const;
 
 	static const int kNoLineNumberInfo = 0;
@@ -698,7 +698,9 @@ public:
 		kDetailed = kOverview | kIsEval | kIsConstructor | kScriptNameOrSourceURL
 	};
 
-	Local<StackFrame> GetFrame(uint32_t index) const;
+	V8_DEPRECATE_SOON("Use Isolate version",
+					  Local<StackFrame> GetFrame(uint32_t index) const);
+	Local<StackFrame> GetFrame(Isolate* isolate, uint32_t index) const;
 
 	int GetFrameCount() const;
 
@@ -1248,14 +1250,10 @@ public:
 					  Local<Number> ToNumber(Isolate* isolate) const);
 	V8_DEPRECATE_SOON("Use maybe version",
 					  Local<String> ToString(Isolate* isolate) const);
-	V8_DEPRECATED("Use maybe version",
-				  Local<String> ToDetailString(Isolate* isolate) const);
 	V8_DEPRECATE_SOON("Use maybe version",
 					  Local<Object> ToObject(Isolate* isolate) const);
 	V8_DEPRECATE_SOON("Use maybe version",
 					  Local<Integer> ToInteger(Isolate* isolate) const);
-	V8_DEPRECATED("Use maybe version",
-					  Local<Uint32> ToUint32(Isolate* isolate) const);
 	V8_DEPRECATE_SOON("Use maybe version",
 					  Local<Int32> ToInt32(Isolate* isolate) const);
 
@@ -1408,7 +1406,8 @@ public:
 
 	int Length() const;
 
-	int Utf8Length() const;
+	V8_DEPRECATE_SOON("Use Isolate version instead", int Utf8Length() const);
+	int Utf8Length(Isolate* isolate) const;
 
 	bool IsOneByte() const;
 
@@ -1424,20 +1423,26 @@ public:
 		REPLACE_INVALID_UTF8 = 8
 	};
 
-	int Write(uint16_t* buffer,
-			  int start = 0,
-			  int length = -1,
+	int Write(Isolate* isolate, uint16_t* buffer, int start = 0, int length = -1,
 			  int options = NO_OPTIONS) const;
+	V8_DEPRECATE_SOON("Use Isolate* version",
+					  int Write(uint16_t* buffer, int start = 0, int length = -1,
+					  int options = NO_OPTIONS) const);
 
-	int WriteOneByte(uint8_t* buffer,
-					 int start = 0,
-					 int length = -1,
+	int WriteOneByte(Isolate* isolate, uint8_t* buffer, int start = 0, int length = -1,
 					 int options = NO_OPTIONS) const;
+	V8_DEPRECATE_SOON("Use Isolate* version",
+					  int WriteOneByte(uint8_t* buffer, int start = 0,
+					  int length = -1, int options = NO_OPTIONS) const);
 
-	int WriteUtf8(char* buffer,
-				  int length = -1,
+	int WriteUtf8(Isolate* isolate, char* buffer, int length = -1,
 				  int* nchars_ref = NULL,
 				  int options = NO_OPTIONS) const;
+	V8_DEPRECATE_SOON("Use Isolate* version",
+					  int WriteUtf8(char* buffer, int length = -1,
+									int* nchars_ref = NULL,
+									int options = NO_OPTIONS) const);
+
 
 	bool IsExternal() const;
 
@@ -1517,13 +1522,17 @@ public:
 	static V8_WARN_UNUSED_RESULT MaybeLocal<String> NewExternalTwoByte(
 		Isolate* isolate, ExternalStringResource* resource);
 
-	static Local<String> Concat(Local<String> left, Local<String> right);
+	static Local<String> Concat(Isolate* isolate, Local<String> left,
+								Local<String> right);
+	static V8_DEPRECATE_SOON("Use Isolate* version",
+							 Local<String> Concat(Local<String> left,
+												  Local<String> right));
 
 	class V8_EXPORT Utf8Value 
 	{
 	public:
-		V8_DEPRECATE_SOON("Use Isolate version",
-						  explicit Utf8Value(Local<v8::Value> obj));
+		V8_DEPRECATED("Use Isolate version",
+					  explicit Utf8Value(Local<v8::Value> obj));
 		Utf8Value(Isolate* isolate, Local<v8::Value> obj);
 		~Utf8Value();
 		char* operator*() { return str_; }
@@ -1797,11 +1806,6 @@ public:
 	V8_WARN_UNUSED_RESULT Maybe<bool> DefineProperty(
 		Local<Context> context, Local<Name> key, PropertyDescriptor& descriptor);
 
-	V8_DEPRECATED("Use CreateDataProperty / DefineOwnProperty",
-				  Maybe<bool> ForceSet(Local<Context> context, Local<Value> key,
-									   Local<Value> value,
-									   PropertyAttribute attribs = None));
-
 	V8_DEPRECATE_SOON("Use maybe version", Local<Value> Get(Local<Value> key));
 	V8_WARN_UNUSED_RESULT MaybeLocal<Value> Get(Local<Context> context,
 												Local<Value> key);
@@ -1914,7 +1918,7 @@ public:
 	V8_WARN_UNUSED_RESULT MaybeLocal<Value> CallAsConstructor(
 		Local<Context> context, int argc, Local<Value> argv[]);
 
-	V8_DEPRECATE_SOON("Keep track of isolate correctly", Isolate* GetIsolate());
+	Isolate* GetIsolate();
 
 	MaybeLocal<Array> PreviewEntries(bool* is_key_value);
 
@@ -1947,11 +1951,6 @@ public:
 	V8_INLINE Local<Promise> GetPromise() const { return promise_; }
 	V8_INLINE PromiseRejectEvent GetEvent() const { return event_; }
 	V8_INLINE Local<Value> GetValue() const { return value_; }
-
-	V8_DEPRECATED("Use v8::Exception::CreateMessage(GetValue())->GetStackTrace()",
-		V8_INLINE Local<StackTrace> GetStackTrace() const) {
-		return Local<StackTrace>();
-	}
 
 private:
 	Local<Promise> promise_;
@@ -2329,8 +2328,8 @@ public:
 		kDotAll = 1 << 5,
 	};
 
-	static V8_DEPRECATE_SOON("Use maybe version",
-							 Local<RegExp> New(Local<String> pattern, Flags flags));
+	static V8_DEPRECATED("Use maybe version",
+						 Local<RegExp> New(Local<String> pattern, Flags flags));
 	static V8_WARN_UNUSED_RESULT MaybeLocal<RegExp> New(Local<Context> context,
 														Local<String> pattern,
 														Flags flags);
@@ -3340,8 +3339,8 @@ public:
 
 	HeapProfiler * GetHeapProfiler();
 
-	V8_DEPRECATE_SOON("CpuProfiler should be created with CpuProfiler::New call.",
-					  CpuProfiler * GetCpuProfiler());
+	V8_DEPRECATED("CpuProfiler should be created with CpuProfiler::New call.",
+				  CpuProfiler * GetCpuProfiler());
 
 	void SetPromiseHook(PromiseHook hook);
 
@@ -3354,8 +3353,8 @@ public:
 	void EnqueueMicrotask(MicrotaskCallback microtask, void* data = NULL);
 
 	void SetMicrotasksPolicy(MicrotasksPolicy policy);
-	V8_DEPRECATE_SOON("Use SetMicrotasksPolicy",
-					  void SetAutorunMicrotasks(bool autorun));
+	V8_DEPRECATED("Use SetMicrotasksPolicy",
+				  void SetAutorunMicrotasks(bool autorun));
 
 	void TerminateExecution();
 
@@ -4249,12 +4248,6 @@ V8_INLINE Local<String> Value::ToString(Isolate* isolate) const
 	return ToString(isolate->GetCurrentContext()).FromMaybe(Local<String>());
 }
 
-V8_INLINE Local<String> Value::ToDetailString(Isolate* isolate) const
-{
-	// TODO: Follow v8's ToDetailString
-	return ToString(isolate->GetCurrentContext()).FromMaybe(Local<String>());
-}
-
 V8_INLINE Local<Object> Value::ToObject(Isolate* isolate) const
 {
 	return ToObject(isolate->GetCurrentContext()).FromMaybe(Local<Object>());
@@ -4263,11 +4256,6 @@ V8_INLINE Local<Object> Value::ToObject(Isolate* isolate) const
 V8_INLINE Local<Integer> Value::ToInteger(Isolate* isolate) const
 {
 	return ToInteger(isolate->GetCurrentContext()).FromMaybe(Local<Integer>());
-}
-
-V8_INLINE Local<Uint32> Value::ToUint32(Isolate* isolate) const
-{
-	return ToUint32(isolate->GetCurrentContext()).FromMaybe(Local<Uint32>());
 }
 
 V8_INLINE Local<Int32> Value::ToInt32(Isolate* isolate) const

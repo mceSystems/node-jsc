@@ -19,6 +19,11 @@ namespace v8
 
 Local<StackFrame> StackTrace::GetFrame(uint32_t index) const
 {
+	return GetFrame(Isolate::GetCurrent(), index);
+}
+
+Local<StackFrame> StackTrace::GetFrame(Isolate * isolate, uint32_t index) const
+{
 	return Local<StackFrame>::New(JSC::JSValue(GET_JSC_THIS_STACK_TRACE()->getFrame(index)));
 }
 

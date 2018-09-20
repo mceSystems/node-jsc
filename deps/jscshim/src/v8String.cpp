@@ -198,6 +198,11 @@ int String::Length() const
 
 int String::Utf8Length() const
 {
+	return Utf8Length(Isolate::GetCurrent());
+}
+
+int String::Utf8Length(Isolate * isolate) const
+{
 	const WTF::StringImpl * thisImpl = GetResolvedStringImpl(this);
 	return thisImpl->is8Bit() ? GetDeflatedUTF8StringLength(thisImpl->characters8(), thisImpl->length()) :
 								GetDeflatedUTF8StringLength(thisImpl->characters16(), thisImpl->length());
@@ -216,18 +221,28 @@ Local<String> String::Empty(Isolate * isolate)
 	return Local<String>::New(JSC::JSValue(newString));
 }
 
-int String::Write(uint16_t * buffer, int start, int length, int options) const
+int String::Write(Isolate * isolate, uint16_t * buffer, int start, int length, int options) const
 {
 	return WriteHelper(this, reinterpret_cast<UChar *>(buffer), start, length, options);
 }
 
-int String::WriteOneByte(uint8_t * buffer, int start, int length, int options) const
+int String::Write(uint16_t * buffer, int start, int length, int options) const
+{
+	return Write(Isolate::GetCurrent(), buffer, start, length, options);
+}
+
+int String::WriteOneByte(Isolate * isolate, uint8_t * buffer, int start, int length, int options) const
 {
 	return WriteHelper(this, reinterpret_cast<LChar *>(buffer), start, length, options);
 }
 
+int String::WriteOneByte(uint8_t * buffer, int start, int length, int options) const
+{
+	return WriteOneByte(Isolate::GetCurrent(), buffer, start, length, options);
+}
+
 // Based on StringImpl::utf8ForRange, StringImpl::utf8Impl, and spideshim's WriteUtf8
-int String::WriteUtf8(char * buffer, int length, int * nchars_ref, int options) const
+int String::WriteUtf8(Isolate * isolate, char * buffer, int length, int * nchars_ref, int options) const
 {
 	const WTF::StringImpl * thisImpl = GetResolvedStringImpl(this);
 
@@ -346,6 +361,11 @@ int String::WriteUtf8(char * buffer, int length, int * nchars_ref, int options) 
 	}
 
 	return numBytes;
+}
+
+int String::WriteUtf8(char * buffer, int length, int * nchars_ref, int options) const
+{
+	return WriteUtf8(Isolate::GetCurrent(), buffer, length, nchars_ref, options);
 }
 
 bool String::IsExternal() const
@@ -493,6 +513,11 @@ MaybeLocal<String> String::NewExternalTwoByte(Isolate * isolate, ExternalStringR
 
 Local<String> String::Concat(Local<String> left, Local<String> right)
 {
+	return Concat(Isolate::GetCurrent(), left, right);
+}
+
+Local<String> String::Concat(Isolate * isolate, Local<String> left, Local<String> right)
+{
 	JSC::ExecState * exec = jscshim::GetCurrentExecState();
 
 	JSC::JSString * s1 = jscshim::GetJscCellFromV8<JSC::JSString>(*left);
@@ -524,7 +549,7 @@ String::Utf8Value::Utf8Value(Isolate * isolate, Local<v8::Value> obj)
 									  GetDeflatedUTF8StringLength(jscStringVal.characters16(), jscStringVal.length());
 
 	str_ = new char[length_ + 1];
-	strVal->WriteUtf8(str_, length_);
+	strVal->WriteUtf8(isolate, str_, length_);
 	str_[length_] = '\0';
 }
 
@@ -561,7 +586,7 @@ String::Value::Value(Isolate * isolate, Local<v8::Value> obj)
 	length_ = jscStringVal.length();
 
 	str_ = new uint16_t[length_ + 1];
-	strVal->Write(str_, 0, length_);
+	strVal->Write(isolate, str_, 0, length_);
 	str_[length_] = '\0';
 }
 
