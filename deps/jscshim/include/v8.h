@@ -896,7 +896,10 @@ public:
 class V8_EXPORT HandleScope
 {
 public:
-	explicit HandleScope(Isolate* isolate) {};
+	explicit HandleScope(Isolate* isolate) :
+		isolate_(isolate)
+	{
+	}
 
 	V8_INLINE static int NumberOfHandles(Isolate* isolate)
 	{
@@ -904,8 +907,13 @@ public:
 		return 0;
 	}
 
+	V8_INLINE Isolate* GetIsolate() const { return (isolate_); }
+
 	HandleScope(const HandleScope&) = delete;
 	void operator=(const HandleScope&) = delete;
+
+private:
+	Isolate* isolate_;
 };
 
 class V8_EXPORT EscapableHandleScope : public HandleScope
