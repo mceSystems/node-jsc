@@ -388,6 +388,7 @@
       'test/src/cctest.h',
       'test/src/test-api.cc',
       'test/src/test-api.h',
+      'test/src/test-compiler.cc',
       'test/src/v8-pollyfill.h',
 
       'test/src/jscutshim/internal.cpp',

@@ -12,6 +12,8 @@
 #include <JavaScriptCore/JSObject.h>
 #include <JavaScriptCore/Completion.h>
 #include <JavaScriptCore/SourceCode.h>
+#include <JavaScriptCore/JSWithScope.h>
+#include <JavaScriptCore/FunctionConstructor.h>
 #include <JavaScriptCore/JSCInlines.h>
 #include <wtf/text/OrdinalNumber.h>
 
@@ -182,6 +184,73 @@ MaybeLocal<Module> ScriptCompiler::CompileModule(Isolate* isolate, Source* sourc
 {
 	// TODO: IMPLEMENT
 	return Local<Module>();
+}
+
+/* Based on v8's implementation and WebCore's JSLazyEventListener::initializeJSFunction (WebCore/bindings/js/JSLazyEventListener.cpp).
+ * TODO: Support CompileOptions and NoCacheReason. */
+MaybeLocal<Function> ScriptCompiler::CompileFunctionInContext(Local<Context> context,
+															  Source* source,
+															  size_t arguments_count,
+															  Local<String> arguments[],
+															  size_t context_extension_count,
+															  Local<Object> context_extensions[],
+															  CompileOptions options,
+															  NoCacheReason no_cache_reason)
+{
+	SETUP_JSC_USE_IN_FUNCTION(context);
+
+	// Build the ("with") scope, if we have context "extensions"
+	JSC::JSScope * scope = nullptr;
+	if (context_extension_count)
+	{
+		scope = global->globalScope();
+		for (size_t i = 0; i < context_extension_count; i++)
+		{
+			JSC::JSValue currentExtension = context_extensions[i].val_;
+			if (!currentExtension.isObject())
+			{
+				return Local<Function>();
+			}
+
+			scope = JSC::JSWithScope::create(vm, global, scope, JSC::asObject(currentExtension));
+		}	
+	}
+
+	// Create the new function's arguments
+	JSC::MarkedArgumentBuffer args;
+	for (size_t i = 0; i < arguments_count; i++)
+	{
+		args.append(arguments[i].val_);
+	}
+
+	/* Like in the Function constructor (which constructFunctionSkippingEvalEnabledCheck basically implements), 
+	 * the function's source code is the last argument */
+	args.append(source->source_string.val_);
+
+	// Construct our new function
+	JSC::JSString * resourceName = JSC::asString(source->resource_name.val_);
+	const WTF::String& fileName = resourceName ? resourceName->value(exec) : exec->vm().smallStrings.emptyString()->value(exec);	
+	const TextPosition sourceTextPosition(OrdinalNumber::fromZeroBasedInt(GetNumberValue(source->resource_line_offset.val_)),
+										  OrdinalNumber::fromZeroBasedInt(GetNumberValue(source->resource_column_offset.val_)));
+
+	JSC::JSObject * newFunction = JSC::constructFunctionSkippingEvalEnabledCheck(exec,
+																			    global,
+																			    args,
+																			    vm.propertyNames->anonymous,
+																			    JSC::SourceOrigin{ fileName },
+																			    fileName,
+																			    sourceTextPosition);
+	SHIM_RETURN_IF_EXCEPTION(Local<Function>());
+
+	if (scope)
+	{
+		JSC::JSFunction * newFunctionAsFunction = JSC::jsCast<JSC::JSFunction *>(newFunction);
+		ASSERT(newFunctionAsFunction);
+
+		newFunctionAsFunction->setScope(vm, scope);
+	}
+
+	return Local<Function>(JSC::JSValue(newFunction));
 }
 
 ScriptCompiler::CachedData * ScriptCompiler::CreateCodeCache(Local<UnboundScript> unbound_script)

@@ -1116,6 +1116,13 @@ public:
 	static V8_WARN_UNUSED_RESULT MaybeLocal<Module> CompileModule(
 		Isolate* isolate, Source* source);
 
+	static V8_WARN_UNUSED_RESULT MaybeLocal<Function> CompileFunctionInContext(
+		Local<Context> context, Source* source, size_t arguments_count,
+		Local<String> arguments[], size_t context_extension_count,
+		Local<Object> context_extensions[],
+		CompileOptions options = kNoCompileOptions,
+		NoCacheReason no_cache_reason = kNoCacheNoReason);
+
 	static CachedData* CreateCodeCache(Local<UnboundScript> unbound_script);
 
 	static CachedData* CreateCodeCacheForFunction(Local<Function> function,
