@@ -133,6 +133,7 @@ void CcTest::Run() {
 	isolate_ = nullptr;
 	initialize_called_ = false;
 	initialization_state_ = kUninitialized;
+	v8::base::Relaxed_Store(&isolate_used_, 0);
   }
 }
 
