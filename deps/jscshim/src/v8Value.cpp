@@ -6,7 +6,12 @@
 #include "config.h"
 #include "v8Value.h"
 
-// TODO: Add JSLockHolder to all calls?
+// TODO: Add JSLockHolder to all calls? 
+
+namespace
+{
+	constexpr char * const TO_BIGINT_ERROR_MESSAGE = "Cannot convert to a BigInt";
+}
 
 namespace v8
 {
@@ -142,6 +147,47 @@ MaybeLocal<Object> Value::ToObject(Local<Context> context) const
 
 	JSC::JSObject * valueObj = jscshim::GetValue(this).toObject(exec, global);
 	return Local<Object>::New(JSC::JSValue(valueObj));
+}
+
+// Based on v8's BigInt::FromObject (objects/bigint.cc)
+MaybeLocal<BigInt> Value::ToBigInt(Local<Context> context) const
+{
+	JSC::ExecState * exec = jscshim::GetExecStateForV8Context(*context);
+	DECLARE_SHIM_EXCEPTION_SCOPE(exec);
+
+	JSC::JSValue thisValue = jscshim::GetValue(this);
+	if (thisValue.isObject())
+	{
+		thisValue = thisValue.toPrimitive(exec, JSC::PreferNumber);
+		SHIM_RETURN_IF_EXCEPTION(MaybeLocal<BigInt>());
+	}
+
+	if (thisValue.isBoolean())
+	{
+		JSC::JSValue bigInt = JSC::JSBigInt::createFrom(exec->vm(), thisValue.asBoolean());
+		return Local<BigInt>(bigInt);
+	}
+
+	if (thisValue.isBigInt())
+	{
+		return Local<BigInt>(thisValue);
+	}
+
+	if (thisValue.isString())
+	{
+		JSC::JSValue bigInt = JSC::JSBigInt::stringToBigInt(exec, JSC::asString(thisValue)->value(exec));
+		SHIM_RETURN_IF_EXCEPTION(MaybeLocal<BigInt>());
+		if (nullptr == bigInt)
+		{
+			SHIM_THROW_EXCEPTION(JSC::createSyntaxError(exec, ASCIILiteral(TO_BIGINT_ERROR_MESSAGE)));
+			return MaybeLocal<BigInt>();
+		}
+
+		return Local<BigInt>(bigInt);
+	}
+
+	SHIM_THROW_EXCEPTION(JSC::createSyntaxError(exec, ASCIILiteral(TO_BIGINT_ERROR_MESSAGE)));
+	return MaybeLocal<BigInt>();
 }
 
 bool Value::IsExternal() const
