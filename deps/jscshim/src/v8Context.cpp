@@ -176,7 +176,7 @@ void Context::AllowCodeGenerationFromStrings(bool allow)
 	// TODO: IMPLEMENT
 }
 
-bool IsCodeGenerationFromStringsAllowed()
+bool Context::IsCodeGenerationFromStringsAllowed()
 {
 	// TODO: IMPLEMENT
 	return true;
