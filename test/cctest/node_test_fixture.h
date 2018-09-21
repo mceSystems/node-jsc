@@ -56,13 +56,17 @@ struct Argv {
 using ArrayBufferUniquePtr = std::unique_ptr<node::ArrayBufferAllocator,
       decltype(&node::FreeArrayBufferAllocator)>;
 using TracingControllerUniquePtr = std::unique_ptr<v8::TracingController>;
+#if NODE_USE_V8_PLATFORM
 using NodePlatformUniquePtr = std::unique_ptr<node::NodePlatform>;
+#endif
 
 class NodeTestFixture : public ::testing::Test {
  protected:
   static ArrayBufferUniquePtr allocator;
   static TracingControllerUniquePtr tracing_controller;
+#if NODE_USE_V8_PLATFORM
   static NodePlatformUniquePtr platform;
+#endif
   static uv_loop_t current_loop;
   v8::Isolate* isolate_;
 
@@ -70,14 +74,20 @@ class NodeTestFixture : public ::testing::Test {
     tracing_controller.reset(new v8::TracingController());
     node::tracing::TraceEventHelper::SetTracingController(
         tracing_controller.get());
+#if NODE_USE_V8_PLATFORM
     platform.reset(new node::NodePlatform(4, nullptr));
     CHECK_EQ(0, uv_loop_init(&current_loop));
     v8::V8::InitializePlatform(platform.get());
+#else
+	CHECK_EQ(0, uv_loop_init(&current_loop));
+#endif
     v8::V8::Initialize();
   }
 
   static void TearDownTestCase() {
+#if NODE_USE_V8_PLATFORM
     platform->Shutdown();
+#endif
     while (uv_loop_alive(&current_loop)) {
       uv_run(&current_loop, UV_RUN_ONCE);
     }
@@ -109,9 +119,15 @@ class EnvironmentTestFixture : public NodeTestFixture {
       CHECK(!context_.IsEmpty());
       context_->Enter();
 
+#if NODE_USE_V8_PLATFORM
       isolate_data_ = node::CreateIsolateData(isolate,
                                               &NodeTestFixture::current_loop,
                                               platform.get());
+#else
+	  isolate_data_ = node::CreateIsolateData(isolate,
+                                              &NodeTestFixture::current_loop,
+                                              nullptr);
+#endif
       CHECK_NE(nullptr, isolate_data_);
       environment_ = node::CreateEnvironment(isolate_data_,
                                              context_,

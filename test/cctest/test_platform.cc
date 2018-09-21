@@ -1,3 +1,5 @@
+#if NODE_USE_V8_PLATFORM
+
 #include "node_internals.h"
 #include "libplatform/libplatform.h"
 
@@ -53,3 +55,5 @@ TEST_F(PlatformTest, SkipNewTasksInFlushForegroundTasks) {
   EXPECT_EQ(3, run_count);
   EXPECT_FALSE(platform->FlushForegroundTasks(isolate_));
 }
+
+#endif // NODE_USE_V8_PLATFORM
