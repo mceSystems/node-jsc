@@ -9,6 +9,7 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
+#include <wtf/ASCIICType.h>
 
 #include "src/base/platform/platform.h"
 
@@ -42,7 +43,7 @@ void PrettyPrintChar(std::ostream& os, int ch) {
     CHAR_PRINT_CASE('\v')
 #undef CHAR_PRINT_CASE
     default:
-      if (std::isprint(ch)) {
+      if (::WTF::isASCIIPrintable(ch)) {
         os << '\'' << ch << '\'';
       } else {
         auto flags = os.flags(std::ios_base::hex);
