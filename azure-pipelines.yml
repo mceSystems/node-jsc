@@ -12,6 +12,10 @@ steps:
     versionSpec: '2.x' 
     addToPath: true 
     architecture: 'x64'
+- task: DownloadSecureFile@1
+  inputs:
+    secureFile: gperf.exe
+  displayName: 'Download gperf'
 - script: |
-    vcbuild.bat vs2017 x64 nosnapshot noetw noperfctr jsc
+    set PATH=%PATH;%AGENT_TEMPDIRECTORY% && vcbuild.bat vs2017 x64 nosnapshot noetw noperfctr jsc
   displayName: 'Build'
