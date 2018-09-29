@@ -1,21 +1,24 @@
-# C/C++ with GCC
-# Build your C/C++ project with GCC using make.
-# Add steps that publish test results, save build artifacts, deploy, and more:
-# https://docs.microsoft.com/azure/devops/pipelines/apps/c-cpp/gcc
-
 pool:
   vmImage: 'vs2017-win2016'
 
 steps:
+# node's configure script doesn't support python 3
 - task: UsePythonVersion@0
   inputs:
     versionSpec: '2.x' 
     addToPath: true 
     architecture: 'x64'
+# Currently, WebKit compilation requires gperf, so we currently host it in our own "Library"
 - task: DownloadSecureFile@1
   inputs:
     secureFile: gperf.exe
   displayName: 'Download gperf'
+# Note that DownloadSecureFile downloadeds gperf.exe to %AGENT_TEMPDIRECTORY%
+# so we need to add it to the search path in order for WebKit's cmake scripts 
+# to find it.
 - script: |
     set "PATH=%PATH%;%AGENT_TEMPDIRECTORY%" && vcbuild.bat vs2017 x64 nosnapshot noetw noperfctr jsc
-  displayName: 'Build'
+  displayName: 'Build node-jsc'
+- script: |
+    python deps/jscshim/test/tools/run-tests.py --outdir=..\..\..\Release
+  displayName: 'Run jscshim tests'
