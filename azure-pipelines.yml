@@ -6,13 +6,12 @@
 pool:
   vmImage: 'vs2017-win2016'
 
+steps:
 - task: UsePythonVersion@0
   inputs:
     versionSpec: '2.x' 
     addToPath: true 
     architecture: 'x64'
-
-steps:
 - script: |
     vcbuild.bat vs2017 x64 nosnapshot noetw noperfctr jsc
   displayName: 'Build'
