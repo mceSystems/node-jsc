@@ -1,4 +1,6 @@
 # node-jsc - A node.js port to the JavaScriptCore engine and iOS
+[![Build Status](https://dev.azure.com/mce-kobybo/node-jsc/_apis/build/status/mceSystems.node-jsc)](https://dev.azure.com/mce-kobybo/node-jsc/_build/latest?definitionId=1)
+
 node-jsc enables node.js to use JavaScriptCore, [WebKit](https://webkit.org)'s javascript engine, allowing node.js to run on iOS devices (and other platforms supported by node.js and JavaScriptCore).
 While node-jsc was successully tested on iOS (has already managed to succesfully run a test express.js project with websockets), it is a very early work in progress, and is far from being ready for production use.
 
