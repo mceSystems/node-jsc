@@ -24,15 +24,15 @@ jobs:
       python deps/jscshim/test/tools/run-tests.py --outdir=..\..\..\Release
     displayName: 'Run jscshim tests'
 
-- job: iOS
-  pool:
-    vmImage: 'macOS-10.13'
-  steps:
-  - script: |
-      sudo ./deps/jscshim/webkit/Tools/Scripts/configure-xcode-for-ios-development
-      chmod +x ./build_ios.sh
-    workingDirectory: $(Build.SourcesDirectory)
-    displayName: 'Prepare'
-  - script: ./build_ios.sh
-    workingDirectory: $(Build.SourcesDirectory)
-    displayName: 'Build node-jsc'
+# - job: iOS
+#   pool:
+#     vmImage: 'macOS-10.13'
+#   steps:
+#   - script: |
+#       sudo ./deps/jscshim/webkit/Tools/Scripts/configure-xcode-for-ios-development
+#       chmod +x ./build_ios.sh
+#     workingDirectory: $(Build.SourcesDirectory)
+#     displayName: 'Prepare'
+#   - script: ./build_ios.sh
+#     workingDirectory: $(Build.SourcesDirectory)
+#     displayName: 'Build node-jsc'
