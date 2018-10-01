@@ -629,7 +629,7 @@ public:
 
 	V8_WARN_UNUSED_RESULT MaybeLocal<Value> StackTrace(Local<Context> context) const;
 
-	Local<Message> Message() const;
+	Local<v8::Message> Message() const;
 
 	void Reset();
 

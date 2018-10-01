@@ -21,7 +21,7 @@
 #include <unicode/umachine.h>
 
 namespace WTF {
-  template<> struct WTF::IntegerToStringConversionTrait<v8_inspector::String16> {
+  template<> struct IntegerToStringConversionTrait<v8_inspector::String16> {
     using ReturnType = v8_inspector::String16;
     using AdditionalArgumentType = void;
     static v8_inspector::String16 flush(LChar* characters, unsigned length, void*) { return { (char *)characters, length }; }

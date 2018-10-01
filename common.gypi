@@ -43,11 +43,11 @@
       ['GENERATOR=="ninja"', {
         'OBJ_DIR': '<(PRODUCT_DIR)/obj',
         'V8_BASE': '<(PRODUCT_DIR)/obj/deps/v8/src/libv8_base.a',
-        'JSCSHIM_BASE': '<(PRODUCT_DIR)/obj/deps/chakrashim/<(STATIC_LIB_PREFIX)jscshim<(STATIC_LIB_SUFFIX)',
+        'JSCSHIM_BASE': '<(PRODUCT_DIR)/obj/deps/jscshim/<(STATIC_LIB_PREFIX)jscshim<(STATIC_LIB_SUFFIX)',
        }, {
          'OBJ_DIR%': '<(PRODUCT_DIR)/obj.target',
          'V8_BASE%': '<(PRODUCT_DIR)/obj.target/deps/v8/src/libv8_base.a',
-         'JSCSHIM_BASE': '<(PRODUCT_DIR)/obj/deps/chakrashim/<(STATIC_LIB_PREFIX)jscshim<(STATIC_LIB_SUFFIX)',
+         'JSCSHIM_BASE': '<(PRODUCT_DIR)/obj.target/deps/jscshim/<(STATIC_LIB_PREFIX)jscshim<(STATIC_LIB_SUFFIX)',
       }],
       ['OS == "win"', {
         'os_posix': 0,
