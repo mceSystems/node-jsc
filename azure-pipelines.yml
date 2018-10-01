@@ -31,7 +31,8 @@ jobs:
   - script: |
       sudo ./deps/jscshim/webkit/Tools/Scripts/configure-xcode-for-ios-development
       chmod +x ./build_ios.sh
+    workingDirectory: $(Build.SourcesDirectory)
     displayName: 'Prepare'
-  - script: |
-      ./build_ios.sh
+  - script: ./build_ios.sh
+    workingDirectory: $(Build.SourcesDirectory)
     displayName: 'Build node-jsc'
