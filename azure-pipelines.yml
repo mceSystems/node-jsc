@@ -29,8 +29,8 @@ jobs:
     vmImage: 'macOS-10.13'
   steps:
   - script: |
-      sudo deps/jscshim/webkit/Tools/Scripts/configure-xcode-for-ios-development
-      chmod +x build_ios.sh
+      sudo ./deps/jscshim/webkit/Tools/Scripts/configure-xcode-for-ios-development
+      chmod +x ./build_ios.sh
     displayName: 'Prepare'
   - script: |
       ./build_ios.sh
