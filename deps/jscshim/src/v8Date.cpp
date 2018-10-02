@@ -17,9 +17,6 @@ namespace v8
 
 MaybeLocal<Value> Date::New(Local<Context> context, double time)
 {
-	JSC::MarkedArgumentBuffer argList;
-	argList.append(JSC::jsNumber(time));
-
 	jscshim::GlobalObject * global = jscshim::GetGlobalObjectForV8Context(*context);
 
 	JSC::JSObject * newDate = JSC::DateInstance::create(global->vm(), global->dateStructure(), time);
