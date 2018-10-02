@@ -200,7 +200,7 @@ def build_jsc(options):
 	# The build scripts use paths relative to WebKit's root the (the update scripts at least)
 	# Note that this must be done right before running WebKit's script, as the above create_icu_header_paths
 	# uses os.path.abspath, and relies on node's root dir to be the current dir.
-	os.chdir('WebKit')
+	os.chdir('webkit')
 
 	#for env_var in ENV_VARS_TO_DELETE:
 	#	del os.environ[env_var]

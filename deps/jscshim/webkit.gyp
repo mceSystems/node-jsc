@@ -38,7 +38,7 @@
       'include_dirs': [
         '<(webkit_output_dir)/DerivedSources/ForwardingHeaders',
         '<(webkit_output_dir)/DerivedSources/ForwardingHeaders/JavaScriptCore',
-        './WebKit/Source/bmalloc',
+        './webkit/Source/bmalloc',
 
         # For cmakeconfig.h
         '<(webkit_output_dir)',
@@ -133,8 +133,8 @@
         'tools/build_jsc.py',
 
         # Use the ChangeLogs as inputs since they change when WebKit updates, which will trigger this action
-        'WebKit/Source/JavaScriptCore/ChangeLog',
-        'WebKit/Source/WTF/ChangeLog'
+        'webkit/Source/JavaScriptCore/ChangeLog',
+        'webkit/Source/WTF/ChangeLog'
       ],
       'outputs': ['<@(webkit_output_libraries)'],
       'action': ['python', 'tools/build_jsc.py', '<@(build_jsc_args)']
