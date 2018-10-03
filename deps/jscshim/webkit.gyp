@@ -45,7 +45,7 @@
 
       ],
       'link_settings': {
-        'libraries': ['<@(webkit_output_libraries)']
+        'libraries': ['<@(webkit_output_libraries)', '-ldl', '-L/usr/lib/x86_64-linux-gnu', '-licui18n', '-licuuc', '-licudata' ]
       },
       'conditions': [
         # Internally JSC\WTF will always use ICU, so use the default one if we're not using node's

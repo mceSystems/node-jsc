@@ -352,7 +352,7 @@
     ],
 
     'link_settings': {
-      'libraries': [ '<@(webkit_output_libraries)' ],
+      'libraries': [ '<@(webkit_output_libraries)', '-ldl', '-L/usr/lib/x86_64-linux-gnu', '-licui18n', '-licuuc', '-licudata' ],
     },
 
     'conditions': [
