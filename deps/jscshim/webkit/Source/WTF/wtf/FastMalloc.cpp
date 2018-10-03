@@ -35,7 +35,9 @@
 #include <windows.h>
 #else
 #include <pthread.h>
+#if HAVE(RESOURCE_H)
 #include <sys/resource.h>
+#endif // HAVE(RESOURCE_H)
 #endif
 
 #if OS(DARWIN)
@@ -250,6 +252,8 @@ void fastDecommitAlignedMemory(void* ptr, size_t size)
     OSAllocator::decommit(ptr, size);
 }
 
+void fastEnableMiniMode() { }
+
 } // namespace WTF
 
 #else // defined(USE_SYSTEM_MALLOC) && USE_SYSTEM_MALLOC
@@ -359,7 +363,7 @@ FastMallocStatistics fastMallocStatistics()
     PROCESS_MEMORY_COUNTERS resourceUsage;
     GetProcessMemoryInfo(GetCurrentProcess(), &resourceUsage, sizeof(resourceUsage));
     statistics.committedVMBytes = resourceUsage.PeakWorkingSetSize;
-#else
+#elif HAVE(RESOURCE_H)
     struct rusage resourceUsage;
     getrusage(RUSAGE_SELF, &resourceUsage);
 
@@ -381,6 +385,11 @@ void fastCommitAlignedMemory(void* ptr, size_t size)
 void fastDecommitAlignedMemory(void* ptr, size_t size)
 {
     bmalloc::api::decommitAlignedPhysical(ptr, size);
+}
+
+void fastEnableMiniMode()
+{
+    bmalloc::api::enableMiniMode();
 }
 
 } // namespace WTF

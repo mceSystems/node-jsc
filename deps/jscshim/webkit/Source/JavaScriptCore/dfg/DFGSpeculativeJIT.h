@@ -145,14 +145,14 @@ public:
 
         static TrustedImmPtr weakPointer(Graph& graph, JSCell* cell)
         {     
-            graph.m_plan.weakReferences.addLazily(cell);
+            graph.m_plan.weakReferences().addLazily(cell);
             return TrustedImmPtr(bitwise_cast<size_t>(cell));
         }
 
         template<typename Key>
         static TrustedImmPtr weakPoisonedPointer(Graph& graph, JSCell* cell)
         {     
-            graph.m_plan.weakReferences.addLazily(cell);
+            graph.m_plan.weakReferences().addLazily(cell);
             return TrustedImmPtr(bitwise_cast<size_t>(cell) ^ Key::key());
         }
 
@@ -356,7 +356,7 @@ public:
     GeneratedOperandType checkGeneratedTypeForToInt32(Node*);
 
     void addSlowPathGenerator(std::unique_ptr<SlowPathGenerator>);
-    void addSlowPathGenerator(std::function<void()>);
+    void addSlowPathGeneratorLambda(Function<void()>&&);
     void runSlowPathGenerators(PCToCodeOriginMapBuilder&);
     
     void compile(Node*);
@@ -1248,7 +1248,7 @@ public:
     void emitSwitchString(Node*, SwitchData*);
     void emitSwitch(Node*);
     
-    void compileToStringOrCallStringConstructor(Node*);
+    void compileToStringOrCallStringConstructorOrStringValueOf(Node*);
     void compileNumberToStringWithRadix(Node*);
     void compileNumberToStringWithValidRadixConstant(Node*);
     void compileNumberToStringWithValidRadixConstant(Node*, int32_t radix);
@@ -1472,6 +1472,7 @@ public:
     void compileNewArrayWithSize(Node*);
     void compileNewTypedArray(Node*);
     void compileToThis(Node*);
+    void compileObjectCreate(Node*);
     void compileCreateThis(Node*);
     void compileNewObject(Node*);
     void compileToPrimitive(Node*);
@@ -1479,6 +1480,7 @@ public:
     void compileLogShadowChickenTail(Node*);
     void compileHasIndexedProperty(Node*);
     void compileExtractCatchLocal(Node*);
+    void compileClearCatchLocals(Node*);
     void compileProfileType(Node*);
 
     void moveTrueTo(GPRReg);
@@ -1608,6 +1610,8 @@ public:
     void speculateWeakMapObject(Edge, GPRReg cell);
     void speculateWeakSetObject(Edge);
     void speculateWeakSetObject(Edge, GPRReg cell);
+    void speculateDataViewObject(Edge);
+    void speculateDataViewObject(Edge, GPRReg cell);
     void speculateObjectOrOther(Edge);
     void speculateString(Edge edge, GPRReg cell);
     void speculateStringIdentAndLoadStorage(Edge edge, GPRReg string, GPRReg storage);
@@ -1718,7 +1722,7 @@ public:
     
     Vector<std::unique_ptr<SlowPathGenerator>, 8> m_slowPathGenerators;
     struct SlowPathLambda {
-        std::function<void()> generator;
+        Function<void()> generator;
         Node* currentNode;
         unsigned streamIndex;
     };

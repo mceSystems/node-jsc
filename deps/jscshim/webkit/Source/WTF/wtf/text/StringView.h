@@ -98,6 +98,7 @@ public:
 
 #if USE(CF)
     // This function converts null strings to empty strings.
+    WTF_EXPORT_PRIVATE RetainPtr<CFStringRef> createCFString() const;
     WTF_EXPORT_PRIVATE RetainPtr<CFStringRef> createCFStringWithoutCopying() const;
 #endif
 
@@ -125,6 +126,7 @@ public:
 
     class SplitResult;
     SplitResult split(UChar) const;
+    SplitResult splitAllowingEmptyEntries(UChar) const;
 
     size_t find(UChar, unsigned start = 0) const;
     size_t find(CodeUnitMatchFunction, unsigned start = 0) const;
@@ -135,6 +137,9 @@ public:
 
     WTF_EXPORT_PRIVATE size_t findIgnoringASCIICase(const StringView&) const;
     WTF_EXPORT_PRIVATE size_t findIgnoringASCIICase(const StringView&, unsigned startOffset) const;
+
+    WTF_EXPORT_PRIVATE String convertToASCIILowercase() const;
+    WTF_EXPORT_PRIVATE String convertToASCIIUppercase() const;
 
     bool contains(UChar) const;
     WTF_EXPORT_PRIVATE bool containsIgnoringASCIICase(const StringView&) const;
@@ -189,8 +194,7 @@ private:
 template<typename CharacterType, size_t inlineCapacity> void append(Vector<CharacterType, inlineCapacity>&, StringView);
 
 bool equal(StringView, StringView);
-bool equal(StringView, const LChar*);
-bool equal(StringView, const char*);
+bool equal(StringView, const LChar* b);
 
 bool equalIgnoringASCIICase(StringView, StringView);
 bool equalIgnoringASCIICase(StringView, const char*);
@@ -198,16 +202,15 @@ bool equalIgnoringASCIICase(StringView, const char*);
 template<unsigned length> bool equalLettersIgnoringASCIICase(StringView, const char (&lowercaseLetters)[length]);
 
 inline bool operator==(StringView a, StringView b) { return equal(a, b); }
-inline bool operator==(StringView a, const LChar* b) { return equal(a, b); }
-inline bool operator==(StringView a, const char* b) { return equal(a, b); }
-inline bool operator==(const LChar* a, StringView b) { return equal(b, a); }
+inline bool operator==(StringView a, const LChar *b);
+inline bool operator==(StringView a, const char *b) { return equal(a, reinterpret_cast<const LChar*>(b)); }
 inline bool operator==(const char* a, StringView b) { return equal(b, a); }
 
 inline bool operator!=(StringView a, StringView b) { return !equal(a, b); }
 inline bool operator!=(StringView a, const LChar* b) { return !equal(a, b); }
 inline bool operator!=(StringView a, const char* b) { return !equal(a, b); }
-inline bool operator!=(const LChar* a, StringView b) { return !equal(b, a); }
-inline bool operator!=(const char* a, StringView b) { return !equal(b, a); }
+inline bool operator!=(const LChar*a, StringView b) { return !equal(b, a); }
+inline bool operator!=(const char*a, StringView b) { return !equal(b, a); }
 
 }
 
@@ -601,7 +604,7 @@ inline bool equal(StringView a, StringView b)
         ASSERT(a.is8Bit() == b.is8Bit());
         return a.length() == b.length();
     }
-        
+
     return equalCommon(a, b);
 }
 
@@ -611,15 +614,14 @@ inline bool equal(StringView a, const LChar* b)
         return !a.isEmpty();
     if (a.isEmpty())
         return !b;
+
     unsigned aLength = a.length();
+    if (aLength != strlen(reinterpret_cast<const char*>(b)))
+        return false;
+
     if (a.is8Bit())
         return equal(a.characters8(), b, aLength);
     return equal(a.characters16(), b, aLength);
-}
-
-inline bool equal(StringView a, const char* b) 
-{
-    return equal(a, reinterpret_cast<const LChar*>(b)); 
 }
 
 inline bool equalIgnoringASCIICase(StringView a, StringView b)
@@ -634,7 +636,7 @@ inline bool equalIgnoringASCIICase(StringView a, const char* b)
 
 class StringView::SplitResult {
 public:
-    explicit SplitResult(StringView, UChar separator);
+    SplitResult(StringView, UChar separator, bool allowEmptyEntries);
 
     class Iterator;
     Iterator begin() const;
@@ -643,6 +645,7 @@ public:
 private:
     StringView m_string;
     UChar m_separator;
+    bool m_allowEmptyEntries;
 };
 
 class StringView::GraphemeClusters {
@@ -702,6 +705,7 @@ private:
     const SplitResult& m_result;
     unsigned m_position { 0 };
     unsigned m_length;
+    bool m_isDone;
 };
 
 class StringView::GraphemeClusters::Iterator {
@@ -896,12 +900,18 @@ inline auto StringView::CodeUnits::end() const -> Iterator
 
 inline auto StringView::split(UChar separator) const -> SplitResult
 {
-    return SplitResult { *this, separator };
+    return SplitResult { *this, separator, false };
 }
 
-inline StringView::SplitResult::SplitResult(StringView stringView, UChar separator)
+inline auto StringView::splitAllowingEmptyEntries(UChar separator) const -> SplitResult
+{
+    return SplitResult { *this, separator, true };
+}
+
+inline StringView::SplitResult::SplitResult(StringView stringView, UChar separator, bool allowEmptyEntries)
     : m_string { stringView }
     , m_separator { separator }
+    , m_allowEmptyEntries { allowEmptyEntries }
 {
 }
 
@@ -917,6 +927,7 @@ inline auto StringView::SplitResult::end() const -> Iterator
 
 inline StringView::SplitResult::Iterator::Iterator(const SplitResult& result)
     : m_result { result }
+    , m_isDone { result.m_string.isEmpty() && !result.m_allowEmptyEntries }
 {
     findNextSubstring();
 }
@@ -924,19 +935,20 @@ inline StringView::SplitResult::Iterator::Iterator(const SplitResult& result)
 inline StringView::SplitResult::Iterator::Iterator(const SplitResult& result, PositionTag)
     : m_result { result }
     , m_position { result.m_string.length() }
+    , m_isDone { true }
 {
 }
 
 inline StringView StringView::SplitResult::Iterator::operator*() const
 {
-    ASSERT(m_position < m_result.m_string.length());
+    ASSERT(m_position <= m_result.m_string.length() && !m_isDone);
     return m_result.m_string.substring(m_position, m_length);
 }
 
 inline bool StringView::SplitResult::Iterator::operator==(const Iterator& other) const
 {
     ASSERT(&m_result == &other.m_result);
-    return m_position == other.m_position;
+    return m_position == other.m_position && m_isDone == other.m_isDone;
 }
 
 inline bool StringView::SplitResult::Iterator::operator!=(const Iterator& other) const
@@ -952,10 +964,10 @@ inline StringView StringView::stripLeadingAndTrailingMatchedCharacters(const Cha
 
     unsigned start = 0;
     unsigned end = m_length - 1;
-    
+
     while (start <= end && predicate(characters[start]))
         ++start;
-    
+
     if (start > end)
         return StringView::empty();
 

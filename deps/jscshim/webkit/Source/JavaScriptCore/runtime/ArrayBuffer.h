@@ -51,7 +51,7 @@ public:
     void* data() const { return m_data.getMayBeNull(); }
     
 private:
-	friend class ArrayBuffer;
+    friend class ArrayBuffer;
 
     CagedPtr<Gigacage::Primitive, void> m_data;
     ArrayBufferDestructorFunction m_destructor;
@@ -128,8 +128,8 @@ public:
 
     inline size_t gcSizeEstimateInBytes() const;
 
-    JS_EXPORT_PRIVATE RefPtr<ArrayBuffer> slice(int begin, int end) const;
-    JS_EXPORT_PRIVATE RefPtr<ArrayBuffer> slice(int begin) const;
+    JS_EXPORT_PRIVATE RefPtr<ArrayBuffer> slice(double begin, double end) const;
+    JS_EXPORT_PRIVATE RefPtr<ArrayBuffer> slice(double begin) const;
     
     inline void pin();
     inline void unpin();
@@ -139,8 +139,8 @@ public:
     void makeWasmMemory();
     inline bool isWasmMemory();
 
-	void makeApiUserControlledBuffer();
-	inline bool isApiUserControlledBuffer() const;
+    void makeApiUserControlledBuffer();
+    inline bool isApiUserControlledBuffer() const;
 
     JS_EXPORT_PRIVATE bool transferTo(VM&, ArrayBufferContents&);
     JS_EXPORT_PRIVATE bool shareWith(ArrayBufferContents&);
@@ -158,8 +158,8 @@ private:
     static RefPtr<ArrayBuffer> tryCreate(unsigned numElements, unsigned elementByteSize, ArrayBufferContents::InitializationPolicy);
     ArrayBuffer(ArrayBufferContents&&);
     RefPtr<ArrayBuffer> sliceImpl(unsigned begin, unsigned end) const;
-    inline unsigned clampIndex(int index) const;
-    static inline int clampValue(int x, int left, int right);
+    inline unsigned clampIndex(double index) const;
+    static inline unsigned clampValue(double x, unsigned left, unsigned right);
 
     void notifyIncommingReferencesOfTransfer(VM&);
 
@@ -169,21 +169,11 @@ private:
     // m_locked == true means that some API user fetched m_contents directly from a TypedArray object,
     // the buffer is backed by a WebAssembly.Memory, or is a SharedArrayBuffer.
     bool m_locked : 1;
-	bool m_isApiUserControlledBuffer : 1;
-	
+    bool m_isApiUserControlledBuffer : 1;
+    
 public:
     Weak<JSArrayBuffer> m_wrapper;
 };
-
-int ArrayBuffer::clampValue(int x, int left, int right)
-{
-    ASSERT(left <= right);
-    if (x < left)
-        x = left;
-    if (right < x)
-        x = right;
-    return x;
-}
 
 void* ArrayBuffer::data()
 {
@@ -209,14 +199,6 @@ size_t ArrayBuffer::gcSizeEstimateInBytes() const
 {
     // FIXME: We probably want to scale this by the shared ref count or something.
     return sizeof(ArrayBuffer) + static_cast<size_t>(byteLength());
-}
-
-unsigned ArrayBuffer::clampIndex(int index) const
-{
-    unsigned currentLength = byteLength();
-    if (index < 0)
-        index = currentLength + index;
-    return clampValue(index, 0, currentLength);
 }
 
 void ArrayBuffer::pin()
@@ -246,7 +228,7 @@ bool ArrayBuffer::isWasmMemory()
 
 bool ArrayBuffer::isApiUserControlledBuffer() const
 {
-	return m_isApiUserControlledBuffer;
+    return m_isApiUserControlledBuffer;
 }
 
 

@@ -33,6 +33,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <wtf/Lock.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/Optional.h>
+#include <wtf/text/StringBuffer.h>
 #include <wtf/text/TextBreakIterator.h>
 #include <wtf/unicode/UTF8.h>
 
@@ -104,22 +105,25 @@ size_t StringView::find(StringView matchString, unsigned start) const
 void StringView::SplitResult::Iterator::findNextSubstring()
 {
     for (size_t separatorPosition; (separatorPosition = m_result.m_string.find(m_result.m_separator, m_position)) != notFound; ++m_position) {
-        if (separatorPosition > m_position) {
+        if (m_result.m_allowEmptyEntries || separatorPosition > m_position) {
             m_length = separatorPosition - m_position;
             return;
         }
     }
     m_length = m_result.m_string.length() - m_position;
+    if (!m_length && !m_result.m_allowEmptyEntries)
+        m_isDone = true;
 }
 
 auto StringView::SplitResult::Iterator::operator++() -> Iterator&
 {
-    ASSERT(m_position < m_result.m_string.length());
+    ASSERT(m_position <= m_result.m_string.length() && !m_isDone);
     m_position += m_length;
     if (m_position < m_result.m_string.length()) {
         ++m_position;
         findNextSubstring();
-    }
+    } else if (!m_isDone)
+        m_isDone = true;
     return *this;
 }
 
@@ -204,6 +208,35 @@ bool StringView::GraphemeClusters::Iterator::operator==(const Iterator& other) c
 bool StringView::GraphemeClusters::Iterator::operator!=(const Iterator& other) const
 {
     return !(*this == other);
+}
+
+enum class ASCIICase { Lower, Upper };
+
+template<ASCIICase type, typename CharacterType>
+String convertASCIICase(const CharacterType* input, unsigned length)
+{
+    if (!input)
+        return { };
+
+    StringBuffer<CharacterType> buffer(length);
+    CharacterType* characters = buffer.characters();
+    for (unsigned i = 0; i < length; ++i)
+        characters[i] = type == ASCIICase::Lower ? toASCIILower(input[i]) : toASCIIUpper(input[i]);
+    return String::adopt(WTFMove(buffer));
+}
+
+String StringView::convertToASCIILowercase() const
+{
+    if (m_is8Bit)
+        return convertASCIICase<ASCIICase::Lower>(static_cast<const LChar*>(m_characters), m_length);
+    return convertASCIICase<ASCIICase::Lower>(static_cast<const UChar*>(m_characters), m_length);
+}
+
+String StringView::convertToASCIIUppercase() const
+{
+    if (m_is8Bit)
+        return convertASCIICase<ASCIICase::Upper>(static_cast<const LChar*>(m_characters), m_length);
+    return convertASCIICase<ASCIICase::Upper>(static_cast<const UChar*>(m_characters), m_length);
 }
 
 #if CHECK_STRINGVIEW_LIFETIME

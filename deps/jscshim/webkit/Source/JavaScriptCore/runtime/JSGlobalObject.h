@@ -83,6 +83,7 @@ class InputCursor;
 class JSArrayBuffer;
 class JSArrayBufferConstructor;
 class JSArrayBufferPrototype;
+class JSCallee;
 class JSGlobalObjectDebuggable;
 class JSInternalPromise;
 class JSModuleLoader;
@@ -256,7 +257,8 @@ public:
 
     WriteBarrier<JSGlobalLexicalEnvironment> m_globalLexicalEnvironment;
     WriteBarrier<JSScope> m_globalScopeExtension;
-    WriteBarrier<JSObject> m_globalCallee;
+    WriteBarrier<JSCallee> m_globalCallee;
+    WriteBarrier<JSCallee> m_stackOverflowFrameCallee;
     WriteBarrier<RegExpConstructor> m_regExpConstructor;
     WriteBarrier<ErrorConstructor> m_errorConstructor;
     WriteBarrier<Structure> m_nativeErrorPrototypeStructure;
@@ -339,11 +341,19 @@ public:
     LazyProperty<JSGlobalObject, Structure> m_glibCallbackFunctionStructure;
     LazyProperty<JSGlobalObject, Structure> m_glibWrapperObjectStructure;
 #endif
-    LazyProperty<JSGlobalObject, Structure> m_nullPrototypeObjectStructure;
+    WriteBarrier<Structure> m_nullPrototypeObjectStructure;
     WriteBarrier<Structure> m_calleeStructure;
-    WriteBarrier<Structure> m_strictFunctionStructure;
-    WriteBarrier<Structure> m_arrowFunctionStructure;
-    WriteBarrier<Structure> m_sloppyFunctionStructure;
+
+    WriteBarrier<Structure> m_hostFunctionStructure;
+
+    struct FunctionStructures {
+        WriteBarrier<Structure> arrowFunctionStructure;
+        WriteBarrier<Structure> sloppyFunctionStructure;
+        WriteBarrier<Structure> strictFunctionStructure;
+    };
+    FunctionStructures m_builtinFunctions;
+    FunctionStructures m_ordinaryFunctions;
+
     LazyProperty<JSGlobalObject, Structure> m_boundFunctionStructure;
     LazyProperty<JSGlobalObject, Structure> m_customGetterSetterFunctionStructure;
     WriteBarrier<Structure> m_getterSetterStructure;
@@ -434,6 +444,8 @@ public:
 
     WeakRandom m_weakRandom;
 
+    JSCallee* stackOverflowFrameCallee() const { return m_stackOverflowFrameCallee.get(); }
+
     InlineWatchpointSet& arrayIteratorProtocolWatchpoint() { return m_arrayIteratorProtocolWatchpoint; }
     InlineWatchpointSet& mapIteratorProtocolWatchpoint() { return m_mapIteratorProtocolWatchpoint; }
     InlineWatchpointSet& setIteratorProtocolWatchpoint() { return m_setIteratorProtocolWatchpoint; }
@@ -464,6 +476,7 @@ public:
     PoisonedUniquePtr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>> m_setPrototypeAddWatchpoint;
     PoisonedUniquePtr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>> m_numberPrototypeToStringWatchpoint;
 
+    bool isArrayPrototypeIndexedAccessFastAndNonObservable();
     bool isArrayPrototypeIteratorProtocolFastAndNonObservable();
     bool isMapPrototypeIteratorProtocolFastAndNonObservable();
     bool isSetPrototypeIteratorProtocolFastAndNonObservable();
@@ -654,12 +667,30 @@ public:
     Structure* glibWrapperObjectStructure() const { return m_glibWrapperObjectStructure.get(this); }
 #endif
     Structure* dateStructure() const { return m_dateStructure.get(this); }
-    Structure* nullPrototypeObjectStructure() const { return m_nullPrototypeObjectStructure.get(this); }
+    Structure* nullPrototypeObjectStructure() const { return m_nullPrototypeObjectStructure.get(); }
     Structure* errorStructure() const { return m_errorStructure.get(); }
     Structure* calleeStructure() const { return m_calleeStructure.get(); }
-    Structure* strictFunctionStructure() const { return m_strictFunctionStructure.get(); }
-    Structure* sloppyFunctionStructure() const { return m_sloppyFunctionStructure.get(); }
-    Structure* arrowFunctionStructure() const { return m_arrowFunctionStructure.get(); }
+    Structure* hostFunctionStructure() const { return m_hostFunctionStructure.get(); }
+
+    Structure* arrowFunctionStructure(bool isBuiltin) const
+    {
+        if (isBuiltin)
+            return m_builtinFunctions.arrowFunctionStructure.get();
+        return m_ordinaryFunctions.arrowFunctionStructure.get();
+    }
+    Structure* sloppyFunctionStructure(bool isBuiltin) const
+    {
+        if (isBuiltin)
+            return m_builtinFunctions.sloppyFunctionStructure.get();
+        return m_ordinaryFunctions.sloppyFunctionStructure.get();
+    }
+    Structure* strictFunctionStructure(bool isBuiltin) const
+    {
+        if (isBuiltin)
+            return m_builtinFunctions.strictFunctionStructure.get();
+        return m_ordinaryFunctions.strictFunctionStructure.get();
+    }
+
     Structure* boundFunctionStructure() const { return m_boundFunctionStructure.get(this); }
     Structure* customGetterSetterFunctionStructure() const { return m_customGetterSetterFunctionStructure.get(this); }
     Structure* getterSetterStructure() const { return m_getterSetterStructure.get(); }
@@ -901,7 +932,7 @@ public:
     WeakRandom& weakRandom() { return m_weakRandom; }
 
     bool needsSiteSpecificQuirks() const { return m_needsSiteSpecificQuirks; }
-    JS_EXPORT_PRIVATE void exposeDollarVM();
+    JS_EXPORT_PRIVATE void exposeDollarVM(VM&);
 
 #if JSC_OBJC_API_ENABLED
     JSWrapperMap* wrapperMap() const { return m_wrapperMap.get(); }

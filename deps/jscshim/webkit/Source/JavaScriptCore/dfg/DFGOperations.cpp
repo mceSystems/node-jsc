@@ -191,7 +191,7 @@ char* newTypedArrayWithSize(ExecState* exec, Structure* structure, int32_t size,
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     if (size < 0) {
-        throwException(exec, scope, createRangeError(exec, ASCIILiteral("Requested length is negative")));
+        throwException(exec, scope, createRangeError(exec, "Requested length is negative"_s));
         return 0;
     }
     
@@ -246,6 +246,34 @@ EncodedJSValue JIT_OPERATION operationToThisStrict(ExecState* exec, EncodedJSVal
     NativeCallFrameTracer tracer(vm, exec);
 
     return JSValue::encode(JSValue::decode(encodedOp).toThis(exec, StrictMode));
+}
+
+JSCell* JIT_OPERATION operationObjectCreate(ExecState* exec, EncodedJSValue encodedPrototype)
+{
+    VM& vm = exec->vm();
+    NativeCallFrameTracer tracer(&vm, exec);
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    JSValue prototype = JSValue::decode(encodedPrototype);
+
+    if (!prototype.isObject() && !prototype.isNull()) {
+        throwVMTypeError(exec, scope, "Object prototype may only be an Object or null."_s);
+        return nullptr;
+    }
+
+    if (prototype.isObject()) {
+        scope.release();
+        return constructEmptyObject(exec, asObject(prototype));
+    }
+    scope.release();
+    return constructEmptyObject(exec, exec->lexicalGlobalObject()->nullPrototypeObjectStructure());
+}
+
+JSCell* JIT_OPERATION operationObjectCreateObject(ExecState* exec, JSObject* prototype)
+{
+    VM& vm = exec->vm();
+    NativeCallFrameTracer tracer(&vm, exec);
+    return constructEmptyObject(exec, prototype);
 }
 
 JSCell* JIT_OPERATION operationCreateThis(ExecState* exec, JSObject* constructor, uint32_t inlineCapacity)
@@ -1480,7 +1508,7 @@ char* JIT_OPERATION operationNewArrayWithSize(ExecState* exec, Structure* arrayS
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     if (UNLIKELY(size < 0))
-        return bitwise_cast<char*>(throwException(exec, scope, createRangeError(exec, ASCIILiteral("Array size is not a small enough positive integer."))));
+        return bitwise_cast<char*>(throwException(exec, scope, createRangeError(exec, "Array size is not a small enough positive integer."_s)));
 
     JSArray* result;
     if (butterfly)
@@ -1497,14 +1525,14 @@ char* JIT_OPERATION operationNewArrayWithSizeAndHint(ExecState* exec, Structure*
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     if (UNLIKELY(size < 0))
-        return bitwise_cast<char*>(throwException(exec, scope, createRangeError(exec, ASCIILiteral("Array size is not a small enough positive integer."))));
+        return bitwise_cast<char*>(throwException(exec, scope, createRangeError(exec, "Array size is not a small enough positive integer."_s)));
 
     JSArray* result;
     if (butterfly)
         result = JSArray::createWithButterfly(vm, nullptr, arrayStructure, butterfly);
     else {
         result = JSArray::tryCreate(vm, arrayStructure, size, vectorLengthHint);
-        ASSERT(result);
+        RELEASE_ASSERT(result);
     }
     return bitwise_cast<char*>(result);
 }
@@ -1517,8 +1545,8 @@ JSCell* JIT_OPERATION operationNewArrayBuffer(ExecState* exec, Structure* arrayS
     auto* immutableButterfly = jsCast<JSImmutableButterfly*>(immutableButterflyCell);
     ASSERT(arrayStructure->indexingMode() == immutableButterfly->indexingMode() || hasAnyArrayStorage(arrayStructure->indexingMode()));
     auto* result = CommonSlowPaths::allocateNewArrayBuffer(vm, arrayStructure, immutableButterfly);
-    ASSERT(result->indexingMode() == result->structure()->indexingMode());
-    ASSERT(result->structure() == arrayStructure);
+    ASSERT(result->indexingMode() == result->structure(vm)->indexingMode());
+    ASSERT(result->structure(vm) == arrayStructure);
     return result;
 }
 
@@ -1838,7 +1866,7 @@ char* JIT_OPERATION operationAllocateComplexPropertyStorageWithInitialCapacity(E
     VM& vm = exec->vm();
     NativeCallFrameTracer tracer(&vm, exec);
 
-    ASSERT(!object->structure()->outOfLineCapacity());
+    ASSERT(!object->structure(vm)->outOfLineCapacity());
     return reinterpret_cast<char*>(
         object->allocateMoreOutOfLineStorage(vm, 0, initialOutOfLineCapacity));
 }
@@ -1849,7 +1877,7 @@ char* JIT_OPERATION operationAllocateComplexPropertyStorage(ExecState* exec, JSO
     NativeCallFrameTracer tracer(&vm, exec);
 
     return reinterpret_cast<char*>(
-        object->allocateMoreOutOfLineStorage(vm, object->structure()->outOfLineCapacity(), newSize));
+        object->allocateMoreOutOfLineStorage(vm, object->structure(vm)->outOfLineCapacity(), newSize));
 }
 
 char* JIT_OPERATION operationEnsureInt32(ExecState* exec, JSCell* cell)
@@ -1860,7 +1888,7 @@ char* JIT_OPERATION operationEnsureInt32(ExecState* exec, JSCell* cell)
     if (!cell->isObject())
         return 0;
 
-    auto* result = reinterpret_cast<char*>(asObject(cell)->ensureWritableInt32(vm).data());
+    auto* result = reinterpret_cast<char*>(asObject(cell)->tryMakeWritableInt32(vm).data());
     ASSERT((!isCopyOnWrite(asObject(cell)->indexingMode()) && hasInt32(cell->indexingMode())) || !result);
     return result;
 }
@@ -1873,7 +1901,7 @@ char* JIT_OPERATION operationEnsureDouble(ExecState* exec, JSCell* cell)
     if (!cell->isObject())
         return 0;
 
-    auto* result = reinterpret_cast<char*>(asObject(cell)->ensureWritableDouble(vm).data());
+    auto* result = reinterpret_cast<char*>(asObject(cell)->tryMakeWritableDouble(vm).data());
     ASSERT((!isCopyOnWrite(asObject(cell)->indexingMode()) && hasDouble(cell->indexingMode())) || !result);
     return result;
 }
@@ -1886,7 +1914,7 @@ char* JIT_OPERATION operationEnsureContiguous(ExecState* exec, JSCell* cell)
     if (!cell->isObject())
         return 0;
     
-    auto* result = reinterpret_cast<char*>(asObject(cell)->ensureWritableContiguous(vm).data());
+    auto* result = reinterpret_cast<char*>(asObject(cell)->tryMakeWritableContiguous(vm).data());
     ASSERT((!isCopyOnWrite(asObject(cell)->indexingMode()) && hasContiguous(cell->indexingMode())) || !result);
     return result;
 }
@@ -1985,6 +2013,24 @@ StringImpl* JIT_OPERATION operationResolveRope(ExecState* exec, JSString* string
     return string->value(exec).impl();
 }
 
+JSString* JIT_OPERATION operationStringValueOf(ExecState* exec, EncodedJSValue encodedArgument)
+{
+    VM& vm = exec->vm();
+    NativeCallFrameTracer tracer(&vm, exec);
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    JSValue argument = JSValue::decode(encodedArgument);
+
+    if (argument.isString())
+        return asString(argument);
+
+    if (auto* stringObject = jsDynamicCast<StringObject*>(vm, argument))
+        return stringObject->internalValue();
+
+    throwVMTypeError(exec, scope);
+    return nullptr;
+}
+
 JSCell* JIT_OPERATION operationStringSubstr(ExecState* exec, JSCell* cell, int32_t from, int32_t span)
 {
     VM& vm = exec->vm();
@@ -2023,7 +2069,7 @@ char* JIT_OPERATION operationInt32ToString(ExecState* exec, int32_t value, int32
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     if (radix < 2 || radix > 36) {
-        throwVMError(exec, scope, createRangeError(exec, ASCIILiteral("toString() radix argument must be between 2 and 36")));
+        throwVMError(exec, scope, createRangeError(exec, "toString() radix argument must be between 2 and 36"_s));
         return nullptr;
     }
 
@@ -2038,7 +2084,7 @@ char* JIT_OPERATION operationInt52ToString(ExecState* exec, int64_t value, int32
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     if (radix < 2 || radix > 36) {
-        throwVMError(exec, scope, createRangeError(exec, ASCIILiteral("toString() radix argument must be between 2 and 36")));
+        throwVMError(exec, scope, createRangeError(exec, "toString() radix argument must be between 2 and 36"_s));
         return nullptr;
     }
 
@@ -2053,7 +2099,7 @@ char* JIT_OPERATION operationDoubleToString(ExecState* exec, double value, int32
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     if (radix < 2 || radix > 36) {
-        throwVMError(exec, scope, createRangeError(exec, ASCIILiteral("toString() radix argument must be between 2 and 36")));
+        throwVMError(exec, scope, createRangeError(exec, "toString() radix argument must be between 2 and 36"_s));
         return nullptr;
     }
 
@@ -2100,7 +2146,7 @@ JSCell* JIT_OPERATION operationNewStringObject(ExecState* exec, JSString* string
     return StringObject::create(vm, structure, string);
 }
 
-JSCell* JIT_OPERATION operationToStringOnCell(ExecState* exec, JSCell* cell)
+JSString* JIT_OPERATION operationToStringOnCell(ExecState* exec, JSCell* cell)
 {
     VM& vm = exec->vm();
     NativeCallFrameTracer tracer(&vm, exec);
@@ -2108,7 +2154,7 @@ JSCell* JIT_OPERATION operationToStringOnCell(ExecState* exec, JSCell* cell)
     return JSValue(cell).toString(exec);
 }
 
-JSCell* JIT_OPERATION operationToString(ExecState* exec, EncodedJSValue value)
+JSString* JIT_OPERATION operationToString(ExecState* exec, EncodedJSValue value)
 {
     VM& vm = exec->vm();
     NativeCallFrameTracer tracer(&vm, exec);
@@ -2116,7 +2162,7 @@ JSCell* JIT_OPERATION operationToString(ExecState* exec, EncodedJSValue value)
     return JSValue::decode(value).toString(exec);
 }
 
-JSCell* JIT_OPERATION operationCallStringConstructorOnCell(ExecState* exec, JSCell* cell)
+JSString* JIT_OPERATION operationCallStringConstructorOnCell(ExecState* exec, JSCell* cell)
 {
     VM& vm = exec->vm();
     NativeCallFrameTracer tracer(&vm, exec);
@@ -2124,7 +2170,7 @@ JSCell* JIT_OPERATION operationCallStringConstructorOnCell(ExecState* exec, JSCe
     return stringConstructor(exec, cell);
 }
 
-JSCell* JIT_OPERATION operationCallStringConstructor(ExecState* exec, EncodedJSValue value)
+JSString* JIT_OPERATION operationCallStringConstructor(ExecState* exec, EncodedJSValue value)
 {
     VM& vm = exec->vm();
     NativeCallFrameTracer tracer(&vm, exec);
@@ -2132,7 +2178,7 @@ JSCell* JIT_OPERATION operationCallStringConstructor(ExecState* exec, EncodedJSV
     return stringConstructor(exec, JSValue::decode(value));
 }
 
-JSCell* JIT_OPERATION operationMakeRope2(ExecState* exec, JSString* left, JSString* right)
+JSString* JIT_OPERATION operationMakeRope2(ExecState* exec, JSString* left, JSString* right)
 {
     VM& vm = exec->vm();
     NativeCallFrameTracer tracer(&vm, exec);
@@ -2140,7 +2186,7 @@ JSCell* JIT_OPERATION operationMakeRope2(ExecState* exec, JSString* left, JSStri
     return jsString(exec, left, right);
 }
 
-JSCell* JIT_OPERATION operationMakeRope3(ExecState* exec, JSString* a, JSString* b, JSString* c)
+JSString* JIT_OPERATION operationMakeRope3(ExecState* exec, JSString* a, JSString* b, JSString* c)
 {
     VM& vm = exec->vm();
     NativeCallFrameTracer tracer(&vm, exec);
@@ -2148,7 +2194,7 @@ JSCell* JIT_OPERATION operationMakeRope3(ExecState* exec, JSString* a, JSString*
     return jsString(exec, a, b, c);
 }
 
-JSCell* JIT_OPERATION operationStrCat2(ExecState* exec, EncodedJSValue a, EncodedJSValue b)
+JSString* JIT_OPERATION operationStrCat2(ExecState* exec, EncodedJSValue a, EncodedJSValue b)
 {
     VM& vm = exec->vm();
     NativeCallFrameTracer tracer(&vm, exec);
@@ -2165,7 +2211,7 @@ JSCell* JIT_OPERATION operationStrCat2(ExecState* exec, EncodedJSValue a, Encode
     return jsString(exec, str1, str2);
 }
     
-JSCell* JIT_OPERATION operationStrCat3(ExecState* exec, EncodedJSValue a, EncodedJSValue b, EncodedJSValue c)
+JSString* JIT_OPERATION operationStrCat3(ExecState* exec, EncodedJSValue a, EncodedJSValue b, EncodedJSValue c)
 {
     VM& vm = exec->vm();
     NativeCallFrameTracer tracer(&vm, exec);
@@ -2587,7 +2633,7 @@ JSCell* JIT_OPERATION operationSpreadGeneric(ExecState* exec, JSCell* iterable)
     {
         JSFunction* iterationFunction = globalObject->iteratorProtocolFunction();
         CallData callData;
-        CallType callType = JSC::getCallData(iterationFunction, callData);
+        CallType callType = JSC::getCallData(vm, iterationFunction, callData);
         ASSERT(callType != CallType::None);
 
         MarkedArgumentBuffer arguments;
@@ -2619,7 +2665,7 @@ void JIT_OPERATION operationProcessTypeProfilerLogDFG(ExecState* exec)
     VM& vm = exec->vm();
     NativeCallFrameTracer tracer(&vm, exec);
 
-    vm.typeProfilerLog()->processLogEntries(ASCIILiteral("Log Full, called from inside DFG."));
+    vm.typeProfilerLog()->processLogEntries("Log Full, called from inside DFG."_s);
 }
 
 EncodedJSValue JIT_OPERATION operationResolveScopeForHoistingFuncDeclInEval(ExecState* exec, JSScope* scope, UniquedStringImpl* impl)
@@ -2835,7 +2881,8 @@ extern "C" void JIT_OPERATION triggerReoptimizationNow(CodeBlock* codeBlock, Cod
     //
     // Note that even if optimizedCodeBlock is an FTLForOSREntry style CodeBlock, this condition is a
     // sure bet that we don't have anything else left to do.
-    if (codeBlock->replacement() == codeBlock) {
+    CodeBlock* replacement = codeBlock->replacement();
+    if (!replacement || replacement == codeBlock) {
         if (Options::verboseOSR())
             dataLog(*codeBlock, ": Not reoptimizing because we've already been jettisoned.\n");
         return;
@@ -2990,7 +3037,7 @@ void JIT_OPERATION triggerTierUpNow(ExecState* exec)
     }
 }
 
-static char* tierUpCommon(ExecState* exec, unsigned originBytecodeIndex, unsigned osrEntryBytecodeIndex)
+static char* tierUpCommon(ExecState* exec, unsigned originBytecodeIndex, bool canOSREnterHere)
 {
     VM* vm = &exec->vm();
     CodeBlock* codeBlock = exec->codeBlock();
@@ -3004,10 +3051,6 @@ static char* tierUpCommon(ExecState* exec, unsigned originBytecodeIndex, unsigne
         worklistState = Worklist::NotKnown;
 
     JITCode* jitCode = codeBlock->jitCode()->dfg();
-
-    // The following is only true for triggerTierUpNowInLoop, which can never
-    // be an OSR entry.
-    bool canOSRFromHere = originBytecodeIndex == osrEntryBytecodeIndex;
     
     bool triggeredSlowPathToStartCompilation = false;
     auto tierUpEntryTriggers = jitCode->tierUpEntryTriggers.find(originBytecodeIndex);
@@ -3020,15 +3063,13 @@ static char* tierUpCommon(ExecState* exec, unsigned originBytecodeIndex, unsigne
 
         case JITCode::TriggerReason::CompilationDone:
             // The trigger was set because compilation completed. Don't unset it
-            // so that further DFG executions OSR enters as well.
-            RELEASE_ASSERT(canOSRFromHere);
+            // so that further DFG executions OSR enter as well.
             break;
 
         case JITCode::TriggerReason::StartCompilation:
             // We were asked to enter as soon as possible and start compiling an
             // entry for the current bytecode location. Unset this trigger so we
             // don't continually enter.
-            RELEASE_ASSERT(canOSRFromHere);
             tierUpEntryTriggers->value = JITCode::TriggerReason::DontTrigger;
             triggeredSlowPathToStartCompilation = true;
             break;
@@ -3037,9 +3078,24 @@ static char* tierUpCommon(ExecState* exec, unsigned originBytecodeIndex, unsigne
 
     if (worklistState == Worklist::Compiling) {
         CODEBLOCK_LOG_EVENT(codeBlock, "delayFTLCompile", ("still compiling"));
-        jitCode->setOptimizationThresholdBasedOnCompilationResult(
-            codeBlock, CompilationDeferred);
+        jitCode->setOptimizationThresholdBasedOnCompilationResult(codeBlock, CompilationDeferred);
         return nullptr;
+    }
+
+    // If we can OSR Enter, do it right away.
+    if (canOSREnterHere) {
+        auto iter = jitCode->bytecodeIndexToStreamIndex.find(originBytecodeIndex);
+        if (iter != jitCode->bytecodeIndexToStreamIndex.end()) {
+            unsigned streamIndex = iter->value;
+            if (CodeBlock* entryBlock = jitCode->osrEntryBlock()) {
+                if (Options::verboseOSR())
+                    dataLog("OSR entry: From ", RawPointer(jitCode), " got entry block ", RawPointer(entryBlock), "\n");
+                if (void* address = FTL::prepareOSREntry(exec, codeBlock, entryBlock, originBytecodeIndex, streamIndex)) {
+                    CODEBLOCK_LOG_EVENT(entryBlock, "osrEntry", ("at bc#", originBytecodeIndex));
+                    return retagCodePtr<char*>(address, JSEntryPtrTag, bitwise_cast<PtrTag>(exec));
+                }
+            }
+        }
     }
 
     if (worklistState == Worklist::Compiled) {
@@ -3048,19 +3104,6 @@ static char* tierUpCommon(ExecState* exec, unsigned originBytecodeIndex, unsigne
         if (Options::verboseOSR())
             dataLog("Code block ", *codeBlock, " was compiled but it doesn't have an optimized replacement.\n");
         return nullptr;
-    }
-
-    // If we can OSR Enter, do it right away.
-    if (canOSRFromHere) {
-        unsigned streamIndex = jitCode->bytecodeIndexToStreamIndex.get(originBytecodeIndex);
-        if (CodeBlock* entryBlock = jitCode->osrEntryBlock()) {
-            if (Options::verboseOSR())
-                dataLog("OSR entry: From ", RawPointer(jitCode), " got entry block ", RawPointer(entryBlock), "\n");
-            if (void* address = FTL::prepareOSREntry(exec, codeBlock, entryBlock, originBytecodeIndex, streamIndex)) {
-                CODEBLOCK_LOG_EVENT(entryBlock, "osrEntry", ("at bc#", originBytecodeIndex));
-                return retagCodePtr<char*>(address, JSEntryPtrTag, bitwise_cast<PtrTag>(exec));
-            }
-        }
     }
 
     // - If we don't have an FTL code block, then try to compile one.
@@ -3084,7 +3127,6 @@ static char* tierUpCommon(ExecState* exec, unsigned originBytecodeIndex, unsigne
     } else
         CODEBLOCK_LOG_EVENT(codeBlock, "delayFTLCompile", ("avoiding replacement compile"));
 
-    // It's time to try to compile code for OSR entry.
     if (CodeBlock* entryBlock = jitCode->osrEntryBlock()) {
         if (jitCode->osrEntryRetry < Options::ftlOSREntryRetryThreshold()) {
             CODEBLOCK_LOG_EVENT(codeBlock, "delayFTLCompile", ("OSR entry failed, OSR entry threshold not met"));
@@ -3116,48 +3158,80 @@ static char* tierUpCommon(ExecState* exec, unsigned originBytecodeIndex, unsigne
         return nullptr;
     }
 
-    if (!canOSRFromHere) {
-        // We can't OSR from here, or even start a compilation because doing so
-        // calls jitCode->reconstruct which would get the wrong state.
-        if (Options::verboseOSR())
-            dataLog("Non-OSR-able bc#", originBytecodeIndex, " in ", *codeBlock, " setting parent loop bc#", osrEntryBytecodeIndex, "'s trigger and backing off.\n");
-        jitCode->tierUpEntryTriggers.set(osrEntryBytecodeIndex, JITCode::TriggerReason::StartCompilation);
+    // It's time to try to compile code for OSR entry.
+
+    if (!triggeredSlowPathToStartCompilation) {
+
+        // An inner loop didn't specifically ask for us to kick off a compilation. This means the counter
+        // crossed its threshold. We either fall through and kick off a compile for originBytecodeIndex,
+        // or we flag an outer loop to immediately try to compile itself. If there are outer loops,
+        // we first try to make them compile themselves. But we will eventually fall back to compiling
+        // a progressively inner loop if it takes too long for control to reach an outer loop.
+
+        auto tryTriggerOuterLoopToCompile = [&] {
+            auto tierUpHierarchyEntry = jitCode->tierUpInLoopHierarchy.find(originBytecodeIndex);
+            if (tierUpHierarchyEntry == jitCode->tierUpInLoopHierarchy.end())
+                return false;
+
+            // This vector is ordered from innermost to outermost loop. Every bytecode entry in this vector is
+            // allowed to do OSR entry. We start with the outermost loop and make our way inwards (hence why we
+            // iterate the vector in reverse). Our policy is that we will trigger an outer loop to compile
+            // immediately when program control reaches it. If program control is taking too long to reach that
+            // outer loop, we progressively move inwards, meaning, we'll eventually trigger some loop that is
+            // executing to compile. We start with trying to compile outer loops since we believe outer loop
+            // compilations reveal the best opportunities for optimizing code.
+            for (auto iter = tierUpHierarchyEntry->value.rbegin(), end = tierUpHierarchyEntry->value.rend(); iter != end; ++iter) {
+                unsigned osrEntryCandidate = *iter;
+
+                if (jitCode->tierUpEntryTriggers.get(osrEntryCandidate) == JITCode::TriggerReason::StartCompilation) {
+                    // This means that we already asked this loop to compile. If we've reached here, it
+                    // means program control has not yet reached that loop. So it's taking too long to compile.
+                    // So we move on to asking the inner loop of this loop to compile itself.
+                    continue;
+                }
+
+                // This is where we ask the outer to loop to immediately compile itself if program
+                // control reaches it.
+                if (Options::verboseOSR())
+                    dataLog("Inner-loop bc#", originBytecodeIndex, " in ", *codeBlock, " setting parent loop bc#", osrEntryCandidate, "'s trigger and backing off.\n");
+                jitCode->tierUpEntryTriggers.set(osrEntryCandidate, JITCode::TriggerReason::StartCompilation);
+                return true;
+            }
+
+            return false;
+        };
+
+        if (tryTriggerOuterLoopToCompile()) {
+            jitCode->setOptimizationThresholdBasedOnCompilationResult(codeBlock, CompilationDeferred);
+            return nullptr;
+        }
+    }
+
+    if (!canOSREnterHere) {
         jitCode->setOptimizationThresholdBasedOnCompilationResult(codeBlock, CompilationDeferred);
         return nullptr;
     }
 
-    unsigned streamIndex = jitCode->bytecodeIndexToStreamIndex.get(osrEntryBytecodeIndex);
-
-    if (!triggeredSlowPathToStartCompilation) {
-        auto tierUpHierarchyEntry = jitCode->tierUpInLoopHierarchy.find(osrEntryBytecodeIndex);
-        if (tierUpHierarchyEntry != jitCode->tierUpInLoopHierarchy.end()) {
-            for (unsigned osrEntryCandidate : tierUpHierarchyEntry->value) {
-                if (jitCode->tierUpEntrySeen.contains(osrEntryCandidate)) {
-                    // Ask an enclosing loop to compile, instead of doing so here.
-                    if (Options::verboseOSR())
-                        dataLog("Inner-loop bc#", originBytecodeIndex, " in ", *codeBlock, " setting parent loop bc#", osrEntryCandidate, "'s trigger and backing off.\n");
-                    jitCode->tierUpEntryTriggers.set(osrEntryCandidate, JITCode::TriggerReason::StartCompilation);
-                    jitCode->setOptimizationThresholdBasedOnCompilationResult(codeBlock, CompilationDeferred);
-                    return nullptr;
-                }
-            }
-        }
-    }
-
     // We aren't compiling and haven't compiled anything for OSR entry. So, try to compile
     // something.
-    auto triggerIterator = jitCode->tierUpEntryTriggers.find(osrEntryBytecodeIndex);
-    RELEASE_ASSERT(triggerIterator != jitCode->tierUpEntryTriggers.end());
+
+    auto triggerIterator = jitCode->tierUpEntryTriggers.find(originBytecodeIndex);
+    if (triggerIterator == jitCode->tierUpEntryTriggers.end()) {
+        jitCode->setOptimizationThresholdBasedOnCompilationResult(codeBlock, CompilationDeferred);
+        return nullptr;
+    }
+
     JITCode::TriggerReason* triggerAddress = &(triggerIterator->value);
 
     Operands<JSValue> mustHandleValues;
+    unsigned streamIndex = jitCode->bytecodeIndexToStreamIndex.get(originBytecodeIndex);
     jitCode->reconstruct(
-        exec, codeBlock, CodeOrigin(osrEntryBytecodeIndex), streamIndex, mustHandleValues);
+        exec, codeBlock, CodeOrigin(originBytecodeIndex), streamIndex, mustHandleValues);
     CodeBlock* replacementCodeBlock = codeBlock->newReplacement();
 
     CODEBLOCK_LOG_EVENT(codeBlock, "triggerFTLOSR", ());
     CompilationResult forEntryResult = compile(
-        *vm, replacementCodeBlock, codeBlock, FTLForOSREntryMode, osrEntryBytecodeIndex,
+        *vm, replacementCodeBlock, codeBlock, FTLForOSREntryMode, originBytecodeIndex,
         mustHandleValues, ToFTLForOSREntryDeferredCompilationCallback::create(triggerAddress));
 
     if (jitCode->neverExecutedEntry)
@@ -3176,6 +3250,7 @@ static char* tierUpCommon(ExecState* exec, unsigned originBytecodeIndex, unsigne
     // We signal to try again after a while if that happens.
     if (Options::verboseOSR())
         dataLog("Immediate OSR entry: From ", RawPointer(jitCode), " got entry block ", RawPointer(jitCode->osrEntryBlock()), "\n");
+
     void* address = FTL::prepareOSREntry(
         exec, codeBlock, jitCode->osrEntryBlock(), originBytecodeIndex, streamIndex);
     if (!address)
@@ -3193,7 +3268,7 @@ void JIT_OPERATION triggerTierUpNowInLoop(ExecState* exec, unsigned bytecodeInde
     sanitizeStackForVM(vm);
 
     if (codeBlock->jitType() != JITCode::DFGJIT) {
-        dataLog("Unexpected code block in DFG->FTL tier-up: ", *codeBlock, "\n");
+        dataLog("Unexpected code block in DFG->FTL trigger tier up now in loop: ", *codeBlock, "\n");
         RELEASE_ASSERT_NOT_REACHED();
     }
 
@@ -3205,11 +3280,9 @@ void JIT_OPERATION triggerTierUpNowInLoop(ExecState* exec, unsigned bytecodeInde
             jitCode->tierUpCounter, "\n");
     }
 
-    auto tierUpHierarchyEntry = jitCode->tierUpInLoopHierarchy.find(bytecodeIndex);
-    if (tierUpHierarchyEntry != jitCode->tierUpInLoopHierarchy.end()
-        && !tierUpHierarchyEntry->value.isEmpty()) {
-        tierUpCommon(exec, bytecodeIndex, tierUpHierarchyEntry->value.first());
-    } else if (shouldTriggerFTLCompile(codeBlock, jitCode))
+    if (jitCode->tierUpInLoopHierarchy.contains(bytecodeIndex))
+        tierUpCommon(exec, bytecodeIndex, false);
+    else if (shouldTriggerFTLCompile(codeBlock, jitCode))
         triggerFTLReplacementCompile(vm, codeBlock, jitCode);
 
     // Since we cannot OSR Enter here, the default "optimizeSoon()" is not useful.
@@ -3242,7 +3315,7 @@ char* JIT_OPERATION triggerOSREntryNow(ExecState* exec, unsigned bytecodeIndex)
             jitCode->tierUpCounter, "\n");
     }
 
-    return tierUpCommon(exec, bytecodeIndex, bytecodeIndex);
+    return tierUpCommon(exec, bytecodeIndex, true);
 }
 
 #endif // ENABLE(FTL_JIT)

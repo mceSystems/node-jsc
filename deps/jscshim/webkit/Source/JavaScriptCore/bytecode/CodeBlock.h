@@ -45,6 +45,7 @@
 #include "ExpressionRangeInfo.h"
 #include "FunctionExecutable.h"
 #include "HandlerInfo.h"
+#include "ICStatusMap.h"
 #include "Instruction.h"
 #include "JITCode.h"
 #include "JITCodeMap.h"
@@ -95,8 +96,6 @@ class StructureStubInfo;
 enum class AccessType : int8_t;
 
 struct ArithProfile;
-
-typedef HashMap<CodeOrigin, StructureStubInfo*, CodeOriginApproximateHash> StubInfoMap;
 
 enum ReoptimizationMode { DontCountReoptimization, CountReoptimization };
 
@@ -151,6 +150,8 @@ public:
 
     int numCalleeLocals() const { return m_numCalleeLocals; }
 
+    int numVars() const { return m_numVars; }
+
     int* addressOfNumParameters() { return &m_numParameters; }
     static ptrdiff_t offsetOfNumParameters() { return OBJECT_OFFSETOF(CodeBlock, m_numParameters); }
 
@@ -186,7 +187,7 @@ public:
     // https://bugs.webkit.org/show_bug.cgi?id=123677
     CodeBlock* baselineVersion();
 
-    static size_t estimatedSize(JSCell*);
+    static size_t estimatedSize(JSCell*, VM&);
     static void visitChildren(JSCell*, SlotVisitor&);
     void visitChildren(SlotVisitor&);
     void finalizeUnconditionally(VM&);
@@ -196,8 +197,8 @@ public:
 
     void dumpBytecode();
     void dumpBytecode(PrintStream&);
-    void dumpBytecode(PrintStream& out, const Instruction* begin, const Instruction*& it, const StubInfoMap& = StubInfoMap(), const CallLinkInfoMap& = CallLinkInfoMap());
-    void dumpBytecode(PrintStream& out, unsigned bytecodeOffset, const StubInfoMap& = StubInfoMap(), const CallLinkInfoMap& = CallLinkInfoMap());
+    void dumpBytecode(PrintStream& out, const Instruction* begin, const Instruction*& it, const ICStatusMap& = ICStatusMap());
+    void dumpBytecode(PrintStream& out, unsigned bytecodeOffset, const ICStatusMap& = ICStatusMap());
 
     void dumpExceptionHandlers(PrintStream&);
     void printStructures(PrintStream&, const Instruction*);
@@ -237,14 +238,8 @@ public:
 
     std::optional<unsigned> bytecodeOffsetFromCallSiteIndex(CallSiteIndex);
 
-    void getStubInfoMap(const ConcurrentJSLocker&, StubInfoMap& result);
-    void getStubInfoMap(StubInfoMap& result);
-    
-    void getCallLinkInfoMap(const ConcurrentJSLocker&, CallLinkInfoMap& result);
-    void getCallLinkInfoMap(CallLinkInfoMap& result);
-
-    void getByValInfoMap(const ConcurrentJSLocker&, ByValInfoMap& result);
-    void getByValInfoMap(ByValInfoMap& result);
+    void getICStatusMap(const ConcurrentJSLocker&, ICStatusMap& result);
+    void getICStatusMap(ICStatusMap& result);
     
 #if ENABLE(JIT)
     JITAddIC* addJITAddIC(ArithProfile*, Instruction*);
@@ -420,6 +415,7 @@ public:
         ASSERT(m_argumentValueProfiles.size() == static_cast<unsigned>(m_numParameters) || !vm()->canUseJIT());
         return m_argumentValueProfiles.size();
     }
+
     ValueProfile& valueProfileForArgument(unsigned argumentIndex)
     {
         ASSERT(vm()->canUseJIT()); // This is only called from the various JIT compilers or places that first check numberOfArgumentValueProfiles before calling this.
@@ -428,10 +424,7 @@ public:
         return result;
     }
 
-    unsigned numberOfValueProfiles() { return m_valueProfiles.size(); }
-    ValueProfile& valueProfile(int index) { return m_valueProfiles[index]; }
     ValueProfile& valueProfileForBytecodeOffset(int bytecodeOffset);
-    ValueProfile* tryGetValueProfileForBytecodeOffset(int bytecodeOffset);
     SpeculatedType valueProfilePredictionForBytecodeOffset(const ConcurrentJSLocker& locker, int bytecodeOffset)
     {
         if (ValueProfile* valueProfile = tryGetValueProfileForBytecodeOffset(bytecodeOffset))
@@ -439,15 +432,12 @@ public:
         return SpecNone;
     }
 
-    unsigned totalNumberOfValueProfiles()
+    template<typename Functor> void forEachValueProfile(const Functor& func)
     {
-        return numberOfArgumentValueProfiles() + numberOfValueProfiles();
-    }
-    ValueProfile& getFromAllValueProfiles(unsigned index)
-    {
-        if (index < numberOfArgumentValueProfiles())
-            return valueProfileForArgument(index);
-        return valueProfile(index - numberOfArgumentValueProfiles());
+        for (unsigned i = 0; i < numberOfArgumentValueProfiles(); ++i)
+            func(valueProfileForArgument(i));
+        for (unsigned i = 0; i < numberOfValueProfiles(); ++i)
+            func(valueProfile(i));
     }
 
     RareCaseProfile* addRareCaseProfile(int bytecodeOffset);
@@ -558,9 +548,6 @@ public:
     int numberOfFunctionDecls() { return m_functionDecls.size(); }
     FunctionExecutable* functionExpr(int index) { return m_functionExprs[index].get(); }
     
-    RegExp* regexp(int index) const { return m_unlinkedCode->regexp(index); }
-    unsigned numberOfRegExps() const { return m_unlinkedCode->numberOfRegExps(); }
-
     const Vector<BitVector>& bitVectors() const { return m_unlinkedCode->bitVectors(); }
     const BitVector& bitVector(size_t i) { return m_unlinkedCode->bitVector(i); }
 
@@ -627,7 +614,7 @@ public:
         return m_llintExecuteCounter;
     }
 
-    typedef HashMap<Structure*, Bag<LLIntPrototypeLoadAdaptiveStructureWatchpoint>> StructureWatchpointMap;
+    typedef HashMap<std::tuple<Structure*, Instruction*>, Bag<LLIntPrototypeLoadAdaptiveStructureWatchpoint>> StructureWatchpointMap;
     StructureWatchpointMap& llintGetByIdWatchpointMap() { return m_llintGetByIdWatchpointMap; }
 
     // Functions for controlling when tiered compilation kicks in. This
@@ -653,11 +640,23 @@ public:
     // to avoid thrashing.
     JS_EXPORT_PRIVATE unsigned reoptimizationRetryCounter() const;
     void countReoptimization();
-#if ENABLE(JIT)
+
+#if !ENABLE(C_LOOP)
+    void setCalleeSaveRegisters(RegisterSet);
+    void setCalleeSaveRegisters(std::unique_ptr<RegisterAtOffsetList>);
+
+    RegisterAtOffsetList* calleeSaveRegisters() const { return m_calleeSaveRegisters.get(); }
+
     static unsigned numberOfLLIntBaselineCalleeSaveRegisters() { return RegisterSet::llintBaselineCalleeSaveRegisters().numberOfSetRegisters(); }
     static size_t llintBaselineCalleeSaveSpaceAsVirtualRegisters();
     size_t calleeSaveSpaceAsVirtualRegisters();
+#else
+    static unsigned numberOfLLIntBaselineCalleeSaveRegisters() { return 0; }
+    static size_t llintBaselineCalleeSaveSpaceAsVirtualRegisters() { return 0; };
+    size_t calleeSaveSpaceAsVirtualRegisters() { return 0; }
+#endif
 
+#if ENABLE(JIT)
     unsigned numberOfDFGCompiles();
 
     int32_t codeTypeThresholdMultiplier() const;
@@ -747,14 +746,7 @@ public:
     bool shouldReoptimizeNow();
     bool shouldReoptimizeFromLoopNow();
 
-    void setCalleeSaveRegisters(RegisterSet);
-    void setCalleeSaveRegisters(std::unique_ptr<RegisterAtOffsetList>);
-    
-    RegisterAtOffsetList* calleeSaveRegisters() const { return m_calleeSaveRegisters.get(); }
 #else // No JIT
-    static unsigned numberOfLLIntBaselineCalleeSaveRegisters() { return 0; }
-    static size_t llintBaselineCalleeSaveSpaceAsVirtualRegisters() { return 0; };
-    size_t calleeSaveSpaceAsVirtualRegisters() { return 0; }
     void optimizeAfterWarmUp() { }
     unsigned numberOfDFGCompiles() { return 0; }
 #endif
@@ -792,11 +784,6 @@ public:
     }
 
     bool wasCompiledWithDebuggingOpcodes() const { return m_unlinkedCode->wasCompiledWithDebuggingOpcodes(); }
-    
-    // FIXME: Make these remaining members private.
-
-    int m_numCalleeLocals;
-    int m_numVars;
     
     // This is intentionally public; it's the responsibility of anyone doing any
     // of the following to hold the lock:
@@ -934,6 +921,12 @@ private:
     void stronglyVisitWeakReferences(const ConcurrentJSLocker&, SlotVisitor&);
     void visitOSRExitTargets(const ConcurrentJSLocker&, SlotVisitor&);
 
+    unsigned numberOfValueProfiles() { return m_valueProfiles.size(); }
+    unsigned numberOfNonArgumentValueProfiles() { return numberOfValueProfiles(); }
+    unsigned totalNumberOfValueProfiles() { return numberOfArgumentValueProfiles() + numberOfNonArgumentValueProfiles(); }
+    ValueProfile& valueProfile(int index) { return m_valueProfiles[index]; }
+    ValueProfile* tryGetValueProfileForBytecodeOffset(int bytecodeOffset);
+
     Seconds timeSinceCreation()
     {
         return MonotonicTime::now() - m_creationTime;
@@ -948,7 +941,8 @@ private:
     void insertBasicBlockBoundariesForControlFlowProfiler(RefCountedArray<Instruction>&);
     void ensureCatchLivenessIsComputedForBytecodeOffsetSlow(unsigned);
 
-    WriteBarrier<UnlinkedCodeBlock> m_unlinkedCode;
+    int m_numCalleeLocals;
+    int m_numVars;
     int m_numParameters;
     int m_numberOfArgumentsToSkip { 0 };
     union {
@@ -959,6 +953,7 @@ private:
             unsigned m_numBreakpoints : 30;
         };
     };
+    WriteBarrier<UnlinkedCodeBlock> m_unlinkedCode;
     WriteBarrier<ExecutableBase> m_ownerExecutable;
     WriteBarrier<ExecutableToCodeBlockEdge> m_ownerEdge;
     Poisoned<CodeBlockPoison, VM*> m_poisonedVM;
@@ -976,8 +971,10 @@ private:
     SentinelLinkedList<LLIntCallLinkInfo, BasicRawSentinelNode<LLIntCallLinkInfo>> m_incomingLLIntCalls;
     StructureWatchpointMap m_llintGetByIdWatchpointMap;
     PoisonedRefPtr<CodeBlockPoison, JITCode> m_jitCode;
-#if ENABLE(JIT)
+#if !ENABLE(C_LOOP)
     std::unique_ptr<RegisterAtOffsetList> m_calleeSaveRegisters;
+#endif
+#if ENABLE(JIT)
     PoisonedBag<CodeBlockPoison, StructureStubInfo> m_stubInfos;
     PoisonedBag<CodeBlockPoison, JITAddIC> m_addICs;
     PoisonedBag<CodeBlockPoison, JITMulIC> m_mulICs;

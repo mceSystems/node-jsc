@@ -57,8 +57,8 @@ public:
         ASSERT(m_graph.m_refCountState == EverythingIsLive);
         
         m_count = 0;
-        
-        if (m_verbose && !shouldDumpGraphAtEachPhase(m_graph.m_plan.mode)) {
+
+        if (m_verbose && !shouldDumpGraphAtEachPhase(m_graph.m_plan.mode())) {
             dataLog("Graph before CFA:\n");
             m_graph.dump();
         }
@@ -88,7 +88,7 @@ public:
                 
                 if (!block->isOSRTarget)
                     continue;
-                if (block->bytecodeBegin != m_graph.m_plan.osrEntryBytecodeIndex)
+                if (block->bytecodeBegin != m_graph.m_plan.osrEntryBytecodeIndex())
                     continue;
                 
                 // We record that the block needs some OSR stuff, but we don't do that yet. We want to
@@ -141,8 +141,15 @@ public:
                     continue;
                 
                 block->intersectionOfCFAHasVisited &= block->cfaHasVisited;
-                for (unsigned i = block->intersectionOfPastValuesAtHead.size(); i--;)
-                    block->intersectionOfPastValuesAtHead[i].filter(block->valuesAtHead[i]);
+                for (unsigned i = block->intersectionOfPastValuesAtHead.size(); i--;) {
+                    AbstractValue value = block->valuesAtHead[i];
+                    // We need to guarantee that when we do an OSR entry, we validate the incoming
+                    // value as if it could be live past an invalidation point. Otherwise, we may
+                    // OSR enter with a value with the wrong structure, and an InvalidationPoint's
+                    // promise of filtering the structure set of certain values is no longer upheld.
+                    value.m_structure.observeInvalidationPoint();
+                    block->intersectionOfPastValuesAtHead[i].filter(value);
+                }
             }
         }
         
@@ -156,9 +163,10 @@ private:
             dataLog("   Found must-handle block: ", *block, "\n");
         
         bool changed = false;
-        for (size_t i = m_graph.m_plan.mustHandleValues.size(); i--;) {
-            int operand = m_graph.m_plan.mustHandleValues.operandForIndex(i);
-            JSValue value = m_graph.m_plan.mustHandleValues[i];
+        const Operands<JSValue>& mustHandleValues = m_graph.m_plan.mustHandleValues();
+        for (size_t i = mustHandleValues.size(); i--;) {
+            int operand = mustHandleValues.operandForIndex(i);
+            JSValue value = mustHandleValues[i];
             Node* node = block->variablesAtHead.operand(operand);
             if (!node) {
                 if (m_verbose)

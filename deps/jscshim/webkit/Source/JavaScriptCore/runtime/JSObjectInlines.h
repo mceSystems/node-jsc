@@ -203,6 +203,10 @@ ALWAYS_INLINE PropertyOffset JSObject::prepareToPutDirectWithoutTransition(VM& v
                 setStructureIDDirectly(structureID);
             } else
                 structure->setLastOffset(newLastOffset);
+
+            // This assertion verifies that the concurrent GC won't read garbage if the concurrentGC
+            // is running at the same time we put without transitioning.
+            ASSERT(!getDirect(offset) || !JSValue::encode(getDirect(offset)));
             result = offset;
         });
     return result;
@@ -233,7 +237,7 @@ ALWAYS_INLINE bool JSObject::putInlineForJSObject(JSCell* cell, ExecState* exec,
     if (thisObject->canPerformFastPutInline(vm, propertyName)) {
         ASSERT(!thisObject->prototypeChainMayInterceptStoreTo(vm, propertyName));
         if (!thisObject->putDirectInternal<PutModePut>(vm, propertyName, value, 0, slot))
-            return typeError(exec, scope, slot.isStrictMode(), ASCIILiteral(ReadonlyPropertyWriteError));
+            return typeError(exec, scope, slot.isStrictMode(), ReadonlyPropertyWriteError);
         return true;
     }
 
@@ -296,7 +300,7 @@ ALWAYS_INLINE bool JSObject::putDirectInternal(VM& vm, PropertyName propertyName
             return true;
         }
 
-        if ((mode == PutModePut) && !isStructureExtensible())
+        if ((mode == PutModePut) && !isStructureExtensible(vm))
             return false;
 
         offset = prepareToPutDirectWithoutTransition(vm, propertyName, attributes, structureID, structure);
@@ -304,12 +308,12 @@ ALWAYS_INLINE bool JSObject::putDirectInternal(VM& vm, PropertyName propertyName
         putDirect(vm, offset, value);
         slot.setNewProperty(this, offset);
         if (attributes & PropertyAttribute::ReadOnly)
-            this->structure()->setContainsReadOnlyProperties();
+            this->structure(vm)->setContainsReadOnlyProperties();
         return true;
     }
 
     PropertyOffset offset;
-    size_t currentCapacity = this->structure()->outOfLineCapacity();
+    size_t currentCapacity = this->structure(vm)->outOfLineCapacity();
     Structure* newStructure = Structure::addPropertyTransitionToExistingStructure(
         structure, propertyName, attributes, offset);
     if (newStructure) {
@@ -318,13 +322,17 @@ ALWAYS_INLINE bool JSObject::putDirectInternal(VM& vm, PropertyName propertyName
         
         Butterfly* newButterfly = butterfly();
         if (currentCapacity != newStructure->outOfLineCapacity()) {
-            ASSERT(newStructure != this->structure());
+            ASSERT(newStructure != this->structure(vm));
             newButterfly = allocateMoreOutOfLineStorage(vm, currentCapacity, newStructure->outOfLineCapacity());
             nukeStructureAndSetButterfly(vm, structureID, newButterfly);
         }
 
         validateOffset(offset);
         ASSERT(newStructure->isValidOffset(offset));
+
+        // This assertion verifies that the concurrent GC won't read garbage if the concurrentGC
+        // is running at the same time we put without transitioning.
+        ASSERT(!getDirect(offset) || !JSValue::encode(getDirect(offset)));
         putDirect(vm, offset, value);
         setStructure(vm, newStructure);
         slot.setNewProperty(this, offset);
@@ -355,7 +363,7 @@ ALWAYS_INLINE bool JSObject::putDirectInternal(VM& vm, PropertyName propertyName
         return true;
     }
 
-    if ((mode == PutModePut) && !isStructureExtensible())
+    if ((mode == PutModePut) && !isStructureExtensible(vm))
         return false;
 
     // We want the structure transition watchpoint to fire after this object has switched
@@ -377,6 +385,10 @@ ALWAYS_INLINE bool JSObject::putDirectInternal(VM& vm, PropertyName propertyName
         Butterfly* newButterfly = allocateMoreOutOfLineStorage(vm, oldCapacity, newCapacity);
         nukeStructureAndSetButterfly(vm, structureID, newButterfly);
     }
+
+    // This assertion verifies that the concurrent GC won't read garbage if the concurrentGC
+    // is running at the same time we put without transitioning.
+    ASSERT(!getDirect(offset) || !JSValue::encode(getDirect(offset)));
     putDirect(vm, offset, value);
     setStructure(vm, newStructure);
     slot.setNewProperty(this, offset);

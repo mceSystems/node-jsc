@@ -34,7 +34,7 @@ namespace JSC {
 class VM;
 struct Instruction;
 
-#if !ENABLE(JIT)
+#if ENABLE(C_LOOP)
 typedef OpcodeID LLIntCode;
 #else
 typedef void (*LLIntCode)();
@@ -83,7 +83,7 @@ inline Opcode getOpcode(OpcodeID id)
 template<PtrTag tag>
 ALWAYS_INLINE MacroAssemblerCodePtr<tag> getCodePtr(OpcodeID opcodeID)
 {
-    void* address = getOpcode(opcodeID);
+    void* address = reinterpret_cast<void*>(getOpcode(opcodeID));
     address = retagCodePtr<BytecodePtrTag, tag>(address);
     return MacroAssemblerCodePtr<tag>::createFromExecutableAddress(address);
 }

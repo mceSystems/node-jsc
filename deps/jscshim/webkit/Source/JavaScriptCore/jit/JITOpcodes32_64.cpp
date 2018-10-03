@@ -40,7 +40,7 @@
 #include "JSPropertyNameEnumerator.h"
 #include "LinkBuffer.h"
 #include "MaxFrameExtentForSlowPathCall.h"
-#include "Opcode.h"
+#include "OpcodeInlines.h"
 #include "SlowPathCall.h"
 #include "TypeProfilerLog.h"
 #include "VirtualRegister.h"
@@ -347,12 +347,10 @@ void JIT::emit_op_jfalse(Instruction* currentInstruction)
     emitLoad(cond, regT1, regT0);
 
     JSValueRegs value(regT1, regT0);
-    GPRReg scratch = regT2;
-    GPRReg result = regT3;
+    GPRReg scratch1 = regT2;
+    GPRReg scratch2 = regT3;
     bool shouldCheckMasqueradesAsUndefined = true;
-    emitConvertValueToBoolean(*vm(), value, result, scratch, fpRegT0, fpRegT1, shouldCheckMasqueradesAsUndefined, m_codeBlock->globalObject());
-
-    addJump(branchTest32(Zero, result), target);
+    addJump(branchIfFalsey(*vm(), value, scratch1, scratch2, fpRegT0, fpRegT1, shouldCheckMasqueradesAsUndefined, m_codeBlock->globalObject()), target);
 }
 
 void JIT::emit_op_jtrue(Instruction* currentInstruction)
@@ -363,11 +361,9 @@ void JIT::emit_op_jtrue(Instruction* currentInstruction)
     emitLoad(cond, regT1, regT0);
     bool shouldCheckMasqueradesAsUndefined = true;
     JSValueRegs value(regT1, regT0);
-    GPRReg scratch = regT2;
-    GPRReg result = regT3;
-    emitConvertValueToBoolean(*vm(), value, result, scratch, fpRegT0, fpRegT1, shouldCheckMasqueradesAsUndefined, m_codeBlock->globalObject());
-
-    addJump(branchTest32(NonZero, result), target);
+    GPRReg scratch1 = regT2;
+    GPRReg scratch2 = regT3;
+    addJump(branchIfTruthy(*vm(), value, scratch1, scratch2, fpRegT0, fpRegT1, shouldCheckMasqueradesAsUndefined, m_codeBlock->globalObject()), target);
 }
 
 void JIT::emit_op_jeq_null(Instruction* currentInstruction)
@@ -924,7 +920,7 @@ void JIT::emit_op_enter(Instruction* currentInstruction)
     // Even though JIT code doesn't use them, we initialize our constant
     // registers to zap stale pointers, to avoid unnecessarily prolonging
     // object lifetime and increasing GC pressure.
-    for (int i = 0; i < m_codeBlock->m_numVars; ++i)
+    for (int i = 0; i < m_codeBlock->numVars(); ++i)
         emitStore(virtualRegisterForLocal(i).offset(), jsUndefined());
 
     JITSlowPathCall slowPathCall(this, currentInstruction, slow_path_enter);
@@ -966,6 +962,10 @@ void JIT::emit_op_create_this(Instruction* currentInstruction)
     JumpList slowCases;
     auto butterfly = TrustedImmPtr(nullptr);
     emitAllocateJSObject(resultReg, JITAllocator::variable(), allocatorReg, structureReg, butterfly, scratchReg, slowCases);
+    emitLoadPayload(callee, scratchReg);
+    loadPtr(Address(scratchReg, JSFunction::offsetOfRareData()), scratchReg);
+    load32(Address(scratchReg, FunctionRareData::offsetOfObjectAllocationProfile() + ObjectAllocationProfile::offsetOfInlineCapacity()), scratchReg);
+    emitInitializeInlineStorage(resultReg, scratchReg);
     addSlowCase(slowCases);
     emitStoreCell(currentInstruction[1].u.operand, resultReg);
 }
@@ -1040,7 +1040,7 @@ void JIT::emit_op_has_indexed_property(Instruction* currentInstruction)
     int dst = currentInstruction[1].u.operand;
     int base = currentInstruction[2].u.operand;
     int property = currentInstruction[3].u.operand;
-    ArrayProfile* profile = currentInstruction[4].u.arrayProfile;
+    ArrayProfile* profile = arrayProfileFor<OpHasIndexedPropertyShape>(currentInstruction);
     ByValInfo* byValInfo = m_codeBlock->addByValInfo();
     
     emitLoadPayload(base, regT0);

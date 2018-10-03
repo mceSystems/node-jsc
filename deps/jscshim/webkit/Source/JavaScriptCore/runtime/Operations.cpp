@@ -23,6 +23,7 @@
 #include "Operations.h"
 
 #include "Error.h"
+#include "JSBigInt.h"
 #include "JSCInlines.h"
 #include "JSObject.h"
 #include "JSString.h"
@@ -64,10 +65,19 @@ NEVER_INLINE JSValue jsAddSlowCase(CallFrame* callFrame, JSValue v1, JSValue v2)
         return jsString(callFrame, p1String, asString(p2));
     }
 
-    double p1Number = p1.toNumber(callFrame);
+    auto leftNumeric = p1.toNumeric(callFrame);
     RETURN_IF_EXCEPTION(scope, { });
-    scope.release();
-    return jsNumber(p1Number + p2.toNumber(callFrame));
+    auto rightNumeric = p2.toNumeric(callFrame);
+    RETURN_IF_EXCEPTION(scope, { });
+
+    if (WTF::holds_alternative<JSBigInt*>(leftNumeric) || WTF::holds_alternative<JSBigInt*>(rightNumeric)) {
+        if (WTF::holds_alternative<JSBigInt*>(leftNumeric) && WTF::holds_alternative<JSBigInt*>(rightNumeric))
+            return JSBigInt::add(vm, WTF::get<JSBigInt*>(leftNumeric), WTF::get<JSBigInt*>(rightNumeric));
+
+        return throwTypeError(callFrame, scope, "Invalid mix of BigInt and other type in addition."_s);
+    }
+
+    return jsNumber(WTF::get<double>(leftNumeric) + WTF::get<double>(rightNumeric));
 }
 
 JSValue jsTypeStringForValue(VM& vm, JSGlobalObject* globalObject, JSValue v)
@@ -118,17 +128,6 @@ bool jsIsObjectTypeOrNull(CallFrame* callFrame, JSValue v)
             return false;
     }
     return true;
-}
-
-bool jsIsFunctionType(JSValue v)
-{
-    if (v.isObject()) {
-        CallData callData;
-        JSObject* object = asObject(v);
-        if (object->methodTable()->getCallData(object, callData) != CallType::None)
-            return true;
-    }
-    return false;
 }
 
 size_t normalizePrototypeChain(CallFrame* callFrame, JSCell* base, bool& sawPolyProto)

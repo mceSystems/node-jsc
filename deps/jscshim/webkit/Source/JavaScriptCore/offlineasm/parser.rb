@@ -841,14 +841,14 @@ class Parser
 end
 
 def readTextFile(fileName)
-	data = IO::read(fileName)
+    data = IO::read(fileName)
 
-	# On Windows, files may contain CRLF line endings (for example, git client might
-	# automatically replace \n with \r\n on Windows) which will fail our parsing.
-	# Thus, we'll just remove all \r from the data (keeping just the \n characters)
-	data.delete!("\r")
+    # On Windows, files may contain CRLF line endings (for example, git client might
+    # automatically replace \n with \r\n on Windows) which will fail our parsing.
+    # Thus, we'll just remove all \r from the data (keeping just the \n characters)
+    data.delete!("\r")
 
-	return data
+    return data
 end
 
 def parseData(data, fileName)

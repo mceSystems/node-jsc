@@ -189,7 +189,7 @@ static const bool verbose = false;
 ObjectPropertyCondition generateCondition(
     VM& vm, JSCell* owner, JSObject* object, UniquedStringImpl* uid, PropertyCondition::Kind conditionKind)
 {
-    Structure* structure = object->structure();
+    Structure* structure = object->structure(vm);
     if (ObjectPropertyConditionSetInternal::verbose)
         dataLog("Creating condition ", conditionKind, " for ", pointerDump(structure), "\n");
 
@@ -207,14 +207,14 @@ ObjectPropertyCondition generateCondition(
         if (structure->hasPolyProto())
             return ObjectPropertyCondition();
         result = ObjectPropertyCondition::absence(
-            vm, owner, object, uid, object->structure()->storedPrototypeObject());
+            vm, owner, object, uid, object->structure(vm)->storedPrototypeObject());
         break;
     }
     case PropertyCondition::AbsenceOfSetEffect: {
         if (structure->hasPolyProto())
             return ObjectPropertyCondition();
         result = ObjectPropertyCondition::absenceOfSetEffect(
-            vm, owner, object, uid, object->structure()->storedPrototypeObject());
+            vm, owner, object, uid, object->structure(vm)->storedPrototypeObject());
         break;
     }
     case PropertyCondition::Equivalence: {
@@ -222,7 +222,9 @@ ObjectPropertyCondition generateCondition(
         PropertyOffset offset = structure->getConcurrently(uid, attributes);
         if (offset == invalidOffset)
             return ObjectPropertyCondition();
-        JSValue value = object->getDirect(offset);
+        JSValue value = object->getDirectConcurrently(structure, offset);
+        if (!value)
+            return ObjectPropertyCondition();
         result = ObjectPropertyCondition::equivalence(vm, owner, object, uid, value);
         break;
     }
@@ -409,9 +411,13 @@ ObjectPropertyConditionSet generateConditionsForInstanceOf(
                 didHit = true;
                 return true;
             }
+
+            Structure* structure = object->structure(vm);
+            if (structure->hasPolyProto())
+                return false;
             conditions.append(
                 ObjectPropertyCondition::hasPrototype(
-                    vm, owner, object, object->structure()->storedPrototypeObject()));
+                    vm, owner, object, structure->storedPrototypeObject()));
             return true;
         });
     if (result.isValid()) {

@@ -33,7 +33,7 @@ ALWAYS_INLINE static CallSite * getCallSite(JSC::ExecState * exec, JSC::JSValue 
 		return JSC::jsCast<CallSite *>(thisValue);
 	}
 		
-	throwTypeError(exec, scope, ASCIILiteral("CallSite operation called on non-CallSite object"));
+	throwTypeError(exec, scope, "CallSite operation called on non-CallSite object"_s);
 	return nullptr;
 }
 

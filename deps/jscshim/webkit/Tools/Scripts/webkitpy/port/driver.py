@@ -34,6 +34,7 @@ import shlex
 import sys
 import time
 import os
+from collections import defaultdict
 
 from os.path import normpath
 from webkitpy.common.system import path
@@ -117,6 +118,13 @@ class DriverOutput(object):
             return
         for pattern in patterns:
             self.error = re.sub(pattern[0], pattern[1], self.error)
+
+
+class DriverPostTestOutput(object):
+    """Groups data collected for a set of tests, collected after all those testse have run
+    (for example, data about leaked objects)"""
+    def __init__(self, world_leaks_dict):
+        self.world_leaks_dict = world_leaks_dict
 
 
 class Driver(object):
@@ -242,6 +250,38 @@ class Driver(object):
             crashed_process_name=self._crashed_process_name,
             crashed_pid=self._crashed_pid, crash_log=crash_log, pid=pid)
 
+    def do_post_tests_work(self):
+        if not self._port.get_option('world_leaks'):
+            return None
+
+        if not self._server_process:
+            return None
+
+        _log.debug('Checking for world leaks...')
+        self._server_process.write('#CHECK FOR WORLD LEAKS\n')
+        deadline = time.time() + 20
+        block = self._read_block(deadline, '', wait_for_stderr_eof=True)
+
+        _log.debug('World leak result: %s' % (block.decoded_content))
+
+        return self._parse_world_leaks_output(block.decoded_content)
+
+    def _parse_world_leaks_output(self, output):
+        tests_with_world_leaks = defaultdict(list)
+
+        last_test = None
+        for line in output.splitlines():
+            m = re.match('^TEST: (.+)$', line)
+            if m:
+                last_test = self.uri_to_test(m.group(1))
+            m = re.match('^ABANDONED DOCUMENT: (.+)$', line)
+            if m:
+                leaked_document_url = m.group(1)
+                if last_test:
+                    tests_with_world_leaks[last_test].append(leaked_document_url)
+
+        return DriverPostTestOutput(tests_with_world_leaks)
+
     def _get_crash_log(self, stdout, stderr, newer_than):
         return self._port._get_crash_log(self._crashed_process_name, self._crashed_pid, stdout, stderr, newer_than, target_host=self._target_host)
 
@@ -254,10 +294,10 @@ class Driver(object):
             return shlex.split(self._port.get_option('wrapper')) + wrapper_arguments
         return wrapper_arguments
 
-    HTTP_DIR = normpath("http/tests") + os.sep
-    HTTP_LOCAL_DIR = normpath("http/tests/local") + os.sep
-    WEBKIT_SPECIFIC_WEB_PLATFORM_TEST_SUBDIR = normpath("http/wpt") + os.sep
-    WEBKIT_WEB_PLATFORM_TEST_SERVER_ROUTE = normpath("WebKit") + os.sep
+    HTTP_DIR = "http/tests/"
+    HTTP_LOCAL_DIR = "http/tests/local/"
+    WEBKIT_SPECIFIC_WEB_PLATFORM_TEST_SUBDIR = "http/wpt/"
+    WEBKIT_WEB_PLATFORM_TEST_SERVER_ROUTE = "WebKit/"
 
     def is_http_test(self, test_name):
         return test_name.startswith(self.HTTP_DIR) and not test_name.startswith(self.HTTP_LOCAL_DIR)
@@ -367,6 +407,11 @@ class Driver(object):
         environment['LOCAL_RESOURCE_ROOT'] = str(self._port.layout_tests_dir())
         environment['ASAN_OPTIONS'] = "allocator_may_return_null=1"
         environment['__XPC_ASAN_OPTIONS'] = environment['ASAN_OPTIONS']
+
+        # Disable vnode-guard related simulated crashes for WKTR / DRT (rdar://problem/40674034).
+        environment['SQLITE_EXEMPT_PATH_FROM_VNODE_GUARDS'] = os.path.realpath(environment['DUMPRENDERTREE_TEMP'])
+        environment['__XPC_SQLITE_EXEMPT_PATH_FROM_VNODE_GUARDS'] = environment['SQLITE_EXEMPT_PATH_FROM_VNODE_GUARDS']
+
         if self._profiler:
             environment = self._profiler.adjusted_environment(environment)
         return environment
@@ -427,6 +472,8 @@ class Driver(object):
             cmd.append('--accelerated-drawing')
         if self._port.get_option('remote_layer_tree'):
             cmd.append('--remote-layer-tree')
+        if self._port.get_option('world_leaks'):
+            cmd.append('--world-leaks')
         if self._port.get_option('threaded'):
             cmd.append('--threaded')
         if self._no_timeout:
@@ -699,6 +746,9 @@ class DriverProxy(object):
             self._driver_cmd_line = cmd_line_key
 
         return self._driver.run_test(driver_input, stop_when_done)
+
+    def do_post_tests_work(self):
+        return self._driver.do_post_tests_work()
 
     def has_crashed(self):
         return self._driver.has_crashed()

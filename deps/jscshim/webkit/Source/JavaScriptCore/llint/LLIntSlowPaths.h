@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -52,7 +52,6 @@ LLINT_SLOW_PATH_HIDDEN_DECL(trace_prologue_function_for_construct);
 LLINT_SLOW_PATH_HIDDEN_DECL(trace_arityCheck_for_call);
 LLINT_SLOW_PATH_HIDDEN_DECL(trace_arityCheck_for_construct);
 LLINT_SLOW_PATH_HIDDEN_DECL(trace);
-LLINT_SLOW_PATH_HIDDEN_DECL(special_trace);
 LLINT_SLOW_PATH_HIDDEN_DECL(entry_osr);
 LLINT_SLOW_PATH_HIDDEN_DECL(entry_osr_function_for_call);
 LLINT_SLOW_PATH_HIDDEN_DECL(entry_osr_function_for_construct);
@@ -133,7 +132,7 @@ LLINT_SLOW_PATH_HIDDEN_DECL(slow_path_log_shadow_chicken_tail);
 LLINT_SLOW_PATH_HIDDEN_DECL(slow_path_super_sampler_begin);
 LLINT_SLOW_PATH_HIDDEN_DECL(slow_path_super_sampler_end);
 extern "C" SlowPathReturnType llint_throw_stack_overflow_error(VM*, ProtoCallFrame*) WTF_INTERNAL;
-#if !ENABLE(JIT)
+#if ENABLE(C_LOOP)
 extern "C" SlowPathReturnType llint_stack_check_at_vm_entry(VM*, Register*) WTF_INTERNAL;
 #endif
 extern "C" NO_RETURN_DUE_TO_CRASH void llint_crash() WTF_INTERNAL;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -343,11 +343,11 @@ private:
                     if (value.isNumber())
                         return String::numberToStringECMAScript(value.asNumber());
                     if (value.isBoolean())
-                        return value.asBoolean() ? ASCIILiteral("true") : ASCIILiteral("false");
+                        return value.asBoolean() ? "true"_s : "false"_s;
                     if (value.isNull())
-                        return ASCIILiteral("null");
+                        return "null"_s;
                     if (value.isUndefined())
-                        return ASCIILiteral("undefined");
+                        return "undefined"_s;
                     return String();
                 };
 
@@ -452,7 +452,7 @@ private:
 
         case GetGlobalObject: {
             if (JSObject* object = m_node->child1()->dynamicCastConstant<JSObject*>(vm())) {
-                m_graph.convertToConstant(m_node, object->globalObject());
+                m_graph.convertToConstant(m_node, object->globalObject(vm()));
                 m_changed = true;
                 break;
             }
@@ -508,7 +508,7 @@ private:
                         m_insertionSet.insertConstantForUse(
                             m_nodeIndex, origin, jsNumber(0), UntypedUse));
                     origin = origin.withInvalidExit();
-                    m_node->convertToRegExpMatchFastGlobal(m_graph.freeze(regExp));
+                    m_node->convertToRegExpMatchFastGlobalWithoutChecks(m_graph.freeze(regExp));
                     m_node->origin = origin;
                     m_changed = true;
                     break;
@@ -774,7 +774,7 @@ private:
                 NodeOrigin origin = m_node->origin;
                 m_insertionSet.insertNode(
                     m_nodeIndex, SpecNone, Check, origin, m_node->children.justChecks());
-                m_node->convertToRegExpExecNonGlobalOrSticky(m_graph.freeze(regExp));
+                m_node->convertToRegExpExecNonGlobalOrStickyWithoutChecks(m_graph.freeze(regExp));
                 m_changed = true;
                 return true;
             };
@@ -898,10 +898,14 @@ private:
         case TailCall: {
             ExecutableBase* executable = nullptr;
             Edge callee = m_graph.varArgChild(m_node, 0);
-            if (JSFunction* function = callee->dynamicCastConstant<JSFunction*>(vm()))
+            CallVariant callVariant;
+            if (JSFunction* function = callee->dynamicCastConstant<JSFunction*>(vm())) {
                 executable = function->executable();
-            else if (callee->isFunctionAllocation())
+                callVariant = CallVariant(function);
+            } else if (callee->isFunctionAllocation()) {
                 executable = callee->castOperand<FunctionExecutable*>();
+                callVariant = CallVariant(executable);
+            }
             
             if (!executable)
                 break;
@@ -918,7 +922,9 @@ private:
                         Graph::parameterSlotsForArgCount(numAllocatedArgs));
                 }
             }
-            
+
+            m_graph.m_plan.recordedStatuses().addCallLinkStatus(m_node->origin.semantic, CallLinkStatus(callVariant));
+
             m_node->convertToDirectCall(m_graph.freeze(executable));
             m_changed = true;
             break;

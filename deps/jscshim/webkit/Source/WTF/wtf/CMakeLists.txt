@@ -12,7 +12,6 @@ set(WTF_PUBLIC_HEADERS
     Bitmap.h
     BlockObjCExceptions.h
     BlockPtr.h
-    BlockStack.h
     BloomFilter.h
     BooleanLattice.h
     Box.h
@@ -28,6 +27,7 @@ set(WTF_PUBLIC_HEADERS
     CheckedBoolean.h
     ClockType.h
     CommaPrinter.h
+    CompactPointerTuple.h
     CompilationThread.h
     Compiler.h
     CompletionHandler.h
@@ -50,7 +50,6 @@ set(WTF_PUBLIC_HEADERS
     DeprecatedOptional.h
     Deque.h
     DisallowCType.h
-    DispatchPtr.h
     Dominators.h
     DoublyLinkedList.h
     DumbPtrTraits.h
@@ -123,6 +122,7 @@ set(WTF_PUBLIC_HEADERS
     MachSendRight.h
     MainThread.h
     MallocPtr.h
+    Markable.h
     MathExtras.h
     MediaTime.h
     MemoryFootprint.h
@@ -197,6 +197,7 @@ set(WTF_PUBLIC_HEADERS
     ScopedLambda.h
     Seconds.h
     SegmentedVector.h
+    Semaphore.h
     SentinelLinkedList.h
     SetForScope.h
     SharedTask.h
@@ -240,6 +241,7 @@ set(WTF_PUBLIC_HEADERS
     TriState.h
     TypeCasts.h
     UUID.h
+    UnalignedAccess.h
     Unexpected.h
     UniStdExtras.h
     UnionFind.h
@@ -257,6 +259,7 @@ set(WTF_PUBLIC_HEADERS
     WindowsExtras.h
     WordLock.h
     WorkQueue.h
+    WorkerPool.h
     dtoa.h
 
     dtoa/bignum-dtoa.h
@@ -276,6 +279,7 @@ set(WTF_PUBLIC_HEADERS
     persistence/PersistentEncoder.h
 
     text/ASCIIFastPath.h
+    text/ASCIILiteral.h
     text/AtomicString.h
     text/AtomicStringHash.h
     text/AtomicStringImpl.h
@@ -299,6 +303,7 @@ set(WTF_PUBLIC_HEADERS
     text/StringHasher.h
     text/StringImpl.h
     text/StringOperators.h
+    text/StringToIntegerConversion.h
     text/StringView.h
     text/SymbolImpl.h
     text/SymbolRegistry.h
@@ -392,6 +397,7 @@ set(WTF_SOURCES
     WallTime.cpp
     WordLock.cpp
     WorkQueue.cpp
+    WorkerPool.cpp
     dtoa.cpp
 
     dtoa/bignum-dtoa.cc
@@ -407,6 +413,7 @@ set(WTF_SOURCES
     persistence/PersistentDecoder.cpp
     persistence/PersistentEncoder.cpp
 
+    text/ASCIILiteral.cpp
     text/AtomicString.cpp
     text/AtomicStringImpl.cpp
     text/AtomicStringTable.cpp

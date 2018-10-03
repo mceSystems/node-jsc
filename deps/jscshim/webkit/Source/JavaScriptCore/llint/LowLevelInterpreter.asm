@@ -839,7 +839,7 @@ macro restoreStackPointerAfterCall()
 end
 
 macro traceExecution()
-    if EXECUTION_TRACING
+    if TRACING
         callSlowPath(_llint_trace)
     end
 end
@@ -1006,7 +1006,7 @@ macro prologue(codeBlockGetter, codeBlockSetter, osrSlowPath, traceSlowPath)
     tagReturnAddress sp
     preserveCallerPCAndCFR()
 
-    if EXECUTION_TRACING
+    if TRACING
         subp maxFrameExtentForSlowPathCall, sp
         callSlowPath(traceSlowPath)
         addp maxFrameExtentForSlowPathCall, sp
@@ -1076,8 +1076,14 @@ macro prologue(codeBlockGetter, codeBlockSetter, osrSlowPath, traceSlowPath)
     subp maxFrameExtentForSlowPathCall, sp
     callSlowPath(_llint_stack_check)
     bpeq r1, 0, .stackHeightOKGetCodeBlock
+
+    # We're throwing before the frame is fully set up. This frame will be
+    # ignored by the unwinder. So, let's restore the callee saves before we
+    # start unwinding. We need to do this before we change the cfr.
+    restoreCalleeSavesUsedByLLInt()
+
     move r1, cfr
-    dispatch(0) # Go to exception handler in PC
+    jmp _llint_throw_from_slow_path_trampoline
 
 .stackHeightOKGetCodeBlock:
     # Stack check slow path returned that the stack was ok.
@@ -1147,6 +1153,13 @@ macro doReturn()
     restoreCallerPCAndCFR()
     ret
 end
+
+# This break instruction is needed so that the synthesized llintPCRangeStart label
+# doesn't point to the exact same location as vmEntryToJavaScript which comes after it.
+# Otherwise, libunwind will report vmEntryToJavaScript as llintPCRangeStart in
+# stack traces.
+
+    break
 
 # stub to call into JavaScript or Native functions
 # EncodedJSValue vmEntryToJavaScript(void* code, VM* vm, ProtoCallFrame* protoFrame)
@@ -1583,14 +1596,14 @@ _llint_op_define_accessor_property:
 _llint_op_jtrue:
     traceExecution()
     jumpTrueOrFalse(
-        macro (value, target) btinz value, target end,
+        macro (value, target) btinz value, 1, target end,
         _llint_slow_path_jtrue)
 
 
 _llint_op_jfalse:
     traceExecution()
     jumpTrueOrFalse(
-        macro (value, target) btiz value, target end,
+        macro (value, target) btiz value, 1, target end,
         _llint_slow_path_jfalse)
 
 

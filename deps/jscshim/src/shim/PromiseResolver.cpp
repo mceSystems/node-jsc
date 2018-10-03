@@ -78,7 +78,7 @@ bool PromiseResolver::resolveOrReject(JSC::ExecState * exec, JSC::JSValue value,
 	JSC::JSFunction * promiseFunction = resolve ? m_resolver.get() : m_rejector.get();
 
 	JSC::CallData callData;
-	auto callType = JSC::getCallData(promiseFunction, callData);
+	auto callType = JSC::getCallData(vm, promiseFunction, callData);
 	ASSERT(callType != JSC::CallType::None);
 
 	JSC::MarkedArgumentBuffer arguments;

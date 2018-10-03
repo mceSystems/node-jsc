@@ -151,8 +151,8 @@ private:
     CacheabilityType m_cacheability;
     FunctionPtr<OperationPtrTag> m_putFunction;
     
-	// TODO: Put in a union with m_putFunction?
-	JSC::CustomAPIValue* m_customAPIValue;
+    // TODO: Put in a union with m_putFunction?
+    JSC::CustomAPIValue* m_customAPIValue;
 };
 
 } // namespace JSC

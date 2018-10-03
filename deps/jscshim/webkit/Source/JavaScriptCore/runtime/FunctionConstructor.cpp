@@ -41,14 +41,14 @@ const ClassInfo FunctionConstructor::s_info = { "Function", &Base::s_info, nullp
 static EncodedJSValue JSC_HOST_CALL constructWithFunctionConstructor(ExecState* exec)
 {
     ArgList args(exec);
-    return JSValue::encode(constructFunction(exec, jsCast<InternalFunction*>(exec->jsCallee())->globalObject(), args, FunctionConstructionMode::Function, exec->newTarget()));
+    return JSValue::encode(constructFunction(exec, jsCast<InternalFunction*>(exec->jsCallee())->globalObject(exec->vm()), args, FunctionConstructionMode::Function, exec->newTarget()));
 }
 
 // ECMA 15.3.1 The Function Constructor Called as a Function
 static EncodedJSValue JSC_HOST_CALL callFunctionConstructor(ExecState* exec)
 {
     ArgList args(exec);
-    return JSValue::encode(constructFunction(exec, jsCast<InternalFunction*>(exec->jsCallee())->globalObject(), args));
+    return JSValue::encode(constructFunction(exec, jsCast<InternalFunction*>(exec->jsCallee())->globalObject(exec->vm()), args));
 }
 
 FunctionConstructor::FunctionConstructor(VM& vm, Structure* structure)
@@ -139,6 +139,8 @@ JSObject* constructFunctionSkippingEvalEnabledCheck(
             RETURN_IF_EXCEPTION(scope, nullptr);
             parameterBuilder.append(viewWithString.view);
         }
+        auto body = args.at(args.size() - 1).toWTFString(exec);
+        RETURN_IF_EXCEPTION(scope, nullptr);
 
         {
             // The spec mandates that the parameters parse as a valid parameter list
@@ -155,8 +157,6 @@ JSObject* constructFunctionSkippingEvalEnabledCheck(
 
         builder.append(parameterBuilder);
         builder.appendLiteral(") {\n");
-        auto body = args.at(args.size() - 1).toWTFString(exec);
-        RETURN_IF_EXCEPTION(scope, nullptr);
         checkBody(body);
         RETURN_IF_EXCEPTION(scope, nullptr);
         builder.append(body);

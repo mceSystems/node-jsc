@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Koby Boyango <koby.b@mce.systems>
+ * Copyright (C) 2018 mce sys Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,7 +33,7 @@ const ClassInfo CustomAPIValue::s_info = { "CustomAPIValue", nullptr, nullptr, n
 
 JSC::Structure* CustomAPIValue::createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
 {
-	return Structure::create(vm, globalObject, prototype, TypeInfo(CustomAPIValueType, StructureFlags), info());
+    return Structure::create(vm, globalObject, prototype, TypeInfo(CustomAPIValueType, StructureFlags), info());
 }
 
 }

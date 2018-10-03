@@ -35,6 +35,17 @@
           '<(icu_gyp_path):icuuc',
         ],
       }],
+      ['OS in "linux"', {
+        'cflags_cc': [ '-fexceptions', '-std=gnu++14' ],
+      }],
+      ['OS in "mac ios"', {
+        'cflags_cc': [ '-fexceptions', '-std=gnu++14' ],
+        'cflags_cc!': [ '-fno-exceptions' ],
+        'xcode_settings': {
+          'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
+          'OTHER_CFLAGS': [ '-fexceptions', '-std=gnu++14' ],
+        },
+      }],
     ],
 
     'sources': [
@@ -112,17 +123,17 @@
         ]
       }],
       ['OS in "linux"', {
-        'cflags_cc': [ '-fexceptions' ],
+        'cflags_cc': [ '-fexceptions', '-std=gnu++14' ],
         'link_settings': {
           'libraries': [ '-ldl' ],
         },
       }],
       ['OS in "mac ios"', {
-        'cflags_cc': [ '-fexceptions' ],
+        'cflags_cc': [ '-fexceptions', '-std=gnu++14' ],
         'cflags_cc!': [ '-fno-exceptions' ],
         'xcode_settings': {
           'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
-          'OTHER_CFLAGS': [ '-fexceptions' ],
+          'OTHER_CFLAGS': [ '-fexceptions', '-std=gnu++14' ],
         },
       }],
     ],
@@ -352,17 +363,17 @@
         ]
       }],
       ['OS in "linux"', {
-        'cflags_cc': [ '-fexceptions' ],
+        'cflags_cc': [ '-fexceptions', '-std=gnu++14' ],
         'link_settings': {
           'libraries': [ '-ldl' ],
         },
       }],
       ['OS in "mac ios"', {
-        'cflags_cc': [ '-fexceptions' ],
+        'cflags_cc': [ '-fexceptions', '-std=gnu++14' ],
         'cflags_cc!': [ '-fno-exceptions' ],
         'xcode_settings': {
           'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
-          'OTHER_CFLAGS': [ '-fexceptions' ],
+          'OTHER_CFLAGS': [ '-fexceptions', '-std=gnu++14' ],
         },
       }],
 

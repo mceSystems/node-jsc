@@ -27,6 +27,7 @@
 #include "Options.h"
 
 #include "AssemblerCommon.h"
+#include "LLIntCommon.h"
 #include "MinimumReservedZoneSize.h"
 #include "SigillCrashAnalyzer.h"
 #include <algorithm>
@@ -48,7 +49,7 @@
 #include <crt_externs.h>
 #endif
 
-#if OS(WINDOWS)
+#if ENABLE(JIT)
 #include "MacroAssembler.h"
 #endif
 
@@ -90,7 +91,7 @@ static bool parse(const char* string, unsigned& value)
     return sscanf(string, "%u", &value) == 1;
 }
 
-static bool parse(const char* string, unsigned long& value)
+static bool UNUSED_FUNCTION parse(const char* string, unsigned long& value)
 {
     return sscanf(string, "%lu", &value);
 }
@@ -158,6 +159,10 @@ bool Options::isAvailable(Options::ID id, Options::Availability availability)
     if (id == useSigillCrashAnalyzerID)
         return true;
 #endif
+    if (id == traceLLIntExecutionID)
+        return !!LLINT_TRACING;
+    if (id == traceLLIntSlowPathID)
+        return !!LLINT_TRACING;
     return false;
 }
 
@@ -392,8 +397,8 @@ static void recomputeDependentOptions()
     Options::useConcurrentGC() = false;
 #endif
     
-#if OS(WINDOWS) && CPU(X86) 
-    // Disable JIT on Windows if SSE2 is not present 
+#if ENABLE(JIT) && CPU(X86)
+    // Disable JIT on IA-32 if SSE2 is not present
     if (!MacroAssemblerX86::supportsFloatingPoint())
         Options::useJIT() = false;
 #endif
@@ -599,6 +604,11 @@ void Options::dumpOptionsIfNeeded()
     }
 }
 
+static bool isSeparator(char c)
+{
+    return isASCIISpace(c) || (c == ',');
+}
+
 bool Options::setOptions(const char* optionsStr)
 {
     Vector<char*> options;
@@ -609,8 +619,8 @@ bool Options::setOptions(const char* optionsStr)
     char* p = optionsStrCopy;
 
     while (p < end) {
-        // Skip white space.
-        while (p < end && isASCIISpace(*p))
+        // Skip separators (white space or commas).
+        while (p < end && isSeparator(*p))
             p++;
         if (p == end)
             break;
@@ -637,8 +647,8 @@ bool Options::setOptions(const char* optionsStr)
             hasStringValue = true;
         }
 
-        // Find next white space.
-        while (p < end && !isASCIISpace(*p))
+        // Find next separator (white space or commas).
+        while (p < end && !isSeparator(*p))
             p++;
         if (!p)
             p = end; // No more " " separator. Hence, this is the last arg.
@@ -734,12 +744,7 @@ bool Options::setAliasedOption(const char* arg)
     if (!equalStr)
         return false;
 
-#if COMPILER(CLANG)
-#if __has_warning("-Wtautological-compare")
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wtautological-compare"
-#endif
-#endif
+    IGNORE_WARNINGS_BEGIN("tautological-compare")
 
     // For each option, check if the specify arg is a match. If so, set the arg
     // if the value makes sense. Otherwise, move on to checking the next option.
@@ -762,11 +767,7 @@ bool Options::setAliasedOption(const char* arg)
     JSC_ALIASED_OPTIONS(FOR_EACH_OPTION)
 #undef FOR_EACH_OPTION
 
-#if COMPILER(CLANG)
-#if __has_warning("-Wtautological-compare")
-#pragma clang diagnostic pop
-#endif
-#endif
+    IGNORE_WARNINGS_END
 
     return false; // No option matched.
 }

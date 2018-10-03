@@ -31,22 +31,17 @@
 
 namespace JSC {
 
+inline MacroAssembler::JumpList JIT::emitDoubleGetByVal(Instruction* instruction, PatchableJump& badType)
+{
 #if USE(JSVALUE64)
-inline MacroAssembler::JumpList JIT::emitDoubleGetByVal(Instruction* instruction, PatchableJump& badType)
-{
-    JumpList slowCases = emitDoubleLoad(instruction, badType);
-    moveDoubleTo64(fpRegT0, regT0);
-    sub64(tagTypeNumberRegister, regT0);
-    return slowCases;
-}
+    JSValueRegs result = JSValueRegs(regT0);
 #else
-inline MacroAssembler::JumpList JIT::emitDoubleGetByVal(Instruction* instruction, PatchableJump& badType)
-{
+    JSValueRegs result = JSValueRegs(regT1, regT0);
+#endif
     JumpList slowCases = emitDoubleLoad(instruction, badType);
-    moveDoubleToInts(fpRegT0, regT0, regT1);
+    boxDouble(fpRegT0, result);
     return slowCases;
 }
-#endif // USE(JSVALUE64)
 
 ALWAYS_INLINE MacroAssembler::JumpList JIT::emitLoadForArrayMode(Instruction* currentInstruction, JITArrayMode arrayMode, PatchableJump& badType)
 {
@@ -238,6 +233,14 @@ ALWAYS_INLINE void JIT::addJump(Jump jump, int relativeOffset)
     ASSERT(m_bytecodeOffset != std::numeric_limits<unsigned>::max()); // This method should only be called during hot/cold path generation, so that m_bytecodeOffset is set.
 
     m_jmpTable.append(JumpTable(jump, m_bytecodeOffset + relativeOffset));
+}
+
+ALWAYS_INLINE void JIT::addJump(const JumpList& jumpList, int relativeOffset)
+{
+    ASSERT(m_bytecodeOffset != std::numeric_limits<unsigned>::max()); // This method should only be called during hot/cold path generation, so that m_bytecodeOffset is set.
+
+    for (auto& jump : jumpList.jumps())
+        addJump(jump, relativeOffset);
 }
 
 ALWAYS_INLINE void JIT::emitJumpSlowToHot(Jump jump, int relativeOffset)
@@ -577,7 +580,6 @@ ALWAYS_INLINE void JIT::emitGetVirtualRegister(int src, RegisterID dst)
 {
     ASSERT(m_bytecodeOffset != std::numeric_limits<unsigned>::max()); // This method should only be called during hot/cold path generation, so that m_bytecodeOffset is set.
 
-    // TODO: we want to reuse values that are already in registers if we can - add a register allocator!
     if (m_codeBlock->isConstantRegisterIndex(src)) {
         JSValue value = m_codeBlock->getConstant(src);
         if (!value.isNumber())

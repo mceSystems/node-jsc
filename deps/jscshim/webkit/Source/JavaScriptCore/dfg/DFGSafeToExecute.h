@@ -65,6 +65,7 @@ public:
         case SetObjectUse:
         case WeakMapObjectUse:
         case WeakSetObjectUse:
+        case DataViewObjectUse:
         case ObjectOrOtherUse:
         case StringIdentUse:
         case StringUse:
@@ -104,6 +105,11 @@ public:
 
         case KnownPrimitiveUse:
             if (m_state.forNode(edge).m_type & ~(SpecHeapTop & ~SpecObject))
+                m_result = false;
+            return;
+
+        case KnownOtherUse:
+            if (m_state.forNode(edge).m_type & ~SpecOther)
                 m_result = false;
             return;
             
@@ -171,6 +177,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case IdentityWithProfile:
     case ToThis:
     case CreateThis:
+    case ObjectCreate:
     case GetCallee:
     case SetCallee:
     case GetArgumentCountIncludingThis:
@@ -372,6 +379,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case Unreachable:
     case ExtractOSREntryLocal:
     case ExtractCatchLocal:
+    case ClearCatchLocals:
     case CheckTierUpInLoop:
     case CheckTierUpAtReturn:
     case CheckTierUpAndOSREnter:
@@ -432,6 +440,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case ResolveScope:
     case MapHash:
     case NormalizeMapKey:
+    case StringValueOf:
     case StringSlice:
     case ToLowerCase:
     case GetMapBucket:
@@ -455,6 +464,8 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case AtomicsIsLockFree:
     case InitializeEntrypointArguments:
     case MatchStructure:
+    case DataViewGetInt:
+    case DataViewGetFloat:
         return true;
 
     case ArraySlice:
@@ -478,6 +489,14 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
         // keep them exactly where they were. This is sort of overkill since the clobberize effects
         // already force these things to be ordered precisely. I'm just not confident enough in my
         // effect based memory model to rely solely on that right now.
+        return false;
+        
+    case FilterCallLinkStatus:
+    case FilterGetByIdStatus:
+    case FilterPutByIdStatus:
+    case FilterInByIdStatus:
+        // We don't want these to be moved anywhere other than where we put them, since we want them
+        // to capture "profiling" at the point in control flow here the user put them.
         return false;
 
     case GetByVal:
@@ -586,6 +605,9 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
         }
         return true;
     }
+
+    case DataViewSet:
+        return false;
 
     case SetAdd:
     case MapSet:

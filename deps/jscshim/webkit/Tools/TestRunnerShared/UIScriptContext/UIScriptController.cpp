@@ -42,7 +42,7 @@ DeviceOrientation* toDeviceOrientation(JSContextRef context, JSValueRef value)
         DeviceOrientation::LandscapeRight
     };
 
-    JSRetainPtr<JSStringRef> option(Adopt, JSValueToStringCopy(context, value, nullptr));
+    auto option = adopt(JSValueToStringCopy(context, value, nullptr));
     if (option.get()->string() == "portrait")
         return &values[0];
         
@@ -282,14 +282,6 @@ void UIScriptController::keyUpUsingHardwareKeyboard(JSStringRef, JSValueRef)
 {
 }
 
-void UIScriptController::selectTextCandidateAtIndex(long, JSValueRef)
-{
-}
-
-void UIScriptController::waitForTextPredictionsViewAndSelectCandidateAtIndex(long, unsigned, float)
-{
-}
-
 void UIScriptController::keyDownUsingHardwareKeyboard(JSStringRef, JSValueRef)
 {
 }
@@ -302,8 +294,17 @@ void UIScriptController::setTimePickerValue(long, long)
 {
 }
 
+void UIScriptController::invokeShareSheetWithResolution(bool)
+{
+}
+
 void UIScriptController::selectFormAccessoryPickerRow(long)
 {
+}
+
+JSRetainPtr<JSStringRef> UIScriptController::textContentType() const
+{
+    return nullptr;
 }
 
 JSRetainPtr<JSStringRef> UIScriptController::selectFormPopoverTitle() const
@@ -375,6 +376,16 @@ JSObjectRef UIScriptController::selectionRangeViewRects() const
 }
 
 JSObjectRef UIScriptController::textSelectionCaretRect() const
+{
+    return nullptr;
+}
+
+JSObjectRef UIScriptController::selectionStartGrabberViewRect() const
+{
+    return nullptr;
+}
+
+JSObjectRef UIScriptController::selectionEndGrabberViewRect() const
 {
     return nullptr;
 }
@@ -508,6 +519,11 @@ void UIScriptController::makeWindowContentViewFirstResponder()
 }
 
 bool UIScriptController::isWindowContentViewFirstResponder() const
+{
+    return false;
+}
+
+bool UIScriptController::isShowingDataListSuggestions() const
 {
     return false;
 }

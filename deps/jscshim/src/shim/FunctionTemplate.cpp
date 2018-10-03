@@ -282,7 +282,7 @@ JSC::EncodedJSValue FunctionTemplate::handleFunctionCall(JSC::ExecState * exec)
 		{
 			// v8's HandleApiCallHelper will throw a type error. The error message was also taken from v8 (messages.h)
 			auto scope = DECLARE_THROW_SCOPE(exec->vm());
-			return JSC::JSValue::encode(JSC::throwTypeError(exec, scope, ASCIILiteral("Illegal invocation")));
+			return JSC::JSValue::encode(JSC::throwTypeError(exec, scope, "Illegal invocation"_s));
 		}
 	}
 	else

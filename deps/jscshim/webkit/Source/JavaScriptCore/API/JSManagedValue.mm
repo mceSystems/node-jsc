@@ -43,7 +43,7 @@
 class JSManagedValueHandleOwner : public JSC::WeakHandleOwner {
 public:
     void finalize(JSC::Handle<JSC::Unknown>, void* context) override;
-    bool isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown>, void* context, JSC::SlotVisitor&) override;
+    bool isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown>, void* context, JSC::SlotVisitor&, const char**) override;
 };
 
 static JSManagedValueHandleOwner& managedValueHandleOwner()
@@ -88,7 +88,7 @@ static JSManagedValueHandleOwner& managedValueHandleOwner()
     JSC::ExecState* exec = toJS([value.context JSGlobalContextRef]);
     JSC::JSGlobalObject* globalObject = exec->lexicalGlobalObject();
     auto& owner = managedValueHandleOwner();
-    JSC::Weak<JSC::JSGlobalObject> weak(globalObject, &owner, self);
+    JSC::Weak<JSC::JSGlobalObject> weak(globalObject, &owner, (__bridge void*)self);
     m_globalObject.swap(weak);
 
     m_lock = &exec->vm().apiLock();
@@ -99,9 +99,9 @@ static JSManagedValueHandleOwner& managedValueHandleOwner()
 
     JSC::JSValue jsValue = toJS(exec, [value JSValueRef]);
     if (jsValue.isObject())
-        m_weakValue.setObject(JSC::jsCast<JSC::JSObject*>(jsValue.asCell()), owner, self);
+        m_weakValue.setObject(JSC::jsCast<JSC::JSObject*>(jsValue.asCell()), owner, (__bridge void*)self);
     else if (jsValue.isString())
-        m_weakValue.setString(JSC::jsCast<JSC::JSString*>(jsValue.asCell()), owner, self);
+        m_weakValue.setString(JSC::jsCast<JSC::JSString*>(jsValue.asCell()), owner, (__bridge void*)self);
     else
         m_weakValue.setPrimitive(jsValue);
     return self;
@@ -113,7 +113,7 @@ static JSManagedValueHandleOwner& managedValueHandleOwner()
     if (virtualMachine) {
         NSMapTable *copy = [m_owners copy];
         for (id owner in [copy keyEnumerator]) {
-            size_t count = reinterpret_cast<size_t>(NSMapGet(m_owners, owner));
+            size_t count = reinterpret_cast<size_t>(NSMapGet(m_owners, (__bridge void*)owner));
             while (count--)
                 [virtualMachine removeManagedReference:self withOwner:owner];
         }
@@ -127,23 +127,23 @@ static JSManagedValueHandleOwner& managedValueHandleOwner()
 
 - (void)didAddOwner:(id)owner
 {
-    size_t count = reinterpret_cast<size_t>(NSMapGet(m_owners, owner));
-    NSMapInsert(m_owners, owner, reinterpret_cast<void*>(count + 1));
+    size_t count = reinterpret_cast<size_t>(NSMapGet(m_owners, (__bridge void*)owner));
+    NSMapInsert(m_owners, (__bridge void*)owner, reinterpret_cast<void*>(count + 1));
 }
 
 - (void)didRemoveOwner:(id)owner
 {
-    size_t count = reinterpret_cast<size_t>(NSMapGet(m_owners, owner));
+    size_t count = reinterpret_cast<size_t>(NSMapGet(m_owners, (__bridge void*)owner));
 
     if (!count)
         return;
 
     if (count == 1) {
-        NSMapRemove(m_owners, owner);
+        NSMapRemove(m_owners, (__bridge void*)owner);
         return;
     }
 
-    NSMapInsert(m_owners, owner, reinterpret_cast<void*>(count - 1));
+    NSMapInsert(m_owners, (__bridge void*)owner, reinterpret_cast<void*>(count - 1));
 }
 
 - (JSValue *)value
@@ -182,15 +182,17 @@ static JSManagedValueHandleOwner& managedValueHandleOwner()
 - (void)disconnectValue;
 @end
 
-bool JSManagedValueHandleOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown>, void* context, JSC::SlotVisitor& visitor)
+bool JSManagedValueHandleOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown>, void* context, JSC::SlotVisitor& visitor, const char** reason)
 {
-    JSManagedValue *managedValue = static_cast<JSManagedValue *>(context);
-    return visitor.containsOpaqueRoot(managedValue);
+    if (UNLIKELY(reason))
+        *reason = "JSManagedValue is opaque root";
+    JSManagedValue *managedValue = (__bridge JSManagedValue *)context;
+    return visitor.containsOpaqueRoot((__bridge void*)managedValue);
 }
 
 void JSManagedValueHandleOwner::finalize(JSC::Handle<JSC::Unknown>, void* context)
 {
-    JSManagedValue *managedValue = static_cast<JSManagedValue *>(context);
+    JSManagedValue *managedValue = (__bridge JSManagedValue *)context;
     [managedValue disconnectValue];
 }
 

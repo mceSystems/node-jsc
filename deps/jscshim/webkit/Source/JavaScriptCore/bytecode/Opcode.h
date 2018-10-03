@@ -58,7 +58,7 @@ namespace JSC {
 #undef OPCODE_ID_ENUM
 
 const int maxOpcodeLength = 9;
-#if !ENABLE(JIT)
+#if ENABLE(C_LOOP)
 const int numOpcodeIDs = NUMBER_OF_BYTECODE_IDS + NUMBER_OF_CLOOP_BYTECODE_HELPER_IDS + NUMBER_OF_BYTECODE_HELPER_IDS;
 #else
 const int numOpcodeIDs = NUMBER_OF_BYTECODE_IDS + NUMBER_OF_BYTECODE_HELPER_IDS;
@@ -74,18 +74,13 @@ const int numOpcodeIDs = NUMBER_OF_BYTECODE_IDS + NUMBER_OF_BYTECODE_HELPER_IDS;
     const int opcodeLengths[numOpcodeIDs] = { FOR_EACH_OPCODE_ID(OPCODE_ID_LENGTH_MAP) };
 #undef OPCODE_ID_LENGTH_MAP
 
-#if COMPILER(GCC)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wtype-limits"
-#endif
+IGNORE_WARNINGS_BEGIN("type-limits")
 
 #define VERIFY_OPCODE_ID(id, size) COMPILE_ASSERT(id <= numOpcodeIDs, ASSERT_THAT_JS_OPCODE_IDS_ARE_VALID);
     FOR_EACH_OPCODE_ID(VERIFY_OPCODE_ID);
 #undef VERIFY_OPCODE_ID
 
-#if COMPILER(GCC)
-#pragma GCC diagnostic pop
-#endif
+IGNORE_WARNINGS_END
 
 #if ENABLE(COMPUTED_GOTO_OPCODES)
 typedef void* Opcode;

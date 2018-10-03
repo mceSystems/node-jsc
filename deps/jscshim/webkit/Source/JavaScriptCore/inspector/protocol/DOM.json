@@ -90,7 +90,8 @@
                 { "name": "handler", "$ref": "Runtime.RemoteObject", "optional": true, "description": "Event handler function value." },
                 { "name": "passive", "type": "boolean", "optional": true, "description": "<code>EventListener</code>'s passive." },
                 { "name": "once", "type": "boolean", "optional": true, "description": "<code>EventListener</code>'s once." },
-                { "name": "disabled", "type": "boolean", "optional": true }
+                { "name": "disabled", "type": "boolean", "optional": true },
+                { "name": "hasBreakpoint", "type": "boolean", "optional": true }
             ]
         },
         {
@@ -255,6 +256,13 @@
             ]
         },
         {
+            "name": "getSupportedEventNames",
+            "description": "Gets the list of builtin DOM event names.",
+            "returns": [
+                { "name": "eventNames", "type": "array", "items": { "type": "string" } }
+            ]
+        },
+        {
             "name": "getEventListenersForNode",
             "description": "Returns event listeners relevant to the node.",
             "parameters": [
@@ -271,6 +279,20 @@
             "parameters": [
                 { "name": "eventListenerId", "$ref": "EventListenerId" },
                 { "name": "disabled", "type": "boolean" }
+            ]
+        },
+        {
+            "name": "setBreakpointForEventListener",
+            "description": "Set a breakpoint on the given event listener.",
+            "parameters": [
+                { "name": "eventListenerId", "$ref": "EventListenerId" }
+            ]
+        },
+        {
+            "name": "removeBreakpointForEventListener",
+            "description": "Remove any breakpoints on the given event listener.",
+            "parameters": [
+                { "name": "eventListenerId", "$ref": "EventListenerId" }
             ]
         },
         {

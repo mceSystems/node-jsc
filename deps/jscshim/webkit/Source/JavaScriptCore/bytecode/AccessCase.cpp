@@ -121,6 +121,12 @@ std::unique_ptr<AccessCase> AccessCase::fromStructureStubInfo(
     case CacheType::InByIdSelf:
         return AccessCase::create(vm, owner, InHit, stubInfo.u.byIdSelf.offset, stubInfo.u.byIdSelf.baseObjectStructure.get());
 
+    case CacheType::ArrayLength:
+        return AccessCase::create(vm, owner, AccessCase::ArrayLength);
+
+    case CacheType::StringLength:
+        return AccessCase::create(vm, owner, AccessCase::StringLength);
+
     default:
         return nullptr;
     }
@@ -650,7 +656,7 @@ void AccessCase::generateImpl(AccessGenerationState& state)
     for (const ObjectPropertyCondition& condition : m_conditionSet) {
         RELEASE_ASSERT(!m_polyProtoAccessChain);
 
-        Structure* structure = condition.object()->structure();
+        Structure* structure = condition.object()->structure(vm);
 
         if (condition.isWatchableAssumingImpurePropertyWatchpoint()) {
             structure->addTransitionWatchpoint(state.addWatchpoint(condition));
@@ -710,7 +716,7 @@ void AccessCase::generateImpl(AccessGenerationState& state)
             if (!hasAlternateBase())
                 currStructure = structure();
             else
-                currStructure = alternateBase()->structure();
+                currStructure = alternateBase()->structure(vm);
             currStructure->startWatchingPropertyForReplacements(vm, offset());
         }
 
@@ -1060,7 +1066,7 @@ void AccessCase::generateImpl(AccessGenerationState& state)
         ScratchRegisterAllocator allocator(stubInfo.patch.usedRegisters);
         allocator.lock(baseGPR);
 #if USE(JSVALUE32_64)
-        allocator.lock(static_cast<GPRReg>(stubInfo.patch.baseTagGPR));
+        allocator.lock(stubInfo.patch.baseTagGPR);
 #endif
         allocator.lock(valueRegs);
         allocator.lock(scratchGPR);
@@ -1239,7 +1245,7 @@ void AccessCase::generateImpl(AccessGenerationState& state)
         if (!hasAlternateBase())
             currStructure = structure();
         else
-            currStructure = alternateBase()->structure();
+            currStructure = alternateBase()->structure(vm);
         currStructure->startWatchingPropertyForReplacements(vm, offset());
         
         this->as<IntrinsicGetterAccessCase>().emitIntrinsicGetter(state);

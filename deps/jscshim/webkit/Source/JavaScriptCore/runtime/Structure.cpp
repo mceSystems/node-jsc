@@ -346,7 +346,7 @@ void Structure::findStructuresAndMapForMaterialization(Vector<Structure*, 8>& st
 
 PropertyTable* Structure::materializePropertyTable(VM& vm, bool setPropertyTable)
 {
-    ASSERT(structure()->classInfo() == info());
+    ASSERT(structure(vm)->classInfo() == info());
     ASSERT(!isAddingPropertyForTransition());
     
     DeferGC deferGC(vm.heap);
@@ -646,22 +646,10 @@ PropertyTable* Structure::takePropertyTableOrCloneIfPinned(VM& vm)
     return materializePropertyTable(vm, setPropertyTable);
 }
 
-Structure* Structure::nonPropertyTransition(VM& vm, Structure* structure, NonPropertyTransition transitionKind)
+Structure* Structure::nonPropertyTransitionSlow(VM& vm, Structure* structure, NonPropertyTransition transitionKind)
 {
     unsigned attributes = toAttributes(transitionKind);
     IndexingType indexingModeIncludingHistory = newIndexingType(structure->indexingModeIncludingHistory(), transitionKind);
-    
-    if (changesIndexingType(transitionKind)) {
-        if (JSGlobalObject* globalObject = structure->m_globalObject.get()) {
-            if (globalObject->isOriginalArrayStructure(structure)) {
-                Structure* result = globalObject->originalArrayStructureForIndexingType(indexingModeIncludingHistory);
-                if (result->indexingModeIncludingHistory() == indexingModeIncludingHistory) {
-                    structure->didTransitionFromThisStructure();
-                    return result;
-                }
-            }
-        }
-    }
     
     Structure* existingTransition;
     if (!structure->isDictionary() && (existingTransition = structure->m_transitionTable.get(0, attributes))) {
@@ -791,6 +779,19 @@ Structure* Structure::flattenDictionaryStructure(VM& vm, JSObject* object)
             object->putDirect(vm, offsetForPropertyNumber(i, m_inlineCapacity), values[i]);
 
         table->clearDeletedOffsets();
+
+        // We need to zero our unused property space; otherwise the GC might see a
+        // stale pointer when we add properties in the future.
+        memset(
+            object->inlineStorageUnsafe() + inlineSize(),
+            0,
+            (inlineCapacity() - inlineSize()) * sizeof(EncodedJSValue));
+
+        Butterfly* butterfly = object->butterfly();
+        memset(
+            butterfly->base(butterfly->indexingHeader()->preCapacity(this), beforeOutOfLineCapacity),
+            0,
+            (beforeOutOfLineCapacity - outOfLineSize()) * sizeof(EncodedJSValue));
         checkOffsetConsistency();
     }
 
@@ -815,9 +816,8 @@ Structure* Structure::flattenDictionaryStructure(VM& vm, JSObject* object)
     WTF::storeStoreFence();
     object->setStructureIDDirectly(id());
 
-    // FIXME: This is probably no longer needed since we have a stronger mechanism
-    // for detecting races and rescanning an object.
-    // https://bugs.webkit.org/show_bug.cgi?id=166989
+    // We need to do a writebarrier here because the GC thread might be scanning the butterfly while
+    // we are shuffling properties around. See: https://bugs.webkit.org/show_bug.cgi?id=166989
     vm.heap.writeBarrier(object);
 
     return this;
@@ -897,7 +897,7 @@ void Structure::willStoreValueSlow(
     InferredTypeTable::StoredPropertyAge age)
 {
     ASSERT(!isCompilationThread());
-    ASSERT(structure()->classInfo() == info());
+    ASSERT(structure(vm)->classInfo() == info());
     ASSERT(!hasBeenDictionary());
 
     ASSERT_WITH_MESSAGE(VM::canUseJIT(), "We don't want to use memory for inferred types unless we're using the JIT.");
@@ -1078,7 +1078,7 @@ void Structure::visitChildren(JSCell* cell, SlotVisitor& visitor)
     Structure* thisObject = jsCast<Structure*>(cell);
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
 
-    JSCell::visitChildren(thisObject, visitor);
+    Base::visitChildren(thisObject, visitor);
     
     ConcurrentJSLocker locker(thisObject->m_lock);
     
@@ -1178,7 +1178,7 @@ void Structure::dump(PrintStream& out) const
             return true;
         });
     
-    out.print("}, ", IndexingTypeDump(indexingType()));
+    out.print("}, ", IndexingTypeDump(indexingMode()));
     
     if (hasPolyProto())
         out.print(", PolyProto offset:", knownPolyProtoOffset);

@@ -28,7 +28,9 @@
 #include "JSCVirtualMachinePrivate.h"
 #include "JSCWrapperMap.h"
 #include "JSRetainPtr.h"
+#include "JSWithScope.h"
 #include "OpaqueJSString.h"
+#include "Parser.h"
 #include <wtf/glib/GUniquePtr.h>
 #include <wtf/glib/WTFGType.h>
 
@@ -235,6 +237,11 @@ JSC::JSObject* jscContextGetOrCreateJSWrapper(JSCContext* context, JSClassRef js
     return wrapperMap(context).createJSWrappper(context->priv->jsContext.get(), jsClass, prototype, wrappedObject, destroyFunction);
 }
 
+JSGlobalContextRef jscContextCreateContextWithJSWrapper(JSCContext* context, JSClassRef jsClass, JSValueRef prototype, gpointer wrappedObject, GDestroyNotify destroyFunction)
+{
+    return wrapperMap(context).createContextWithJSWrappper(jscVirtualMachineGetContextGroup(context->priv->vm.get()), jsClass, prototype, wrappedObject, destroyFunction);
+}
+
 gpointer jscContextWrappedObject(JSCContext* context, JSObjectRef jsObject)
 {
     return wrapperMap(context).wrappedObject(context->priv->jsContext.get(), jsObject);
@@ -327,6 +334,48 @@ static GRefPtr<GPtrArray> jscContextJSArrayToGArray(JSCContext* context, JSValue
     return gArray;
 }
 
+GUniquePtr<char*> jscContextJSArrayToGStrv(JSCContext* context, JSValueRef jsArray, JSValueRef* exception)
+{
+    JSCContextPrivate* priv = context->priv;
+    if (JSValueIsNull(priv->jsContext.get(), jsArray))
+        return nullptr;
+
+    if (!JSValueIsArray(priv->jsContext.get(), jsArray)) {
+        *exception = toRef(JSC::createTypeError(toJS(priv->jsContext.get()), makeString("invalid js type for GStrv")));
+        return nullptr;
+    }
+
+    auto* jsArrayObject = JSValueToObject(priv->jsContext.get(), jsArray, exception);
+    if (*exception)
+        return nullptr;
+
+    JSRetainPtr<JSStringRef> lengthString(Adopt, JSStringCreateWithUTF8CString("length"));
+    auto* jsLength = JSObjectGetProperty(priv->jsContext.get(), jsArrayObject, lengthString.get(), exception);
+    if (*exception)
+        return nullptr;
+
+    auto length = JSC::toUInt32(JSValueToNumber(priv->jsContext.get(), jsLength, exception));
+    if (*exception)
+        return nullptr;
+
+    GUniquePtr<char*> strv(static_cast<char**>(g_new0(char*, length + 1)));
+    for (unsigned i = 0; i < length; ++i) {
+        auto* jsItem = JSObjectGetPropertyAtIndex(priv->jsContext.get(), jsArrayObject, i, exception);
+        if (*exception)
+            return nullptr;
+
+        auto jsValueItem = jscContextGetOrCreateValue(context, jsItem);
+        if (!jsc_value_is_string(jsValueItem.get())) {
+            *exception = toRef(JSC::createTypeError(toJS(priv->jsContext.get()), makeString("invalid js type for GStrv: item ", String::number(i), " is not a string")));
+            return nullptr;
+        }
+
+        strv.get()[i] = jsc_value_to_string(jsValueItem.get());
+    }
+
+    return strv;
+}
+
 JSValueRef jscContextGValueToJSValue(JSCContext* context, const GValue* value, JSValueRef* exception)
 {
     JSCContextPrivate* priv = context->priv;
@@ -377,6 +426,15 @@ JSValueRef jscContextGValueToJSValue(JSCContext* context, const GValue* value, J
 
             if (g_type_is_a(G_VALUE_TYPE(value), G_TYPE_PTR_ARRAY))
                 return jscContextGArrayToJSArray(context, static_cast<GPtrArray*>(ptr), exception);
+
+            if (g_type_is_a(G_VALUE_TYPE(value), G_TYPE_STRV)) {
+                auto** strv = static_cast<char**>(ptr);
+                auto strvLength = g_strv_length(strv);
+                GRefPtr<GPtrArray> gArray = adoptGRef(g_ptr_array_new_full(strvLength, g_object_unref));
+                for (unsigned i = 0; i < strvLength; i++)
+                    g_ptr_array_add(gArray.get(), jsc_value_new_string(context, strv[i]));
+                return jscContextGArrayToJSArray(context, gArray.get(), exception);
+            }
         } else
             return JSValueMakeNull(priv->jsContext.get());
 
@@ -463,7 +521,14 @@ void jscContextJSValueToGValue(JSCContext* context, JSValueRef jsValue, GType ty
                     return;
                 }
 
-                *exception = toRef(JSC::createTypeError(toJS(priv->jsContext.get()), ASCIILiteral("invalid pointer type")));
+                if (g_type_is_a(G_VALUE_TYPE(value), G_TYPE_STRV)) {
+                    auto strv = jscContextJSArrayToGStrv(context, jsValue, exception);
+                    if (!*exception)
+                        g_value_take_boxed(value, strv.release());
+                    return;
+                }
+
+                *exception = toRef(JSC::createTypeError(toJS(priv->jsContext.get()), "invalid pointer type"_s));
                 return;
             }
         }
@@ -474,7 +539,7 @@ void jscContextJSValueToGValue(JSCContext* context, JSValueRef jsValue, GType ty
         else if (G_IS_OBJECT(wrappedObject))
             g_value_set_object(value, wrappedObject);
         else
-            *exception = toRef(JSC::createTypeError(toJS(priv->jsContext.get()), ASCIILiteral("wrapped object is not a GObject")));
+            *exception = toRef(JSC::createTypeError(toJS(priv->jsContext.get()), "wrapped object is not a GObject"_s));
         break;
     }
     case G_TYPE_LONG:
@@ -576,6 +641,62 @@ void jsc_context_throw(JSCContext* context, const char* errorMessage)
     g_return_if_fail(JSC_IS_CONTEXT(context));
 
     context->priv->exception = adoptGRef(jsc_exception_new(context, errorMessage));
+}
+
+/**
+ * jsc_context_throw_printf:
+ * @context: a #JSCContext
+ * @format: the string format
+ * @...: the parameters to insert into the format string
+ *
+ * Throw an exception to @context using the given formatted string as error message.
+ * The created #JSCException can be retrieved with jsc_context_get_exception().
+ */
+void jsc_context_throw_printf(JSCContext* context, const char* format, ...)
+{
+    g_return_if_fail(JSC_IS_CONTEXT(context));
+
+    va_list args;
+    va_start(args, format);
+    context->priv->exception = adoptGRef(jsc_exception_new_vprintf(context, format, args));
+    va_end(args);
+}
+
+/**
+ * jsc_context_throw_with_name:
+ * @context: a #JSCContext
+ * @error_name: the error name
+ * @error_message: an error message
+ *
+ * Throw an exception to @context using the given error name and message. The created #JSCException
+ * can be retrieved with jsc_context_get_exception().
+ */
+void jsc_context_throw_with_name(JSCContext* context, const char* errorName, const char* errorMessage)
+{
+    g_return_if_fail(JSC_IS_CONTEXT(context));
+    g_return_if_fail(errorName);
+
+    context->priv->exception = adoptGRef(jsc_exception_new_with_name(context, errorName, errorMessage));
+}
+
+/**
+ * jsc_context_throw_with_name_printf:
+ * @context: a #JSCContext
+ * @error_name: the error name
+ * @format: the string format
+ * @...: the parameters to insert into the format string
+ *
+ * Throw an exception to @context using the given error name and the formatted string as error message.
+ * The created #JSCException can be retrieved with jsc_context_get_exception().
+ */
+void jsc_context_throw_with_name_printf(JSCContext* context, const char* errorName, const char* format, ...)
+{
+    g_return_if_fail(JSC_IS_CONTEXT(context));
+
+    va_list args;
+    va_start(args, format);
+    context->priv->exception = adoptGRef(jsc_exception_new_with_name_vprintf(context, errorName, format, args));
+    va_end(args);
 }
 
 /**
@@ -693,7 +814,14 @@ JSCContext* jsc_context_get_current()
  */
 JSCValue* jsc_context_evaluate(JSCContext* context, const char* code, gssize length)
 {
-    return jsc_context_evaluate_with_source_uri(context, code, length, nullptr);
+    return jsc_context_evaluate_with_source_uri(context, code, length, nullptr, 0);
+}
+
+static JSValueRef evaluateScriptInContext(JSGlobalContextRef jsContext, String&& script, const char* uri, unsigned lineNumber, JSValueRef* exception)
+{
+    JSRetainPtr<JSStringRef> scriptJS(Adopt, OpaqueJSString::create(WTFMove(script)).leakRef());
+    JSRetainPtr<JSStringRef> sourceURI = uri ? adopt(JSStringCreateWithUTF8CString(uri)) : nullptr;
+    return JSEvaluateScript(jsContext, scriptJS.get(), nullptr, sourceURI.get(), lineNumber, exception);
 }
 
 /**
@@ -702,29 +830,190 @@ JSCValue* jsc_context_evaluate(JSCContext* context, const char* code, gssize len
  * @code: a JavaScript script to evaluate
  * @length: length of @code, or -1 if @code is a nul-terminated string
  * @uri: the source URI
+ * @line_number: the starting line number
  *
- * Evaluate @code in @context using @uri as the source URI. This is exactly the same as
- * jsc_context_evaluate() but @uri will be shown in exceptions. The source @uri doesn't
- * affect the behavior of the script.
+ * Evaluate @code in @context using @uri as the source URI. The @line_number is the starting line number
+ * in @uri; the value is one-based so the first line is 1. @uri and @line_number will be shown in exceptions and
+ * they don't affect the behavior of the script.
  *
  * Returns: (transfer full): a #JSCValue representing the last value generated by the script.
  */
-JSCValue* jsc_context_evaluate_with_source_uri(JSCContext* context, const char* code, gssize length, const char* uri)
+JSCValue* jsc_context_evaluate_with_source_uri(JSCContext* context, const char* code, gssize length, const char* uri, unsigned lineNumber)
 {
     g_return_val_if_fail(JSC_IS_CONTEXT(context), nullptr);
     g_return_val_if_fail(code, nullptr);
 
-    if (length < 0)
-        length = strlen(code);
-    auto script = String::fromUTF8(code, length);
-    JSRetainPtr<JSStringRef> scriptJS(Adopt, OpaqueJSString::create(WTFMove(script)).leakRef());
-    JSRetainPtr<JSStringRef> sourceURI = uri ? adopt(JSStringCreateWithUTF8CString(uri)) : nullptr;
     JSValueRef exception = nullptr;
-    JSValueRef result = JSEvaluateScript(context->priv->jsContext.get(), scriptJS.get(), nullptr, sourceURI.get(), 1, &exception);
+    JSValueRef result = evaluateScriptInContext(context->priv->jsContext.get(), String::fromUTF8(code, length < 0 ? strlen(code) : length), uri, lineNumber, &exception);
     if (jscContextHandleExceptionIfNeeded(context, exception))
         return jsc_value_new_undefined(context);
 
     return jscContextGetOrCreateValue(context, result).leakRef();
+}
+
+/**
+ * jsc_context_evaluate_in_object:
+ * @context: a #JSCContext
+ * @code: a JavaScript script to evaluate
+ * @length: length of @code, or -1 if @code is a nul-terminated string
+ * @object_instance: (nullable): an object instance
+ * @object_class: (nullable): a #JSCClass or %NULL to use the default
+ * @uri: the source URI
+ * @line_number: the starting line number
+ * @object: (out) (transfer full): return location for a #JSCValue.
+ *
+ * Evaluate @code and create an new object where symbols defined in @code will be added as properties,
+ * instead of being added to @context global object. The new object is returned as @object parameter.
+ * Similar to how jsc_value_new_object() works, if @object_instance is not %NULL @object_class must be provided too.
+ * The @line_number is the starting line number in @uri; the value is one-based so the first line is 1.
+ * @uri and @line_number will be shown in exceptions and they don't affect the behavior of the script.
+ *
+ * Returns: (transfer full): a #JSCValue representing the last value generated by the script.
+ */
+JSCValue* jsc_context_evaluate_in_object(JSCContext* context, const char* code, gssize length, gpointer instance, JSCClass* objectClass, const char* uri, unsigned lineNumber, JSCValue** object)
+{
+    g_return_val_if_fail(JSC_IS_CONTEXT(context), nullptr);
+    g_return_val_if_fail(code, nullptr);
+    g_return_val_if_fail(!instance || JSC_IS_CLASS(objectClass), nullptr);
+    g_return_val_if_fail(object && !*object, nullptr);
+
+    JSRetainPtr<JSGlobalContextRef> objectContext(Adopt,
+        instance ? jscClassCreateContextWithJSWrapper(objectClass, instance) : JSGlobalContextCreateInGroup(jscVirtualMachineGetContextGroup(context->priv->vm.get()), nullptr));
+    JSC::ExecState* exec = toJS(objectContext.get());
+    JSC::VM& vm = exec->vm();
+    auto* jsObject = vm.vmEntryGlobalObject(exec);
+    jsObject->setGlobalScopeExtension(JSC::JSWithScope::create(vm, jsObject, jsObject->globalScope(), toJS(JSContextGetGlobalObject(context->priv->jsContext.get()))));
+    JSValueRef exception = nullptr;
+    JSValueRef result = evaluateScriptInContext(objectContext.get(), String::fromUTF8(code, length < 0 ? strlen(code) : length), uri, lineNumber, &exception);
+    if (jscContextHandleExceptionIfNeeded(context, exception))
+        return jsc_value_new_undefined(context);
+
+    *object = jscContextGetOrCreateValue(context, JSContextGetGlobalObject(objectContext.get())).leakRef();
+
+    return jscContextGetOrCreateValue(context, result).leakRef();
+}
+
+/**
+ * JSCCheckSyntaxMode:
+ * @JSC_CHECK_SYNTAX_MODE_SCRIPT: mode to check syntax of a script
+ * @JSC_CHECK_SYNTAX_MODE_MODULE: mode to check syntax of a module
+ *
+ * Enum values to specify a mode to check for syntax errors in jsc_context_check_syntax().
+ */
+
+/**
+ * JSCCheckSyntaxResult:
+ * @JSC_CHECK_SYNTAX_RESULT_SUCCESS: no errors
+ * @JSC_CHECK_SYNTAX_RESULT_RECOVERABLE_ERROR: recoverable syntax error
+ * @JSC_CHECK_SYNTAX_RESULT_IRRECOVERABLE_ERROR: irrecoverable syntax error
+ * @JSC_CHECK_SYNTAX_RESULT_UNTERMINATED_LITERAL_ERROR: unterminated literal error
+ * @JSC_CHECK_SYNTAX_RESULT_OUT_OF_MEMORY_ERROR: out of memory error
+ * @JSC_CHECK_SYNTAX_RESULT_STACK_OVERFLOW_ERROR: stack overflow error
+ *
+ * Enum values to specify the result of jsc_context_check_syntax().
+ */
+
+/**
+ * jsc_context_check_syntax:
+ * @context: a #JSCContext
+ * @code: a JavaScript script to check
+ * @length: length of @code, or -1 if @code is a nul-terminated string
+ * @mode: a #JSCCheckSyntaxMode
+ * @uri: the source URI
+ * @line_number: the starting line number
+ * @exception: (out) (optional) (transfer full): return location for a #JSCException, or %NULL to ignore
+ *
+ * Check the given @code in @context for syntax errors. The @line_number is the starting line number in @uri;
+ * the value is one-based so the first line is 1. @uri and @line_number are only used to fill the @exception.
+ * In case of errors @exception will be set to a new #JSCException with the details. You can pass %NULL to
+ * @exception to ignore the error details.
+ *
+ * Returns: a #JSCCheckSyntaxResult
+ */
+JSCCheckSyntaxResult jsc_context_check_syntax(JSCContext* context, const char* code, gssize length, JSCCheckSyntaxMode mode, const char* uri, unsigned lineNumber, JSCException **exception)
+{
+    g_return_val_if_fail(JSC_IS_CONTEXT(context), JSC_CHECK_SYNTAX_RESULT_IRRECOVERABLE_ERROR);
+    g_return_val_if_fail(code, JSC_CHECK_SYNTAX_RESULT_IRRECOVERABLE_ERROR);
+    g_return_val_if_fail(!exception || !*exception, JSC_CHECK_SYNTAX_RESULT_IRRECOVERABLE_ERROR);
+
+    lineNumber = std::max<unsigned>(1, lineNumber);
+
+    auto* jsContext = context->priv->jsContext.get();
+    JSC::ExecState* exec = toJS(jsContext);
+    JSC::VM& vm = exec->vm();
+    JSC::JSLockHolder locker(vm);
+
+    String sourceURLString = uri ? String::fromUTF8(uri) : String();
+    JSC::SourceCode source = JSC::makeSource(String::fromUTF8(code, length < 0 ? strlen(code) : length), JSC::SourceOrigin { sourceURLString },
+        sourceURLString, TextPosition(OrdinalNumber::fromOneBasedInt(lineNumber), OrdinalNumber()));
+    bool success = false;
+    JSC::ParserError error;
+    switch (mode) {
+    case JSC_CHECK_SYNTAX_MODE_SCRIPT:
+        success = !!JSC::parse<JSC::ProgramNode>(&vm, source, JSC::Identifier(), JSC::JSParserBuiltinMode::NotBuiltin,
+            JSC::JSParserStrictMode::NotStrict, JSC::JSParserScriptMode::Classic, JSC::SourceParseMode::ProgramMode, JSC::SuperBinding::NotNeeded, error);
+        break;
+    case JSC_CHECK_SYNTAX_MODE_MODULE:
+        success = !!JSC::parse<JSC::ModuleProgramNode>(&vm, source, JSC::Identifier(), JSC::JSParserBuiltinMode::NotBuiltin,
+            JSC::JSParserStrictMode::Strict, JSC::JSParserScriptMode::Module, JSC::SourceParseMode::ModuleAnalyzeMode, JSC::SuperBinding::NotNeeded, error);
+        break;
+    }
+
+    JSCCheckSyntaxResult result = JSC_CHECK_SYNTAX_RESULT_SUCCESS;
+    if (success)
+        return result;
+
+    switch (error.type()) {
+    case JSC::ParserError::ErrorType::SyntaxError: {
+        switch (error.syntaxErrorType()) {
+        case JSC::ParserError::SyntaxErrorType::SyntaxErrorIrrecoverable:
+            result = JSC_CHECK_SYNTAX_RESULT_IRRECOVERABLE_ERROR;
+            break;
+        case JSC::ParserError::SyntaxErrorType::SyntaxErrorUnterminatedLiteral:
+            result = JSC_CHECK_SYNTAX_RESULT_UNTERMINATED_LITERAL_ERROR;
+            break;
+        case JSC::ParserError::SyntaxErrorType::SyntaxErrorRecoverable:
+            result = JSC_CHECK_SYNTAX_RESULT_RECOVERABLE_ERROR;
+            break;
+        case JSC::ParserError::SyntaxErrorType::SyntaxErrorNone:
+            ASSERT_NOT_REACHED();
+            break;
+        }
+        break;
+    }
+    case JSC::ParserError::ErrorType::StackOverflow:
+        result = JSC_CHECK_SYNTAX_RESULT_STACK_OVERFLOW_ERROR;
+        break;
+    case JSC::ParserError::ErrorType::OutOfMemory:
+        result = JSC_CHECK_SYNTAX_RESULT_OUT_OF_MEMORY_ERROR;
+        break;
+    case JSC::ParserError::ErrorType::EvalError:
+    case JSC::ParserError::ErrorType::ErrorNone:
+        ASSERT_NOT_REACHED();
+        break;
+    }
+
+    if (exception) {
+        auto* jsError = error.toErrorObject(exec->lexicalGlobalObject(), source);
+        *exception = jscExceptionCreate(context, toRef(exec, jsError)).leakRef();
+    }
+
+    return result;
+}
+
+/**
+ * jsc_context_get_global_object:
+ * @context: a #JSCContext
+ *
+ * Get a #JSCValue referencing the @context global object
+ *
+ * Returns: (transfer full): a #JSCValue
+ */
+JSCValue* jsc_context_get_global_object(JSCContext* context)
+{
+    g_return_val_if_fail(JSC_IS_CONTEXT(context), nullptr);
+
+    return jscContextGetOrCreateValue(context, JSContextGetGlobalObject(context->priv->jsContext.get())).leakRef();
 }
 
 /**

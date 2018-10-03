@@ -86,6 +86,7 @@ Structure* InferredType::createStructure(VM& vm, JSGlobalObject* globalObject, J
 void InferredType::visitChildren(JSCell* cell, SlotVisitor& visitor)
 {
     InferredType* inferredType = jsCast<InferredType*>(cell);
+    Base::visitChildren(cell, visitor);
     if (inferredType->m_structure)
         visitor.vm().inferredTypesWithFinalizers.add(inferredType);
 }
@@ -484,13 +485,11 @@ bool InferredType::set(const ConcurrentJSLocker& locker, VM& vm, Descriptor newD
     return shouldFireWatchpointSet;
 }
 
-void InferredType::removeStructure()
+void InferredType::removeStructure(VM& vm)
 {
     // FIXME: Find an elegant and cheap way to thread information about why we got here into the fire
     // detail in set().
     
-    VM& vm = *Heap::heap(this)->vm();
-
     Descriptor oldDescriptor;
     Descriptor newDescriptor;
     {

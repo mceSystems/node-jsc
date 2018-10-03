@@ -224,8 +224,9 @@ bool doesGC(Graph& graph, Node* node)
     case WeakSetAdd:
     case WeakMapSet:
     case Unreachable:
-    case ExtractCatchLocal:
     case ExtractOSREntryLocal:
+    case ExtractCatchLocal:
+    case ClearCatchLocals:
     case CheckTierUpInLoop:
     case CheckTierUpAtReturn:
     case CheckTierUpAndOSREnter:
@@ -313,6 +314,13 @@ bool doesGC(Graph& graph, Node* node)
     case AtomicsXor:
     case AtomicsIsLockFree:
     case MatchStructure:
+    case FilterCallLinkStatus:
+    case FilterGetByIdStatus:
+    case FilterPutByIdStatus:
+    case FilterInByIdStatus:
+    case DataViewGetInt:
+    case DataViewGetFloat:
+    case DataViewSet:
         return false;
 
     case PushWithScope:
@@ -324,6 +332,7 @@ bool doesGC(Graph& graph, Node* node)
     case ToObject:
     case ToThis:
     case CreateThis:
+    case ObjectCreate:
     case AllocatePropertyStorage:
     case ReallocatePropertyStorage:
     case Arrayify:
@@ -354,6 +363,7 @@ bool doesGC(Graph& graph, Node* node)
     case StringReplace:
     case StringReplaceRegExp:
     case StringSlice:
+    case StringValueOf:
     case CreateRest:
     case ToLowerCase:
     case CallDOMGetter:

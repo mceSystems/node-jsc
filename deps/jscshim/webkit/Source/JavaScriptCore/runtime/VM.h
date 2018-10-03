@@ -51,7 +51,6 @@
 #include "SmallStrings.h"
 #include "Strong.h"
 #include "StructureCache.h"
-#include "VMEntryRecord.h"
 #include "VMTraps.h"
 #include "WasmContext.h"
 #include "Watchpoint.h"
@@ -168,9 +167,12 @@ namespace DOMJIT {
 class Signature;
 }
 
+struct EntryFrame;
 struct HashTable;
 struct Instruction;
 struct ValueProfile;
+
+typedef ExecState CallFrame;
 
 struct LocalTimeOffsetCache {
     LocalTimeOffsetCache()
@@ -289,11 +291,24 @@ public:
     JS_EXPORT_PRIVATE SamplingProfiler& ensureSamplingProfiler(RefPtr<Stopwatch>&&);
 #endif
 
+    static unsigned numberOfIDs() { return s_numberOfIDs.load(); }
+    unsigned id() const { return m_id; }
+    bool isEntered() const { return !!entryScope; }
+
+    inline CallFrame* topJSCallFrame() const;
+
+    // Global object in which execution began.
+    JS_EXPORT_PRIVATE JSGlobalObject* vmEntryGlobalObject(const CallFrame*) const;
+
 private:
+    unsigned nextID();
+
+    static Atomic<unsigned> s_numberOfIDs;
+
+    unsigned m_id;
     RefPtr<JSLock> m_apiLock;
 #if USE(CF)
     // These need to be initialized before heap below.
-    HashSet<JSRunLoopTimer*> m_runLoopTimers;
     RetainPtr<CFRunLoopRef> m_runLoop;
 #endif
 
@@ -306,6 +321,7 @@ public:
 
     std::unique_ptr<HeapCellType> auxiliaryHeapCellType;
     std::unique_ptr<HeapCellType> cellJSValueOOBHeapCellType;
+    std::unique_ptr<HeapCellType> immutableButterflyHeapCellType;
     std::unique_ptr<HeapCellType> cellDangerousBitsHeapCellType;
     std::unique_ptr<HeapCellType> destructibleCellHeapCellType;
     std::unique_ptr<JSStringHeapCellType> stringHeapCellType;
@@ -317,6 +333,7 @@ public:
     
     CompleteSubspace primitiveGigacageAuxiliarySpace; // Typed arrays, strings, bitvectors, etc go here.
     CompleteSubspace jsValueGigacageAuxiliarySpace; // Butterflies, arrays of JSValues, etc go here.
+    CompleteSubspace immutableButterflyJSValueGigacageAuxiliarySpace; // JSImmutableButterfly goes here.
 
     // We make cross-cutting assumptions about typed arrays being in the primitive Gigacage and butterflies
     // being in the JSValue gigacage. For some types, it's super obvious where they should go, and so we
@@ -352,13 +369,10 @@ public:
     IsoSubspace boundFunctionSpace;
     IsoSubspace callbackFunctionSpace;
     IsoSubspace customGetterSetterFunctionSpace;
-    IsoSubspace directEvalExecutableSpace;
     IsoSubspace errorConstructorSpace;
     IsoSubspace executableToCodeBlockEdgeSpace;
-    IsoSubspace functionExecutableSpace;
     IsoSubspace functionSpace;
     IsoSubspace generatorFunctionSpace;
-    IsoSubspace indirectEvalExecutableSpace;
     IsoSubspace inferredTypeSpace;
     IsoSubspace inferredValueSpace;
     IsoSubspace internalFunctionSpace;
@@ -368,14 +382,12 @@ public:
     IsoSubspace intlNumberFormatConstructorSpace;
     IsoSubspace intlPluralRulesConstructorSpace;
 #endif
-    IsoSubspace moduleProgramExecutableSpace;
     IsoSubspace nativeErrorConstructorSpace;
     IsoSubspace nativeExecutableSpace;
     IsoSubspace nativeStdFunctionSpace;
 #if JSC_OBJC_API_ENABLED
     IsoSubspace objCCallbackFunctionSpace;
 #endif
-    IsoSubspace programExecutableSpace;
     IsoSubspace propertyTableSpace;
     IsoSubspace proxyRevokeSpace;
     IsoSubspace regExpConstructorSpace;
@@ -384,6 +396,7 @@ public:
     IsoSubspace structureSpace;
     IsoSubspace weakSetSpace;
     IsoSubspace weakMapSpace;
+    IsoSubspace errorInstanceSpace;
 #if ENABLE(WEBASSEMBLY)
     IsoSubspace webAssemblyCodeBlockSpace;
     IsoSubspace webAssemblyFunctionSpace;
@@ -430,7 +443,63 @@ public:
         func(moduleProgramCodeBlockSpace);
         func(programCodeBlockSpace);
     }
-    
+
+    struct ScriptExecutableSpaceAndSet {
+        IsoSubspace space;
+        IsoCellSet clearableCodeSet;
+
+        template<typename... Arguments>
+        ScriptExecutableSpaceAndSet(Arguments&&... arguments)
+            : space(std::forward<Arguments>(arguments)...)
+            , clearableCodeSet(space)
+        { }
+
+        static IsoCellSet& clearableCodeSetFor(Subspace& space)
+        {
+            return *bitwise_cast<IsoCellSet*>(
+                bitwise_cast<char*>(&space) -
+                OBJECT_OFFSETOF(ScriptExecutableSpaceAndSet, space) +
+                OBJECT_OFFSETOF(ScriptExecutableSpaceAndSet, clearableCodeSet));
+        }
+    };
+
+    ScriptExecutableSpaceAndSet directEvalExecutableSpace;
+    ScriptExecutableSpaceAndSet functionExecutableSpace;
+    ScriptExecutableSpaceAndSet indirectEvalExecutableSpace;
+    ScriptExecutableSpaceAndSet moduleProgramExecutableSpace;
+    ScriptExecutableSpaceAndSet programExecutableSpace;
+
+    template<typename Func>
+    void forEachScriptExecutableSpace(const Func& func)
+    {
+        func(directEvalExecutableSpace);
+        func(functionExecutableSpace);
+        func(indirectEvalExecutableSpace);
+        func(moduleProgramExecutableSpace);
+        func(programExecutableSpace);
+    }
+
+    struct UnlinkedFunctionExecutableSpaceAndSet {
+        IsoSubspace space;
+        IsoCellSet clearableCodeSet;
+
+        template<typename... Arguments>
+        UnlinkedFunctionExecutableSpaceAndSet(Arguments&&... arguments)
+            : space(std::forward<Arguments>(arguments)...)
+            , clearableCodeSet(space)
+        { }
+        
+        static IsoCellSet& clearableCodeSetFor(Subspace& space)
+        {
+            return *bitwise_cast<IsoCellSet*>(
+                bitwise_cast<char*>(&space) -
+                OBJECT_OFFSETOF(UnlinkedFunctionExecutableSpaceAndSet, space) +
+                OBJECT_OFFSETOF(UnlinkedFunctionExecutableSpaceAndSet, clearableCodeSet));
+        }
+    };
+
+    UnlinkedFunctionExecutableSpaceAndSet unlinkedFunctionExecutableSpace;
+
     VMType vmType;
     ClientData* clientData;
     EntryFrame* topEntryFrame;
@@ -496,7 +565,7 @@ public:
     Strong<Structure> mapIteratorStructure;
     Strong<Structure> bigIntStructure;
     Strong<Structure> executableToCodeBlockEdgeStructure;
-	Strong<Structure> customAPIValueStructure;
+    Strong<Structure> customAPIValueStructure;
 
     Strong<JSCell> emptyPropertyNameEnumerator;
     Strong<JSCell> sentinelSetBucket;
@@ -557,9 +626,21 @@ public:
     };
 
     static JS_EXPORT_PRIVATE bool canUseAssembler();
-    static JS_EXPORT_PRIVATE bool canUseJIT();
     static JS_EXPORT_PRIVATE bool canUseRegExpJIT();
     static JS_EXPORT_PRIVATE bool isInMiniMode();
+
+    static void computeCanUseJIT();
+    ALWAYS_INLINE static bool canUseJIT()
+    {
+#if ENABLE(JIT)
+#if !ASSERT_DISABLED
+        RELEASE_ASSERT(s_canUseJITIsSet);
+#endif
+        return s_canUseJIT;
+#else
+        return false;
+#endif
+    }
 
     SourceProviderCache* addSourceProviderCache(SourceProvider*);
     void clearSourceProviderCaches();
@@ -636,7 +717,7 @@ public:
     void* stackLimit() { return m_stackLimit; }
     void* softStackLimit() { return m_softStackLimit; }
     void** addressOfSoftStackLimit() { return &m_softStackLimit; }
-#if !ENABLE(JIT)
+#if ENABLE(C_LOOP)
     void* cloopStackLimit() { return m_cloopStackLimit; }
     void setCLoopStackLimit(void* limit) { m_cloopStackLimit = limit; }
 #endif
@@ -672,7 +753,9 @@ public:
     // The threading protocol here is as follows:
     // - You can call scratchBufferForSize from any thread.
     // - You can only set the ScratchBuffer's activeLength from the main thread.
+    // - You can only write to entries in the ScratchBuffer from the main thread.
     ScratchBuffer* scratchBufferForSize(size_t size);
+    void clearScratchBuffers();
 
     EncodedJSValue* exceptionFuzzingBuffer(size_t size)
     {
@@ -741,12 +824,12 @@ public:
     JSLock& apiLock() { return *m_apiLock; }
     CodeCache* codeCache() { return m_codeCache.get(); }
 
-    JS_EXPORT_PRIVATE void whenIdle(std::function<void()>);
+    JS_EXPORT_PRIVATE void whenIdle(Function<void()>&&);
 
     JS_EXPORT_PRIVATE void deleteAllCode(DeleteAllCodeEffort);
     JS_EXPORT_PRIVATE void deleteAllLinkedCode(DeleteAllCodeEffort);
 
-    void shrinkFootprint();
+    void shrinkFootprintWhenIdle();
 
     WatchpointSet* ensureWatchpointSetForImpureProperty(const Identifier&);
     void registerWatchpointForImpureProperty(const Identifier&, Watchpoint*);
@@ -806,8 +889,6 @@ public:
 
 #if USE(CF)
     CFRunLoopRef runLoop() const { return m_runLoop.get(); }
-    void registerRunLoopTimer(JSRunLoopTimer*);
-    void unregisterRunLoopTimer(JSRunLoopTimer*);
     JS_EXPORT_PRIVATE void setRunLoop(CFRunLoopRef);
 #endif // USE(CF)
 
@@ -849,10 +930,10 @@ private:
         m_exception = nullptr;
     }
 
-#if !ENABLE(JIT)    
+#if ENABLE(C_LOOP)
     bool ensureStackCapacityForCLoop(Register* newTopOfStack);
     bool isSafeToRecurseSoftCLoop() const;
-#endif // !ENABLE(JIT)
+#endif // ENABLE(C_LOOP)
 
     JS_EXPORT_PRIVATE void throwException(ExecState*, Exception*);
     JS_EXPORT_PRIVATE JSValue throwException(ExecState*, JSValue);
@@ -873,7 +954,7 @@ private:
     size_t m_currentSoftReservedZoneSize;
     void* m_stackLimit { nullptr };
     void* m_softStackLimit { nullptr };
-#if !ENABLE(JIT)
+#if ENABLE(C_LOOP)
     void* m_cloopStackLimit { nullptr };
 #endif
     void* m_lastStackTop { nullptr };
@@ -919,6 +1000,13 @@ private:
     std::unique_ptr<ShadowChicken> m_shadowChicken;
     std::unique_ptr<BytecodeIntrinsicRegistry> m_bytecodeIntrinsicRegistry;
 
+#if ENABLE(JIT)
+#if !ASSERT_DISABLED
+    JS_EXPORT_PRIVATE static bool s_canUseJITIsSet;
+#endif
+    JS_EXPORT_PRIVATE static bool s_canUseJIT;
+#endif
+
     VM* m_prev; // Required by DoublyLinkedListNode.
     VM* m_next; // Required by DoublyLinkedListNode.
 
@@ -948,7 +1036,7 @@ inline Heap* WeakSet::heap() const
     return &m_vm->heap;
 }
 
-#if ENABLE(JIT)
+#if !ENABLE(C_LOOP)
 extern "C" void sanitizeStackForVMImpl(VM*);
 #endif
 

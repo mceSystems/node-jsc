@@ -39,9 +39,10 @@
 #include "ProtoCallFrame.h"
 #include "VM.h"
 #include "WasmCallee.h"
-#include "WasmContext.h"
+#include "WasmContextInlines.h"
 #include "WasmFormat.h"
 #include "WasmMemory.h"
+#include "WasmSignatureInlines.h"
 #include <wtf/FastTLS.h>
 #include <wtf/SystemTracing.h>
 
@@ -79,9 +80,11 @@ static EncodedJSValue JSC_HOST_CALL callWebAssemblyFunction(ExecState* exec)
         }
     }
 
-    TraceScope traceScope(WebAssemblyExecuteStart, WebAssemblyExecuteEnd);
+    std::optional<TraceScope> traceScope;
+    if (Options::useTracePoints())
+        traceScope.emplace(WebAssemblyExecuteStart, WebAssemblyExecuteEnd);
 
-    Vector<JSValue> boxedArgs;
+    Vector<JSValue, MarkedArgumentBuffer::inlineCapacity> boxedArgs;
     JSWebAssemblyInstance* instance = wasmFunction->instance();
     Wasm::Instance* wasmInstance = &instance->instance();
     // When we don't use fast TLS to store the context, the JS

@@ -55,15 +55,25 @@ ALWAYS_INLINE VM& VMTraps::vm() const
 #if ENABLE(SIGNAL_BASED_VM_TRAPS)
 
 struct SignalContext {
-    SignalContext(PlatformRegisters& registers)
+private:
+    SignalContext(PlatformRegisters& registers, MacroAssemblerCodePtr<PlatformRegistersPCPtrTag> trapPC)
         : registers(registers)
-        , trapPC(MachineContext::instructionPointer(registers))
+        , trapPC(trapPC)
         , stackPointer(MachineContext::stackPointer(registers))
         , framePointer(MachineContext::framePointer(registers))
     { }
 
+public:
+    static std::optional<SignalContext> tryCreate(PlatformRegisters& registers)
+    {
+        auto instructionPointer = MachineContext::instructionPointer(registers);
+        if (!instructionPointer)
+            return std::nullopt;
+        return SignalContext(registers, *instructionPointer);
+    }
+
     PlatformRegisters& registers;
-    MacroAssemblerCodePtr<CFunctionPtrTag> trapPC;
+    MacroAssemblerCodePtr<PlatformRegistersPCPtrTag> trapPC;
     void* stackPointer;
     void* framePointer;
 };
@@ -116,7 +126,7 @@ void VMTraps::tryInstallTrapBreakpoints(SignalContext& context, StackBounds stac
         if (!isSaneFrame(callFrame, calleeFrame, entryFrame, stackBounds))
             return; // Let the SignalSender try again later.
 
-        CodeBlock* candidateCodeBlock = callFrame->codeBlock();
+        CodeBlock* candidateCodeBlock = callFrame->unsafeCodeBlock();
         if (candidateCodeBlock && vm.heap.codeBlockSet().contains(codeBlockSetLocker, candidateCodeBlock)) {
             foundCodeBlock = candidateCodeBlock;
             break;
@@ -180,15 +190,17 @@ class VMTraps::SignalSender final : public AutomaticThread {
 public:
     using Base = AutomaticThread;
     SignalSender(const AbstractLocker& locker, VM& vm)
-        : Base(locker, vm.traps().m_lock, vm.traps().m_trapSet)
+        : Base(locker, vm.traps().m_lock, vm.traps().m_trapSet.copyRef())
         , m_vm(vm)
     {
         static std::once_flag once;
         std::call_once(once, [] {
             installSignalHandler(Signal::BadAccess, [] (Signal, SigInfo&, PlatformRegisters& registers) -> SignalAction {
-                SignalContext context(registers);
+                auto signalContext = SignalContext::tryCreate(registers);
+                if (!signalContext)
+                    return SignalAction::NotHandled;
 
-                void* trapPC = context.trapPC.untaggedExecutableAddress();
+                void* trapPC = signalContext->trapPC.untaggedExecutableAddress();
                 if (!isJITPC(trapPC))
                     return SignalAction::NotHandled;
 
@@ -220,6 +232,11 @@ public:
         });
     }
 
+    const char* name() const override
+    {
+        return "JSC VMTraps Signal Sender Thread";
+    }
+
     VMTraps& traps() { return m_vm.traps(); }
 
 protected:
@@ -244,7 +261,9 @@ protected:
         auto optionalOwnerThread = vm.ownerThread();
         if (optionalOwnerThread) {
             sendMessage(*optionalOwnerThread.value().get(), [&] (PlatformRegisters& registers) -> void {
-                SignalContext context(registers);
+                auto signalContext = SignalContext::tryCreate(registers);
+                if (!signalContext)
+                    return;
 
                 auto ownerThread = vm.apiLock().ownerThread();
                 // We can't mess with a thread unless it's the one we suspended.
@@ -252,7 +271,7 @@ protected:
                     return;
 
                 Thread& thread = *ownerThread->get();
-                vm.traps().tryInstallTrapBreakpoints(context, thread.stack());
+                vm.traps().tryInstallTrapBreakpoints(*signalContext, thread.stack());
             });
         }
 

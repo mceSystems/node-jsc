@@ -79,7 +79,7 @@ template<> struct HashTraits<SymbolRegistryKey> : SimpleClassHashTraits<SymbolRe
 class SymbolRegistry {
     WTF_MAKE_NONCOPYABLE(SymbolRegistry);
 public:
-	SymbolRegistry(bool createPrivateSymbols = false) : m_createPrivateSymbols(createPrivateSymbols) {};
+    SymbolRegistry(bool createPrivateSymbols = false) : m_createPrivateSymbols(createPrivateSymbols) {};
     WTF_EXPORT_PRIVATE ~SymbolRegistry();
 
     WTF_EXPORT_PRIVATE Ref<RegisteredSymbolImpl> symbolForKey(const String&);
@@ -88,7 +88,7 @@ public:
 
 private:
     HashSet<SymbolRegistryKey> m_table;
-	bool m_createPrivateSymbols;
+    bool m_createPrivateSymbols;
 };
 
 inline SymbolRegistryKey::SymbolRegistryKey(StringImpl* uid)

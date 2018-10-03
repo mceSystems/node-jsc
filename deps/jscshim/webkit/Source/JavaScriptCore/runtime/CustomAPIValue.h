@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Koby Boyango <koby.b@mce.systems>
+ * Copyright (C) 2018 mce sys Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,68 +38,68 @@ class Structure;
 
 class CustomAPIValue : public JSCell {
 public:
-	using Base = JSCell;
-	static const unsigned StructureFlags = Base::StructureFlags | StructureIsImmortal;
+    using Base = JSCell;
+    static const unsigned StructureFlags = Base::StructureFlags | StructureIsImmortal;
 
-	using Getter = JSValue (*)(CustomAPIValue * thisApiValue, ExecState* exec, JSObject* slotBase, JSValue receiver, PropertyName propertyName);
-	using Setter = bool (*)(CustomAPIValue * thisApiValue, ExecState* exec, JSObject* slotBase, JSValue receiver, PropertyName propertyName, JSValue value, bool isStrictMode);
+    using Getter = JSValue (*)(CustomAPIValue * thisApiValue, ExecState* exec, JSObject* slotBase, JSValue receiver, PropertyName propertyName);
+    using Setter = bool (*)(CustomAPIValue * thisApiValue, ExecState* exec, JSObject* slotBase, JSValue receiver, PropertyName propertyName, JSValue value, bool isStrictMode);
 
-	static CustomAPIValue* create(VM& vm, Getter getter = nullptr, Setter setter = nullptr)
-	{
-		CustomAPIValue* customAPIValue = new (NotNull, allocateCell<CustomAPIValue>(vm.heap)) CustomAPIValue(vm, vm.customAPIValueStructure.get(), getter, setter);
-		customAPIValue->finishCreation(vm);
-		return customAPIValue;
-	}
+    static CustomAPIValue* create(VM& vm, Getter getter = nullptr, Setter setter = nullptr)
+    {
+        CustomAPIValue* customAPIValue = new (NotNull, allocateCell<CustomAPIValue>(vm.heap)) CustomAPIValue(vm, vm.customAPIValueStructure.get(), getter, setter);
+        customAPIValue->finishCreation(vm);
+        return customAPIValue;
+    }
 
-	static JSC::Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype);
+    static JSC::Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype);
 
-	DECLARE_EXPORT_INFO;
+    DECLARE_EXPORT_INFO;
 
-	JSValue get(ExecState* exec, JSObject* slotBase, JSValue receiver, PropertyName propertyName)
-	{
-		return m_getter.unpoisoned()(this, exec, slotBase, receiver, propertyName);
-	}
+    JSValue get(ExecState* exec, JSObject* slotBase, JSValue receiver, PropertyName propertyName)
+    {
+        return m_getter.unpoisoned()(this, exec, slotBase, receiver, propertyName);
+    }
 
-	bool set(ExecState* exec, JSObject* slotBase, JSValue receiver, PropertyName propertyName, JSValue value, bool isStrictMode)
-	{
-		return m_setter.unpoisoned()(this, exec, slotBase, receiver, propertyName, value, isStrictMode);
-	}
+    bool set(ExecState* exec, JSObject* slotBase, JSValue receiver, PropertyName propertyName, JSValue value, bool isStrictMode)
+    {
+        return m_setter.unpoisoned()(this, exec, slotBase, receiver, propertyName, value, isStrictMode);
+    }
 
 protected:
-	CustomAPIValue(VM& vm, Structure* structure, Getter getter, Setter setter)
-		: JSCell(vm, structure)
-		, m_getter(getter ? getter : defaultGetter)
-		, m_setter(setter ? setter : defaultSetter)
-	{
-	}
+    CustomAPIValue(VM& vm, Structure* structure, Getter getter, Setter setter)
+        : JSCell(vm, structure)
+        , m_getter(getter ? getter : defaultGetter)
+        , m_setter(setter ? setter : defaultSetter)
+    {
+    }
 
 private:
-	static JSValue defaultGetter(CustomAPIValue * thisApiValue, ExecState* exec, JSObject * slotBase, JSValue receiver, PropertyName propertyName)
-	{
-		UNUSED_PARAM(thisApiValue);
-		UNUSED_PARAM(exec);
-		UNUSED_PARAM(slotBase);
-		UNUSED_PARAM(receiver);
-		UNUSED_PARAM(propertyName);
+    static JSValue defaultGetter(CustomAPIValue * thisApiValue, ExecState* exec, JSObject * slotBase, JSValue receiver, PropertyName propertyName)
+    {
+        UNUSED_PARAM(thisApiValue);
+        UNUSED_PARAM(exec);
+        UNUSED_PARAM(slotBase);
+        UNUSED_PARAM(receiver);
+        UNUSED_PARAM(propertyName);
 
-		return jsUndefined();
-	}
+        return jsUndefined();
+    }
 
-	static bool defaultSetter(CustomAPIValue * thisApiValue, ExecState* exec, JSObject * slotBase, JSValue receiver, PropertyName propertyName, JSValue value, bool isStrictMode)
-	{
-		UNUSED_PARAM(thisApiValue);
-		UNUSED_PARAM(exec);
-		UNUSED_PARAM(slotBase);
-		UNUSED_PARAM(receiver);
-		UNUSED_PARAM(propertyName);
-		UNUSED_PARAM(value);
-		UNUSED_PARAM(isStrictMode);
+    static bool defaultSetter(CustomAPIValue * thisApiValue, ExecState* exec, JSObject * slotBase, JSValue receiver, PropertyName propertyName, JSValue value, bool isStrictMode)
+    {
+        UNUSED_PARAM(thisApiValue);
+        UNUSED_PARAM(exec);
+        UNUSED_PARAM(slotBase);
+        UNUSED_PARAM(receiver);
+        UNUSED_PARAM(propertyName);
+        UNUSED_PARAM(value);
+        UNUSED_PARAM(isStrictMode);
 
-		return true;
-	}
+        return true;
+    }
 
-	Poisoned<NativeCodePoison, Getter> m_getter;
-	Poisoned<NativeCodePoison, Setter> m_setter;
+    Poisoned<NativeCodePoison, Getter> m_getter;
+    Poisoned<NativeCodePoison, Setter> m_setter;
 };
 
 } // namespace JSC

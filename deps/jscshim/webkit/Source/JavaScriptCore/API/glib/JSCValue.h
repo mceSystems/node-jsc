@@ -130,6 +130,10 @@ JSC_API JSCValue *
 jsc_value_new_array_from_garray           (JSCContext           *context,
                                            GPtrArray            *array);
 
+JSC_API JSCValue *
+jsc_value_new_array_from_strv             (JSCContext           *context,
+                                           const char *const    *strv);
+
 JSC_API gboolean
 jsc_value_is_array                        (JSCValue             *value);
 
@@ -178,13 +182,13 @@ JSC_API JSCValue *
 jsc_value_object_invoke_method            (JSCValue             *value,
                                            const char           *name,
                                            GType                 first_parameter_type,
-                                           ...);
+                                           ...) G_GNUC_WARN_UNUSED_RESULT;
 
 JSC_API JSCValue *
 jsc_value_object_invoke_methodv           (JSCValue             *value,
                                            const char           *name,
                                            guint                 n_parameters,
-                                           JSCValue            **parameters);
+                                           JSCValue            **parameters) G_GNUC_WARN_UNUSED_RESULT;
 
 JSC_API void
 jsc_value_object_define_property_data     (JSCValue             *value,
@@ -222,18 +226,26 @@ jsc_value_new_functionv                   (JSCContext           *context,
                                            guint                 n_parameters,
                                            GType                *parameter_types);
 
+JSC_API JSCValue *
+jsc_value_new_function_variadic           (JSCContext           *context,
+                                           const char           *name,
+                                           GCallback             callback,
+                                           gpointer              user_data,
+                                           GDestroyNotify        destroy_notify,
+                                           GType                 return_type);
+
 JSC_API gboolean
 jsc_value_is_function                     (JSCValue             *value);
 
 JSC_API JSCValue *
 jsc_value_function_call                   (JSCValue             *value,
                                            GType                 first_parameter_type,
-                                           ...);
+                                           ...) G_GNUC_WARN_UNUSED_RESULT;
 
 JSC_API JSCValue *
 jsc_value_function_callv                  (JSCValue             *value,
                                            guint                 n_parameters,
-                                           JSCValue            **parameters);
+                                           JSCValue            **parameters) G_GNUC_WARN_UNUSED_RESULT;
 
 JSC_API gboolean
 jsc_value_is_constructor                  (JSCValue             *value);

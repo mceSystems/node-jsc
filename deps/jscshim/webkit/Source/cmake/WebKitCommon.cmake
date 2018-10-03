@@ -21,9 +21,6 @@ if (NOT HAS_RUN_WEBKIT_COMMON)
     find_package(PerlModules COMPONENTS JSON::PP REQUIRED)
 
     find_package(PythonInterp 2.7.0 REQUIRED)
-    if (PYTHON_VERSION_MAJOR GREATER 2)
-        message(FATAL_ERROR "Python 2 is required, but Python ${PYTHON_VERSION_MAJOR} was found.")
-    endif ()
 
     # We cannot check for RUBY_FOUND because it is set only when the full package is installed and
     # the only thing we need is the interpreter. Unlike Python, cmake does not provide a macro
@@ -61,11 +58,20 @@ if (NOT HAS_RUN_WEBKIT_COMMON)
     include(Options${PORT})
 
     # -----------------------------------------------------------------------------
+    # Job pool to avoid running too many memory hungry linker processes
+    # -----------------------------------------------------------------------------
+    if (${CMAKE_BUILD_TYPE} STREQUAL "Release" OR ${CMAKE_BUILD_TYPE} STREQUAL "MinSizeRel")
+        set_property(GLOBAL PROPERTY JOB_POOLS link_pool_jobs=4)
+    else ()
+        set_property(GLOBAL PROPERTY JOB_POOLS link_pool_jobs=2)
+    endif ()
+    set(CMAKE_JOB_POOL_LINK link_pool_jobs)
+
+    # -----------------------------------------------------------------------------
     # Create derived sources directories
     # -----------------------------------------------------------------------------
 
     if (ENABLE_WEBCORE)
-        file(MAKE_DIRECTORY ${DERIVED_SOURCES_PAL_DIR})
         file(MAKE_DIRECTORY ${DERIVED_SOURCES_WEBCORE_DIR})
     endif ()
 

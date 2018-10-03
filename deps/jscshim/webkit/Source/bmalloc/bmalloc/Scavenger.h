@@ -72,6 +72,8 @@ public:
     // It's unlikely, but possible.
     size_t footprint();
 
+    void enableMiniMode();
+
 private:
     enum class State { Sleep, Run, RunSoon };
     
@@ -80,8 +82,8 @@ private:
 
     void scheduleIfUnderMemoryPressureHoldingLock(size_t bytes);
 
-    static void threadEntryPoint(Scavenger*);
-    void threadRunLoop();
+    BNO_RETURN static void threadEntryPoint(Scavenger*);
+    BNO_RETURN void threadRunLoop();
     
     void setSelfQOSClass();
     void setThreadName(const char*);
@@ -108,6 +110,8 @@ private:
 #endif
     
     Vector<DeferredDecommit> m_deferredDecommits;
+
+    bool m_isInMiniMode { false };
 };
 
 } // namespace bmalloc

@@ -295,10 +295,9 @@ class ServerProcess(object):
         # See http://code.activestate.com/recipes/440554-module-to-allow-asynchronous-subprocess-use-on-win/
         # and http://docs.activestate.com/activepython/2.6/pywin32/modules.html
         # for documentation on all of these win32-specific modules.
-        now = time.time()
         out_fh = msvcrt.get_osfhandle(self._proc.stdout.fileno())
         err_fh = msvcrt.get_osfhandle(self._proc.stderr.fileno())
-        while (self._proc.poll() is None) and (now < deadline):
+        while time.time() < deadline:
             output = self._non_blocking_read_win32(out_fh)
             error = self._non_blocking_read_win32(err_fh)
             if output or error:
@@ -307,9 +306,9 @@ class ServerProcess(object):
                 if error:
                     self._error += error
                 return
+            if self._proc.poll() is not None:
+                return
             time.sleep(0.01)
-            now = time.time()
-        return
 
     def _non_blocking_read_win32(self, handle):
         try:
@@ -324,7 +323,7 @@ class ServerProcess(object):
 
     def has_crashed(self):
         if not self._crashed and self.poll():
-            _log.debug('This test marked as a crash because of failure to poll the server process.')
+            _log.debug('This test marked as a crash because of failure to poll the server process (return code was %s).' % self._proc.returncode)
             self._crashed = True
             self._handle_possible_interrupt()
         return self._crashed

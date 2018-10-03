@@ -30,6 +30,7 @@
 #include "Debugger.h"
 #include "EvalCodeBlock.h"
 #include "FunctionCodeBlock.h"
+#include "IsoCellSetInlines.h"
 #include "JIT.h"
 #include "JSCInlines.h"
 #include "LLIntEntrypoint.h"
@@ -68,6 +69,13 @@ ScriptExecutable::ScriptExecutable(Structure* structure, VM& vm, const SourceCod
 void ScriptExecutable::destroy(JSCell* cell)
 {
     static_cast<ScriptExecutable*>(cell)->ScriptExecutable::~ScriptExecutable();
+}
+
+void ScriptExecutable::clearCode(IsoCellSet& clearableCodeSet)
+{
+    Base::clearCode();
+    ASSERT(&VM::ScriptExecutableSpaceAndSet::clearableCodeSetFor(*subspace()) == &clearableCodeSet);
+    clearableCodeSet.remove(this);
 }
 
 void ScriptExecutable::installCode(CodeBlock* codeBlock)
@@ -147,6 +155,12 @@ void ScriptExecutable::installCode(VM& vm, CodeBlock* genericCodeBlock, CodeType
         break;
     }
 
+    auto& clearableCodeSet = VM::ScriptExecutableSpaceAndSet::clearableCodeSetFor(*subspace());
+    if (hasClearableCode())
+        clearableCodeSet.add(this);
+    else
+        clearableCodeSet.remove(this);
+
     if (genericCodeBlock) {
         RELEASE_ASSERT(genericCodeBlock->ownerExecutable() == this);
         RELEASE_ASSERT(JITCode::isExecutableScript(genericCodeBlock->jitType()));
@@ -177,7 +191,7 @@ CodeBlock* ScriptExecutable::newCodeBlockFor(
     ASSERT(vm->heap.isDeferred());
     ASSERT(endColumn() != UINT_MAX);
 
-    JSGlobalObject* globalObject = scope->globalObject();
+    JSGlobalObject* globalObject = scope->globalObject(*vm);
     ExecState* exec = globalObject->globalExec();
 
     if (classInfo(*vm) == EvalExecutable::info()) {
@@ -331,8 +345,8 @@ JSObject* ScriptExecutable::prepareForExecutionImpl(
     DeferGCForAWhile deferGC(vm.heap);
 
     if (vm.getAndClearFailNextNewCodeBlock()) {
-        auto& state = *scope->globalObject()->globalExec();
-        return throwException(&state, throwScope, createError(&state, ASCIILiteral("Forced Failure")));
+        auto& state = *scope->globalObject(vm)->globalExec();
+        return throwException(&state, throwScope, createError(&state, "Forced Failure"_s));
     }
 
     JSObject* exception = nullptr;

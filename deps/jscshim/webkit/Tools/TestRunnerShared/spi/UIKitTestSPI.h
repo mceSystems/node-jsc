@@ -41,14 +41,9 @@
 #import <UIKit/UIScreen_Private.h>
 #import <UIKit/_UIApplicationRotationFollowing.h>
 
-@interface UIKeyboardPredictionView : UIView
-+ (UIKeyboardPredictionView *)activeInstance;
-- (BOOL)hasPredictions;
-@end
-
 #else
 
-#import "IOKitSPI.h"
+#import <pal/spi/cocoa/IOKitSPI.h>
 
 @interface UIApplication ()
 - (void)_enqueueHIDEvent:(IOHIDEventRef)event;

@@ -20,6 +20,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import json
 import logging
 import os
 
@@ -87,15 +88,17 @@ class Manager(object):
 
     def _collect_tests(self, args):
         available_tests = []
-        for binary in self._port.path_to_api_test_binaries():
-            stripped_name = os.path.splitext(os.path.basename(binary))[0]
+        specified_binaries = self._binaries_for_arguments(args)
+        for canonicalized_binary, path in self._port.path_to_api_test_binaries().iteritems():
+            if canonicalized_binary not in specified_binaries:
+                continue
             try:
                 output = self.host.executive.run_command(
-                    Runner.command_for_port(self._port, [binary, '--gtest_list_tests']),
+                    Runner.command_for_port(self._port, [path, '--gtest_list_tests']),
                     env=self._port.environment_for_api_tests())
-                available_tests += Manager._test_list_from_output(output, '{}.'.format(stripped_name))
+                available_tests += Manager._test_list_from_output(output, '{}.'.format(canonicalized_binary))
             except ScriptError:
-                _log.error('Failed to list {} tests'.format(stripped_name))
+                _log.error('Failed to list {} tests'.format(canonicalized_binary))
                 raise
 
         if len(args) == 0:
@@ -130,9 +133,30 @@ class Manager(object):
         elif 'device' in self._port.port_name:
             raise RuntimeError('Running api tests on {} is not supported'.format(self._port.port_name))
 
-    def run(self, args):
+    def _binaries_for_arguments(self, args):
+        if self._port.get_option('api_binary'):
+            return self._port.get_option('api_binary')
+
+        binaries = []
+        for arg in args:
+            candidate_binary = arg.split('.')[0]
+            if candidate_binary in binaries:
+                continue
+            if candidate_binary in self._port.path_to_api_test_binaries():
+                binaries.append(candidate_binary)
+            else:
+                # If the user specifies a test-name without a binary, we need to search both binaries
+                return self._port.path_to_api_test_binaries().keys()
+        return binaries or self._port.path_to_api_test_binaries().keys()
+
+    def run(self, args, json_output=None):
+        if json_output:
+            json_output = self.host.filesystem.abspath(json_output)
+            if not self.host.filesystem.isdir(self.host.filesystem.dirname(json_output)) or self.host.filesystem.isdir(json_output):
+                raise RuntimeError('Cannot write to {}'.format(json_output))
+
         self._stream.write_update('Checking build ...')
-        if not self._port.check_api_test_build():
+        if not self._port.check_api_test_build(self._binaries_for_arguments(args)):
             _log.error('Build check failed')
             return Manager.FAILED_BUILD_CHECK
 
@@ -166,9 +190,18 @@ class Manager(object):
         disabled = len(runner.result_map_by_status(runner.STATUS_DISABLED))
         _log.info('Ran {} tests of {} with {} successful'.format(len(runner.results) - disabled, len(test_names), len(successful)))
 
-        self._stream.writeln('------------------------------')
+        result_dictionary = {
+            'Skipped': [],
+            'Failed': [],
+            'Crashed': [],
+            'Timedout': [],
+        }
+
+        self._stream.writeln('-' * 30)
         if len(successful) + disabled == len(test_names):
             self._stream.writeln('All tests successfully passed!')
+            if json_output:
+                self.host.filesystem.write_text_file(json_output, json.dumps(result_dictionary, indent=4))
             return Manager.SUCCESS
 
         self._stream.writeln('Test suite failed')
@@ -178,6 +211,7 @@ class Manager(object):
         for test in test_names:
             if test not in runner.results:
                 skipped.append(test)
+                result_dictionary['Skipped'].append({'name': test, 'output': None})
         if skipped:
             self._stream.writeln('Skipped {} tests'.format(len(skipped)))
             self._stream.writeln('')
@@ -188,5 +222,18 @@ class Manager(object):
         self._print_tests_result_with_status(runner.STATUS_FAILED, runner)
         self._print_tests_result_with_status(runner.STATUS_CRASHED, runner)
         self._print_tests_result_with_status(runner.STATUS_TIMEOUT, runner)
+
+        for test, result in runner.results.iteritems():
+            status_to_string = {
+                runner.STATUS_FAILED: 'Failed',
+                runner.STATUS_CRASHED: 'Crashed',
+                runner.STATUS_TIMEOUT: 'Timedout',
+            }.get(result[0])
+            if not status_to_string:
+                continue
+            result_dictionary[status_to_string].append({'name': test, 'output': result[1]})
+
+        if json_output:
+            self.host.filesystem.write_text_file(json_output, json.dumps(result_dictionary, indent=4))
 
         return Manager.FAILED_TESTS

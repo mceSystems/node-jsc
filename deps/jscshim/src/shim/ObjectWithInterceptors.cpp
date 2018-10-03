@@ -72,7 +72,7 @@ void getObjectOwnIndexPropertyNames(v8::jscshim::ObjectWithInterceptors	* object
 				
 				SparseArrayValueMap::const_iterator end = map->end();
 				for (SparseArrayValueMap::const_iterator it = map->begin(); it != end; ++it) {
-					if (mode.includeDontEnumProperties() || !(it->value.attributes & PropertyAttribute::DontEnum))
+					if (mode.includeDontEnumProperties() || !(it->value.attributes() & PropertyAttribute::DontEnum))
 						keys.uncheckedAppend(static_cast<unsigned>(it->key));
 				}
 				

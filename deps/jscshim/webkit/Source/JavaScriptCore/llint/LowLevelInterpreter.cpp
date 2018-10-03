@@ -29,7 +29,7 @@
 #include "LLIntOfflineAsmConfig.h"
 #include <wtf/InlineASM.h>
 
-#if !ENABLE(JIT)
+#if ENABLE(C_LOOP)
 #include "Bytecodes.h"
 #include "CLoopStackInlines.h"
 #include "CodeBlock.h"
@@ -106,7 +106,7 @@ using namespace JSC::LLInt;
 
 #define OFFLINE_ASM_OPCODE_LABEL(opcode) DEFINE_OPCODE(opcode) USE_LABEL(opcode); TRACE_OPCODE(opcode);
 
-#define OFFLINE_ASM_GLOBAL_LABEL(label)  OFFLINE_ASM_GLUE_LABEL(label)
+#define OFFLINE_ASM_GLOBAL_LABEL(label)  label: USE_LABEL(label);
 
 #if ENABLE(COMPUTED_GOTO_OPCODES)
 #define OFFLINE_ASM_GLUE_LABEL(label)  label: USE_LABEL(label);
@@ -559,4 +559,4 @@ JSValue CLoop::execute(OpcodeID entryOpcodeID, void* executableAddress, VM* vm, 
 // for the interpreter, as compiled from LowLevelInterpreter.asm.
 #include "LLIntAssembly.h"
 
-#endif // ENABLE(JIT)
+#endif // ENABLE(C_LOOP)

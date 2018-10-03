@@ -36,7 +36,7 @@
 #include "StackAlignment.h"
 #include <wtf/HashMap.h>
 
-#if !ENABLE(JIT)
+#if ENABLE(C_LOOP)
 #include "CLoopStack.h"
 #endif
 
@@ -63,8 +63,6 @@ namespace JSC {
     struct Instruction;
     struct ProtoCallFrame;
     struct UnlinkedInstruction;
-
-    enum UnwindStart : uint8_t { UnwindFromCurrentFrame, UnwindFromCallerFrame };
 
     enum DebugHookType {
         WillExecuteProgram,
@@ -95,7 +93,7 @@ namespace JSC {
         Interpreter(VM &);
         ~Interpreter();
         
-#if !ENABLE(JIT)
+#if ENABLE(C_LOOP)
         CLoopStack& cloopStack() { return m_cloopStack; }
 #endif
         
@@ -116,18 +114,16 @@ namespace JSC {
         JSValue execute(EvalExecutable*, CallFrame*, JSValue thisValue, JSScope*);
 
         void getArgumentsData(CallFrame*, JSFunction*&, ptrdiff_t& firstParameterIndex, Register*& argv, int& argc);
-        
-        NEVER_INLINE HandlerInfo* unwind(VM&, CallFrame*&, Exception*, UnwindStart);
+
+        NEVER_INLINE HandlerInfo* unwind(VM&, CallFrame*&, Exception*);
         void notifyDebuggerOfExceptionToBeThrown(VM&, CallFrame*, Exception*);
         NEVER_INLINE void debug(CallFrame*, DebugHookType);
-        static JSString* stackTraceAsString(VM&, const Vector<StackFrame>&);
+        static String stackTraceAsString(VM&, const Vector<StackFrame>&);
 
         static EncodedJSValue JSC_HOST_CALL constructWithErrorConstructor(ExecState*);
         static EncodedJSValue JSC_HOST_CALL callErrorConstructor(ExecState*);
         static EncodedJSValue JSC_HOST_CALL constructWithNativeErrorConstructor(ExecState*);
         static EncodedJSValue JSC_HOST_CALL callNativeErrorConstructor(ExecState*);
-
-        JS_EXPORT_PRIVATE void dumpCallFrame(CallFrame*);
 
         void getStackTrace(JSCell* owner, Vector<StackFrame>& results, size_t framesToSkip = 0, size_t maxStackSize = std::numeric_limits<size_t>::max());
 
@@ -150,12 +146,8 @@ namespace JSC {
 
         JSValue execute(CallFrameClosure&);
 
-
-
-        void dumpRegisters(CallFrame*);
-        
         VM& m_vm;
-#if !ENABLE(JIT)
+#if ENABLE(C_LOOP)
         CLoopStack m_cloopStack;
 #endif
         

@@ -112,13 +112,13 @@ constexpr bool enableAsyncIteration = true;
 constexpr bool enableAsyncIteration = false;
 #endif
 
-#if ENABLE(INTL_NUMBER_FORMAT_TO_PARTS)
+#if ENABLE(EXPERIMENTAL_FEATURES)
 constexpr bool enableIntlNumberFormatToParts = true;
 #else
 constexpr bool enableIntlNumberFormatToParts = false;
 #endif
 
-#if ENABLE(INTL_PLURAL_RULES)
+#if ENABLE(EXPERIMENTAL_FEATURES)
 constexpr bool enableIntlPluralRules = true;
 #else
 constexpr bool enableIntlPluralRules = false;
@@ -177,6 +177,7 @@ constexpr bool enableWebAssemblyStreamingApi = false;
     v(bool, asyncDisassembly, false, Normal, nullptr) \
     v(bool, dumpDFGDisassembly, false, Normal, "dumps disassembly of DFG function upon compilation") \
     v(bool, dumpFTLDisassembly, false, Normal, "dumps disassembly of FTL function upon compilation") \
+    v(bool, dumpRegExpDisassembly, false, Normal, "dumps disassembly of RegExp upon compilation") \
     v(bool, dumpAllDFGNodes, false, Normal, nullptr) \
     v(optionRange, bytecodeRangeToJITCompile, 0, Normal, "bytecode size range to allow compilation on, e.g. 1:100") \
     v(optionRange, bytecodeRangeToDFGCompile, 0, Normal, "bytecode size range to allow DFG compilation on, e.g. 1:100") \
@@ -275,6 +276,7 @@ constexpr bool enableWebAssemblyStreamingApi = false;
     v(unsigned, maxAccessVariantListSize, 8, Normal, nullptr) \
     v(bool, usePolyvariantDevirtualization, true, Normal, nullptr) \
     v(bool, usePolymorphicAccessInlining, true, Normal, nullptr) \
+    v(unsigned, maxPolymorphicAccessInliningListSize, 8, Normal, nullptr) \
     v(bool, usePolymorphicCallInlining, true, Normal, nullptr) \
     v(bool, usePolymorphicCallInliningForNonStubStatus, false, Normal, nullptr) \
     v(unsigned, maxPolymorphicCallVariantListSize, 15, Normal, nullptr) \
@@ -321,9 +323,6 @@ constexpr bool enableWebAssemblyStreamingApi = false;
     v(unsigned, maximumInliningCallerSize, 10000, Normal, nullptr) \
     \
     v(unsigned, maximumVarargsForInlining, 100, Normal, nullptr) \
-    \
-    v(bool, usePolyvariantCallInlining, true, Normal, nullptr) \
-    v(bool, usePolyvariantByIdInlining, true, Normal, nullptr) \
     \
     v(bool, useMaximalFlushInsertionPhase, false, Normal, "Setting to true allows the DFG's MaximalFlushInsertionPhase to run.") \
     \
@@ -512,7 +511,10 @@ constexpr bool enableWebAssemblyStreamingApi = false;
     v(bool, useIntlPluralRules, enableIntlPluralRules, Normal, "If true, we will enable Intl.PluralRules.") \
     v(bool, useArrayAllocationProfiling, true, Normal, "If true, we will use our normal array allocation profiling. If false, the allocation profile will always claim to be undecided.") \
     v(bool, forcePolyProto, false, Normal, "If true, create_this will always create an object with a poly proto structure.") \
-    v(bool, forceMiniVMMode, false, Normal, "If true, it will force mini VM mode on.")
+    v(bool, forceMiniVMMode, false, Normal, "If true, it will force mini VM mode on.") \
+    v(bool, useTracePoints, false, Normal, nullptr) \
+    v(bool, traceLLIntExecution, false, Configurable, nullptr) \
+    v(bool, traceLLIntSlowPath, false, Configurable, nullptr) \
 
 
 enum OptionEquivalence {
