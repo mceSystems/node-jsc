@@ -700,6 +700,8 @@ public:
 
 	Local<String> GetScriptName() const;
 
+	Local<String> GetScriptNameOrSourceURL() const;
+
 	Local<String> GetFunctionName() const;
 
 	bool IsEval() const;

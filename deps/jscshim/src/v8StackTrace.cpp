@@ -65,6 +65,11 @@ Local<String> StackFrame::GetScriptName() const
 	return Local<String>::New(JSC::JSValue(GET_JSC_THIS_STACK_FRAME()->scriptName()));
 }
 
+Local<String> StackFrame::GetScriptNameOrSourceURL() const
+{
+	return Local<String>::New(JSC::JSValue(GET_JSC_THIS_STACK_FRAME()->scriptName()));
+}
+
 Local<String> StackFrame::GetFunctionName() const
 {
 	return Local<String>::New(JSC::JSValue(GET_JSC_THIS_STACK_FRAME()->functionName()));

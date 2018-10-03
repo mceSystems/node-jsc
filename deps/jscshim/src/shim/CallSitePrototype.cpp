@@ -55,6 +55,7 @@ static JSC::EncodedJSValue JSC_HOST_CALL callSiteProtoFuncGetFileName(JSC::ExecS
 static JSC::EncodedJSValue JSC_HOST_CALL callSiteProtoFuncGetLineNumber(JSC::ExecState * exec);
 static JSC::EncodedJSValue JSC_HOST_CALL callSiteProtoFuncGetColumnNumber(JSC::ExecState * exec);
 static JSC::EncodedJSValue JSC_HOST_CALL callSiteProtoFuncGetEvalOrigin(JSC::ExecState * exec);
+static JSC::EncodedJSValue JSC_HOST_CALL callSiteProtoFuncGetScriptNameOrSourceURL(JSC::ExecState * exec);
 static JSC::EncodedJSValue JSC_HOST_CALL callSiteProtoFuncIsToplevel(JSC::ExecState * exec);
 static JSC::EncodedJSValue JSC_HOST_CALL callSiteProtoFuncIsEval(JSC::ExecState * exec);
 static JSC::EncodedJSValue JSC_HOST_CALL callSiteProtoFuncIsNative(JSC::ExecState * exec);
@@ -80,6 +81,7 @@ void CallSitePrototype::finishCreation(JSC::VM& vm, JSC::JSGlobalObject * global
 	JSC_NATIVE_INTRINSIC_FUNCTION_WITHOUT_TRANSITION("getLineNumber", callSiteProtoFuncGetLineNumber, static_cast<unsigned>(PropertyAttribute::DontEnum), 0, JSC::NoIntrinsic);
 	JSC_NATIVE_INTRINSIC_FUNCTION_WITHOUT_TRANSITION("getColumnNumber", callSiteProtoFuncGetColumnNumber, static_cast<unsigned>(PropertyAttribute::DontEnum), 0, JSC::NoIntrinsic);
 	JSC_NATIVE_INTRINSIC_FUNCTION_WITHOUT_TRANSITION("getEvalOrigin", callSiteProtoFuncGetEvalOrigin, static_cast<unsigned>(PropertyAttribute::DontEnum), 0, JSC::NoIntrinsic);
+	JSC_NATIVE_INTRINSIC_FUNCTION_WITHOUT_TRANSITION("getScriptNameOrSourceURL", callSiteProtoFuncGetScriptNameOrSourceURL, static_cast<unsigned>(PropertyAttribute::DontEnum), 0, JSC::NoIntrinsic);
 	JSC_NATIVE_INTRINSIC_FUNCTION_WITHOUT_TRANSITION("isToplevel", callSiteProtoFuncIsToplevel, static_cast<unsigned>(PropertyAttribute::DontEnum), 0, JSC::NoIntrinsic);
 	JSC_NATIVE_INTRINSIC_FUNCTION_WITHOUT_TRANSITION("isEval", callSiteProtoFuncIsEval, static_cast<unsigned>(PropertyAttribute::DontEnum), 0, JSC::NoIntrinsic);
 	JSC_NATIVE_INTRINSIC_FUNCTION_WITHOUT_TRANSITION("isNative", callSiteProtoFuncIsNative, static_cast<unsigned>(PropertyAttribute::DontEnum), 0, JSC::NoIntrinsic);
@@ -138,6 +140,13 @@ static JSC::EncodedJSValue JSC_HOST_CALL callSiteProtoFuncGetColumnNumber(JSC::E
 static JSC::EncodedJSValue JSC_HOST_CALL callSiteProtoFuncGetEvalOrigin(JSC::ExecState * exec)
 {
 	return JSC::JSValue::encode(JSC::jsUndefined());
+}
+
+
+static JSC::EncodedJSValue JSC_HOST_CALL callSiteProtoFuncGetScriptNameOrSourceURL(JSC::ExecState * exec)
+{
+	ENTER_PROTO_FUNC();
+	return JSC::JSValue::encode(callSite->sourceURL());
 }
 
 static JSC::EncodedJSValue JSC_HOST_CALL callSiteProtoFuncIsToplevel(JSC::ExecState * exec)
