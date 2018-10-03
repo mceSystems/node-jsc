@@ -113,6 +113,9 @@
       }],
       ['OS in "linux"', {
         'cflags_cc': [ '-fexceptions' ],
+        'link_settings': {
+          'libraries': [ '-ldl' ],
+        },
       }],
       ['OS in "mac ios"', {
         'cflags_cc': [ '-fexceptions' ],
@@ -350,6 +353,9 @@
       }],
       ['OS in "linux"', {
         'cflags_cc': [ '-fexceptions' ],
+        'link_settings': {
+          'libraries': [ '-ldl' ],
+        },
       }],
       ['OS in "mac ios"', {
         'cflags_cc': [ '-fexceptions' ],
