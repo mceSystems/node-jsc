@@ -1333,9 +1333,14 @@ sub isCygwin()
     return ($^O eq "cygwin") || 0;
 }
 
+sub isMinGW()
+{
+    return ($^O eq "msys") || 0;
+}
+
 sub isAnyWindows()
 {
-    return isWindows() || isCygwin();
+    return isWindows() || isCygwin() || isMinGW();
 }
 
 sub determineWinVersion()
