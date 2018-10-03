@@ -12,8 +12,15 @@
       }],
       ['OS=="win"', {
         'webkit_output_dir': './webkit/WebKitBuild/<(jsc_build_config)',
-        'webkit_output_libraries': ['<!(python -c "import os; print os.getcwd()")/webkit/WebKitBuild/<(jsc_build_config)/lib/<(STATIC_LIB_PREFIX)WTF<(STATIC_LIB_SUFFIX)',
-                                    '<!(python -c "import os; print os.getcwd()")/webkit/WebKitBuild/<(jsc_build_config)/lib/<(STATIC_LIB_PREFIX)JavaScriptCore<(STATIC_LIB_SUFFIX)'],
+        'conditions': [
+          [ 'target_arch=="x64"', {
+            'webkit_output_libraries': ['<!(python -c "import os; print os.getcwd()")/webkit/WebKitBuild/<(jsc_build_config)/lib64/<(STATIC_LIB_PREFIX)WTF<(STATIC_LIB_SUFFIX)',
+                                        '<!(python -c "import os; print os.getcwd()")/webkit/WebKitBuild/<(jsc_build_config)/lib64/<(STATIC_LIB_PREFIX)JavaScriptCore<(STATIC_LIB_SUFFIX)'],
+          }, {
+            'webkit_output_libraries': ['<!(python -c "import os; print os.getcwd()")/webkit/WebKitBuild/<(jsc_build_config)/lib/<(STATIC_LIB_PREFIX)WTF<(STATIC_LIB_SUFFIX)',
+                                        '<!(python -c "import os; print os.getcwd()")/webkit/WebKitBuild/<(jsc_build_config)/lib/<(STATIC_LIB_PREFIX)JavaScriptCore<(STATIC_LIB_SUFFIX)'],
+          }],
+        ],
       }],
       ['OS=="linux"', {
         'webkit_output_dir': './webkit/WebKitBuild/<(jsc_build_config)',
