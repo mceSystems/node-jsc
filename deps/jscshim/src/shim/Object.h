@@ -65,7 +65,7 @@ protected:
 
 	static void visitChildren(JSC::JSCell*, JSC::SlotVisitor&);
 
-	static WTF::String className(const JSObject * object);
+	static WTF::String className(const JSObject * object, JSC::VM& vm);
 };
 
 }} // v8::jscshim

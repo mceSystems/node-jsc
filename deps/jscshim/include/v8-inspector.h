@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 #include <cctype>
+#include <vector>
 
 #include <memory>
 

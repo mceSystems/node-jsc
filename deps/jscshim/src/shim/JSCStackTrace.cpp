@@ -213,12 +213,12 @@ ALWAYS_INLINE JSC::JSString * JSCStackFrame::retrieveSourceURL()
 {
 	if (m_isWasmFrame)
 	{
-		return JSC::jsString(&m_vm, ASCIILiteral("[wasm code]"));
+		return JSC::jsString(&m_vm, "[wasm code]"_s);
 	}
 
 	if (!m_codeBlock)
 	{
-		return JSC::jsString(&m_vm, ASCIILiteral("[native code]"));
+		return JSC::jsString(&m_vm, "[native code]"_s);
 	}
 
 	String sourceURL = m_codeBlock->ownerScriptExecutable()->sourceURL();
@@ -238,13 +238,13 @@ ALWAYS_INLINE JSC::JSString * JSCStackFrame::retrieveFunctionName()
 		switch (m_codeBlock->codeType())
 		{
 		case JSC::EvalCode:
-			return JSC::jsString(&m_vm, ASCIILiteral("eval code"));
+			return JSC::jsString(&m_vm, "eval code"_s);
 		case JSC::ModuleCode:
-			return JSC::jsString(&m_vm, ASCIILiteral("module code"));
+			return JSC::jsString(&m_vm, "module code"_s);
 		case JSC::FunctionCode:
 			break;
 		case JSC::GlobalCode:
-			return JSC::jsString(&m_vm, ASCIILiteral("global code"));
+			return JSC::jsString(&m_vm, "global code"_s);
 		default:
 			ASSERT_NOT_REACHED();
 		}

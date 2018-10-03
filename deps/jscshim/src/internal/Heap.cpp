@@ -35,7 +35,7 @@ void Heap::ProtectValue(const JSC::JSValue& value)
 		JSC::ExecState * exec = asGlobalObject->globalExec();
 		//JSC::JSLockHolder locker(exec);
 
-		gcProtect(exec->vmEntryGlobalObject());
+		gcProtect(vm.vmEntryGlobalObject(exec));
 	}
 	else
 	{

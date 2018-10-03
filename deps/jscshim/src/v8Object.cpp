@@ -194,9 +194,7 @@ void CloneArrayStorageSparseMap(JSC::VM&		  vm,
 	{
 		const JSC::SparseArrayEntry& sourceEntry = it.get()->value;
 		JSC::SparseArrayEntry& newTargetEntry = targetSparseMap->add(targetObject, i).iterator->value;
-
-		newTargetEntry.set(vm, targetSparseMap, sourceEntry.getNonSparseMode());
-		newTargetEntry.attributes = sourceEntry.attributes;
+		newTargetEntry.forceSet(vm, targetSparseMap, sourceEntry.getNonSparseMode(), sourceEntry.attributes());
 	}
 
 	targetArrayStorage->m_sparseMap.set(vm, targetObject, targetSparseMap);
@@ -349,7 +347,7 @@ Maybe<bool> Object::Set(Local<Context> context, Local<Value> key, Local<Value> v
 	else
 	{
 		JSC::PutPropertySlot putSlot(thisObj);
-		thisObj->methodTable()->put(thisObj, exec, jscKey, value.val_, putSlot);
+		thisObj->methodTable(vm)->put(thisObj, exec, jscKey, value.val_, putSlot);
 	}
 
 	SHIM_RETURN_IF_EXCEPTION(Nothing<bool>());
@@ -366,7 +364,7 @@ Maybe<bool> Object::Set(Local<Context> context, uint32_t index, Local<Value> val
 	SETUP_OBJECT_USE_IN_MEMBER(context);
 
 	// TODO: Make sure we should throw an exception
-	if (false == thisObj->methodTable()->putByIndex(thisObj, exec, index, value.val_, true))
+	if (false == thisObj->methodTable(vm)->putByIndex(thisObj, exec, index, value.val_, true))
 	{
 		// It seems that v8 always returns Nothing<bool>() on failure (not Just(false))
 		return Nothing<bool>();
@@ -462,7 +460,7 @@ Maybe<bool> Object::Delete(Local<Context> context, Local<Value> key)
 	JSC::PropertyName jscKey = jscshim::JscValueToPropertyName(exec, key.val_);
 	SHIM_RETURN_IF_EXCEPTION(Nothing<bool>());
 
-	bool result = thisObj->methodTable()->deleteProperty(thisObj, exec, jscKey);
+	bool result = thisObj->methodTable(vm)->deleteProperty(thisObj, exec, jscKey);
 	SHIM_RETURN_IF_EXCEPTION(Nothing<bool>());
 
 	return Just(result);
@@ -472,7 +470,7 @@ Maybe<bool> Object::Delete(Local<Context> context, uint32_t index)
 {
 	SETUP_OBJECT_USE_IN_MEMBER(context);
 
-	bool result = thisObj->methodTable()->deletePropertyByIndex(thisObj, exec, index);
+	bool result = thisObj->methodTable(vm)->deletePropertyByIndex(thisObj, exec, index);
 
 	SHIM_RETURN_IF_EXCEPTION(Nothing<bool>());
 	return Just(result);
@@ -491,7 +489,7 @@ MaybeLocal<String> Object::ObjectProtoToString(Local<Context> context)
 	JSC::JSValue toStringFunction = global->objectProtoToString();
 
 	JSC::CallData callData;
-	JSC::CallType callType = JSC::getCallData(toStringFunction, callData);
+	JSC::CallType callType = JSC::getCallData(vm, toStringFunction, callData);
 	if (JSC::CallType::None == callType)
 	{
 		shimExceptionScope.ThrowExcpetion(JSC::createNotAFunctionError(exec, toStringFunction));
@@ -1173,7 +1171,7 @@ bool Object::IsCallable()
 
 bool Object::IsConstructor()
 {
-	return jscshim::GetValue(this).isConstructor();
+	return jscshim::GetValue(this).isConstructor(jscshim::GetCurrentVM());
 }
 
 MaybeLocal<Value> Object::CallAsFunction(Local<Context>	context,
@@ -1185,7 +1183,7 @@ MaybeLocal<Value> Object::CallAsFunction(Local<Context>	context,
 
 	// Get the object's call data
 	JSC::CallData callData;
-	JSC::CallType callType = thisObj->methodTable()->getCallData(thisObj, callData);
+	JSC::CallType callType = JSC::getCallData(vm, thisObj, callData);
 	if (JSC::CallType::None == callType)
 	{
 		shimExceptionScope.ThrowExcpetion(JSC::createNotAFunctionError(exec, thisObj));
@@ -1229,7 +1227,7 @@ MaybeLocal<Value> Object::CallAsConstructor(Local<Context> context, int argc, Lo
 
 	// Get the object's constructor data
 	JSC::ConstructData constructData;
-	JSC::ConstructType constructType = thisObj->methodTable()->getConstructData(thisObj, constructData);
+	JSC::ConstructType constructType = JSC::getConstructData(vm, thisObj, constructData);
 	if (JSC::ConstructType::None == constructType)
 	{
 		shimExceptionScope.ThrowExcpetion(JSC::createNotAConstructorError(exec, thisObj));

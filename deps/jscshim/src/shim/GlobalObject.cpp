@@ -310,7 +310,7 @@ JSC::EncodedJSValue JSC_HOST_CALL GlobalObject::objectProtoSetter(JSC::ExecState
 	JSC::JSValue thisValue = exec->thisValue().toThis(exec, JSC::StrictMode);
 	if (thisValue.isUndefinedOrNull())
 	{
-		return throwVMTypeError(exec, scope, ASCIILiteral(ObjectProtoCalledOnNullOrUndefinedError));
+		return throwVMTypeError(exec, scope, ObjectProtoCalledOnNullOrUndefinedError);
 	}
 
 	JSC::JSValue value = exec->argument(0);
@@ -358,7 +358,7 @@ JSC::EncodedJSValue JSC_HOST_CALL GlobalObject::errorConstructorCaptureStackTrac
 	JSC::JSValue objectArg = exec->argument(0);
 	if (!objectArg.isObject())
 	{
-		return JSC::JSValue::encode(throwTypeError(exec, scope, ASCIILiteral("invalid_argument")));
+		return JSC::JSValue::encode(throwTypeError(exec, scope, "invalid_argument"_s));
 	}
 
 	JSC::JSObject * errorObject = objectArg.asCell()->getObject();

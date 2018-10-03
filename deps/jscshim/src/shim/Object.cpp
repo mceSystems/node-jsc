@@ -61,11 +61,8 @@ JSC::ConstructType Object::getConstructData(JSC::JSCell * cell, JSC::ConstructDa
 }
 
 // Based on JSC's JSObject::calculatedClassName (which we can't use since it calls className)
-WTF::String Object::className(const JSC::JSObject * object)
+WTF::String Object::className(const JSC::JSObject * object, JSC::VM& vm)
 {
-	jscshim::GlobalObject * global = static_cast<jscshim::GlobalObject *>(object->globalObject());
-	JSC::VM& vm = global->vm();
-
 	const Object * shimObject = JSC::jsDynamicCast<const Object *>(vm, object);
 	ASSERT(shimObject);
 
@@ -75,7 +72,7 @@ WTF::String Object::className(const JSC::JSObject * object)
 		return constructorFunction->calculatedDisplayName(vm);
 	}
 
-	return ASCIILiteral("Object");
+	return "Object"_s;
 }
 
 jscshim::Function * Object::getConstructor(JSC::VM& vm) const

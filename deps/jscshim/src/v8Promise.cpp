@@ -28,7 +28,7 @@ JSC::JSValue callPromiseThen(JSC::ExecState * exec, JSC::JSPromise * promise, JS
 	JSC::JSObject* function = JSC::jsCast<JSC::JSObject*>(promise->get(exec, vm.propertyNames->builtinNames().thenPublicName()));
 	RETURN_IF_EXCEPTION(scope, JSC::JSValue());
 	JSC::CallData callData;
-	JSC::CallType callType = JSC::getCallData(function, callData);
+	JSC::CallType callType = JSC::getCallData(vm, function, callData);
 	ASSERT(callType != JSC::CallType::None);
 
 	JSC::MarkedArgumentBuffer arguments;
