@@ -21,6 +21,7 @@
 #include <JavaScriptCore/ThrowScope.h>
 #include <JavaScriptCore/JSDestructibleObjectHeapCellType.h>
 #include <JavaScriptCore/JSCInlines.h>
+#include <JavaScriptCore/JSMicrotask.h>
 #include <cassert>
 
 namespace v8 { namespace jscshim
@@ -532,12 +533,34 @@ void Isolate::RunMicrotasks()
 
 void Isolate::EnqueueMicrotask(Local<v8::Function> microtask)
 {
-	// TODO: Use the user provided v8 platform
+	GetCurrentGlobalOrDefault()->queueMicrotask(JSC::createJSMicrotask(*m_vm, microtask.val_));
 }
+
+class NativeMicrotask final : public JSC::Microtask {
+public:
+    NativeMicrotask(MicrotaskCallback microtask, void* data)
+        : m_microtask(microtask)
+        , m_data(data)
+    { }
+
+    static Ref<NativeMicrotask> create(MicrotaskCallback microtask, void* data)
+    {
+        return adoptRef(*new NativeMicrotask(microtask, data));
+    }
+
+    void run(JSC::ExecState*) override
+    {
+        m_microtask(m_data);
+    }
+
+private:
+    MicrotaskCallback m_microtask;
+    void* m_data;
+};
 
 void Isolate::EnqueueMicrotask(MicrotaskCallback microtask, void* data)
 {
-	// TODO: Use the user provided v8 platform
+	GetCurrentGlobalOrDefault()->queueMicrotask(NativeMicrotask::create(microtask, data));
 }
 
 void Isolate::SetMicrotasksPolicy(MicrotasksPolicy policy)
