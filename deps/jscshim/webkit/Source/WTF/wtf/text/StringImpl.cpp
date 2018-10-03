@@ -121,10 +121,10 @@ StringImpl::~StringImpl()
         auto* symbolRegistry = symbol.symbolRegistry();
         if (symbolRegistry)
             symbolRegistry->remove(*symbol.asRegisteredSymbolImpl());
-	}
-	else if (isExternal()) {
-		static_cast<ExternalStringImpl *>(this)->FreeExternalBuffer(const_cast<LChar *>(m_data8), sizeInBytes());
-	}
+    }
+    else if (isExternal()) {
+        static_cast<ExternalStringImpl *>(this)->FreeExternalBuffer(const_cast<LChar *>(m_data8), sizeInBytes());
+    }
 
     BufferOwnership ownership = bufferOwnership();
 

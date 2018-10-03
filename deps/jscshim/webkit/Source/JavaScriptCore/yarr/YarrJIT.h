@@ -52,9 +52,10 @@ namespace Yarr {
 enum class JITFailureReason : uint8_t {
     DecodeSurrogatePair,
     BackReference,
+    ForwardReference,
     VariableCountedParenthesisWithNonZeroMinimum,
     ParenthesizedSubpattern,
-    NonGreedyParenthesizedSubpattern,
+    FixedCountParenthesizedSubpattern,
     ExecutableMemoryAllocationFailure,
 };
 
@@ -96,7 +97,7 @@ public:
 
 #if ENABLE(YARR_JIT_ALL_PARENS_EXPRESSIONS)
     bool usesPatternContextBuffer() { return m_usesPatternContextBuffer; }
-    void setUsesPaternContextBuffer() { m_usesPatternContextBuffer = true; }
+    void setUsesPatternContextBuffer() { m_usesPatternContextBuffer = true; }
 
     MatchResult execute(const LChar* input, unsigned start, unsigned length, int* output, void* freeParenContext, unsigned parenContextSize)
     {
@@ -210,7 +211,7 @@ enum YarrJITCompileMode {
     MatchOnly,
     IncludeSubpatterns
 };
-void jitCompile(YarrPattern&, YarrCharSize, VM*, YarrCodeBlock& jitObject, YarrJITCompileMode = IncludeSubpatterns);
+void jitCompile(YarrPattern&, String& patternString, YarrCharSize, VM*, YarrCodeBlock& jitObject, YarrJITCompileMode = IncludeSubpatterns);
 
 } } // namespace JSC::Yarr
 

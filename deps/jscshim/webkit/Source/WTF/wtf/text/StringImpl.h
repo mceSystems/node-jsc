@@ -166,7 +166,7 @@ class StringImpl : private StringImplShape {
     friend class PrivateSymbolImpl;
     friend class RegisteredSymbolImpl;
     friend class SymbolImpl;
-	friend class ExternalStringImpl;
+    friend class ExternalStringImpl;
 
     friend struct WTF::CStringTranslator;
     friend struct WTF::HashAndUTF8CharactersTranslator;
@@ -181,7 +181,7 @@ public:
     enum BufferOwnership { BufferInternal, BufferOwned, BufferSubstring };
 
     // The bottom 7 bits in the hash are flags.
-	// TODO: is there any effiency difference bitween 7 or 8 (CPU wise)? we only need 7
+    // TODO(kobybo): is there any efficiency difference bitween 7 or 8 (CPU wise)? we only need 7
     static constexpr const unsigned s_flagCount = 8;
 private:
     static constexpr const unsigned s_flagMask = (1u << s_flagCount) - 1;
@@ -191,7 +191,7 @@ private:
     static constexpr const unsigned s_hashFlagStringKindIsAtomic = 1u << (s_flagStringKindCount);
     static constexpr const unsigned s_hashFlagStringKindIsSymbol = 1u << (s_flagStringKindCount + 1);
     static constexpr const unsigned s_hashMaskStringKind = s_hashFlagStringKindIsAtomic | s_hashFlagStringKindIsSymbol;
-	static constexpr const unsigned s_hashFlagIsExternal = 1u << (s_flagStringKindCount + 2); // TODO: Place it before the "kind" bits?
+    static constexpr const unsigned s_hashFlagIsExternal = 1u << (s_flagStringKindCount + 2); // TODO(kobybo): Place it before the "kind" bits?
     static constexpr const unsigned s_hashFlag8BitBuffer = 1u << 3;
     static constexpr const unsigned s_hashFlagDidReportCost = 1u << 2;
     static constexpr const unsigned s_hashMaskBufferOwnership = (1u << 0) | (1u << 1);

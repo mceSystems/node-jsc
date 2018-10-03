@@ -41,6 +41,7 @@
 #include "WasmContext.h"
 #include "WasmExceptionType.h"
 #include "WasmInstance.h"
+#include "WasmSignatureInlines.h"
 
 namespace JSC { namespace Wasm {
 
@@ -102,8 +103,8 @@ static Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> handleBa
 
             {
                 auto throwScope = DECLARE_THROW_SCOPE(*vm);
-                JSGlobalObject* globalObject = instance->globalObject();
-                auto* error = ErrorInstance::create(exec, *vm, globalObject->typeErrorConstructor()->errorStructure(), ASCIILiteral("i64 not allowed as return type or argument to an imported function"));
+                JSGlobalObject* globalObject = instance->globalObject(*vm);
+                auto* error = ErrorInstance::create(exec, *vm, globalObject->typeErrorConstructor()->errorStructure(), "i64 not allowed as return type or argument to an imported function"_s);
                 throwException(exec, throwScope, error);
             }
 
@@ -301,7 +302,8 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToJS(VM* vm
         jit.move(CCallHelpers::TrustedImm32(0), GPRInfo::argumentGPR3);
 
         static_assert(GPRInfo::numberOfArgumentRegisters >= 4, "We rely on this with the call below.");
-        jit.setupArguments<decltype(callFunc)>(GPRInfo::argumentGPR1, CCallHelpers::TrustedImm32(signatureIndex), CCallHelpers::TrustedImmPtr(buffer));
+        static_assert(sizeof(SignatureIndex) == sizeof(uint64_t), "Following code assumes SignatureIndex is 64bit.");
+        jit.setupArguments<decltype(callFunc)>(GPRInfo::argumentGPR1, CCallHelpers::TrustedImm64(signatureIndex), CCallHelpers::TrustedImmPtr(buffer));
         auto call = jit.call(OperationPtrTag);
         auto noException = jit.emitExceptionCheck(*vm, AssemblyHelpers::InvertedExceptionCheck);
 
@@ -667,6 +669,8 @@ void* wasmToJSException(ExecState* exec, Wasm::ExceptionType type, Instance* was
     wasmInstance->storeTopCallFrame(exec);
     JSWebAssemblyInstance* instance = wasmInstance->owner<JSWebAssemblyInstance>();
     JSGlobalObject* globalObject = instance->globalObject();
+
+    // Do not retrieve VM& from ExecState since ExecState's callee is not a JSCell.
     VM& vm = globalObject->vm();
 
     {

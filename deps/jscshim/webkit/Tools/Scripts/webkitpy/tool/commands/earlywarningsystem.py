@@ -88,6 +88,8 @@ class AbstractEarlyWarningSystem(AbstractReviewQueue, EarlyWarningSystemTaskDele
             message += "\n\n%s" % extra_message_text
         # FIXME: We might want to add some text about rejecting from the commit-queue in
         # the case where patch.commit_queue() isn't already set to '-'.
+        if not self._can_access_bug(patch.bug_id()):
+            return
         if self.watchers:
             tool.bugs.add_cc_to_bug(patch.bug_id(), self.watchers)
         tool.bugs.set_flag_on_attachment(patch.id(), "commit-queue", "-", message)
@@ -150,7 +152,7 @@ class AbstractEarlyWarningSystem(AbstractReviewQueue, EarlyWarningSystemTaskDele
         return self._group
 
     def refetch_patch(self, patch):
-        return self._tool.bugs.fetch_attachment(patch.id())
+        return super(AbstractEarlyWarningSystem, self)._refetch_patch(patch)
 
     def report_flaky_tests(self, patch, flaky_test_results, results_archive):
         pass

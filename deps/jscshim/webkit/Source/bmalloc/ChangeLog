@@ -1,3 +1,385 @@
+2018-09-24  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        Rename WTF_COMPILER_GCC_OR_CLANG to WTF_COMPILER_GCC_COMPATIBLE
+        https://bugs.webkit.org/show_bug.cgi?id=189733
+
+        Reviewed by Michael Catanzaro.
+
+        * bmalloc/BCompiler.h:
+
+2018-08-27  Keith Rollin  <krollin@apple.com>
+
+        Unreviewed build fix -- disable LTO for production builds
+
+        * Configurations/Base.xcconfig:
+
+2018-08-27  Keith Rollin  <krollin@apple.com>
+
+        Build system support for LTO
+        https://bugs.webkit.org/show_bug.cgi?id=187785
+        <rdar://problem/42353132>
+
+        Reviewed by Dan Bernstein.
+
+        Update Base.xcconfig and DebugRelease.xcconfig to optionally enable
+        LTO.
+
+        * Configurations/Base.xcconfig:
+        * Configurations/DebugRelease.xcconfig:
+
+2018-08-16  Tomas Popela  <tpopela@redhat.com>
+
+        bmalloc: Coverity scan issues
+        https://bugs.webkit.org/show_bug.cgi?id=186763
+
+        Reviewed by Saam Barati.
+
+        * bmalloc/DebugHeap.h: Initialize the m_pageSize variable.
+        * bmalloc/IsoTLS.cpp:
+        (bmalloc::IsoTLS::ensureEntries): Check the return value of
+        pthread_key_create return().
+        * bmalloc/VMAllocate.h:
+        (bmalloc::vmPageSize): Correctly check the return value of sysconf().
+
+2018-07-27  Mark Lam  <mark.lam@apple.com>
+
+        Initialize bmalloc::DebugHeap::m_pageSize for non-Darwin builds.
+        https://bugs.webkit.org/show_bug.cgi?id=188132
+        <rdar://problem/40401599>
+
+        Reviewed by Saam Barati.
+
+        * bmalloc/DebugHeap.cpp:
+        (bmalloc::DebugHeap::DebugHeap):
+
+2018-07-27  Saam Barati  <sbarati@apple.com>
+
+        Explicitly handle memlimit_active < 0
+        https://bugs.webkit.org/show_bug.cgi?id=188125
+
+        Reviewed by Mark Lam.
+
+        This may come up during development when someone wants the limit
+        to be "infinite".
+
+        * bmalloc/AvailableMemory.cpp:
+        (bmalloc::jetsamLimit):
+
+2018-07-27  Saam Barati  <sbarati@apple.com>
+
+        Use SPI to compute the jetsam limit on iOS instead of hardcoding 840MB
+        https://bugs.webkit.org/show_bug.cgi?id=188091
+        <rdar://problem/42647697>
+
+        Reviewed by Simon Fraser.
+
+        We want bmalloc to dynamically adapt to the jetsam limit of the process
+        it's running in. WTF::ramSize() is based off bmalloc's availableMemory,
+        so it will now reflect the result of the real jetsam limit when we can
+        read it.
+        
+        Reading the jetsam limit requires an entitlement, so this patch opts in
+        the WebContent/Storage/Network processes. We fall back to 840MB (the
+        old hard coded value) when the SPI call fails (e.g, when we're in a
+        process without the proper entitlement).
+
+        * bmalloc.xcodeproj/project.pbxproj:
+        * bmalloc/AvailableMemory.cpp:
+        (bmalloc::jetsamLimit):
+        (bmalloc::computeAvailableMemory):
+        * bmalloc/darwin/MemoryStatusSPI.h: Added.
+
+2018-07-24  Saam Barati  <sbarati@apple.com>
+
+        Revert back to using phys_footprint to calculate isUnderMemoryPressure()
+        https://bugs.webkit.org/show_bug.cgi?id=187919
+        <rdar://problem/42552888>
+
+        Reviewed by Simon Fraser.
+
+        Currently on iOS, bmalloc will run the scavenger more frequently when it detects
+        that the process is under memory pressure. However, it only uses bmalloc's
+        own footprint as a percentage of the HW available memory to determine if
+        the process is under memory pressure. This is a change I recently made
+        in an effort to run the scavenger less when bmalloc wasn't contributing
+        to the dirty footprint in the process. However, this fails to run the
+        scavenger eagerly when the process in question has a heap split
+        between a lot of dirty bmalloc memory as well as a lot of dirty memory
+        from elsewhere. We also have evidence that we may have increased jetsams
+        in the Web Content process. Since my original change was not a measurable
+        speedup, this patch reverts isUnderMemoryPressure() to its previous
+        behavior of using phys_footprint to determine if 75% of the available 
+        HW memory is being used.
+
+        * bmalloc/AvailableMemory.cpp:
+        (bmalloc::memoryStatus):
+
+2019-07-12  Michael Saboff  <msaboff@apple.com>
+
+        Disable IsoHeaps when Gigacage is off
+        https://bugs.webkit.org/show_bug.cgi?id=187160
+
+        Reviewed by Saam Barati.
+
+        Relanding change sets 233547 and 233550 with the added fix that Gigacage is also
+        enabled for DumpRenderTree.
+
+        Updated determineMallocFallbackState to base enabling of Iso Heaps on Gigacage 
+        being enabled.  We do this because if Gigacage is disabled, it may be due to lack
+        of address space.
+
+        To work around a compiler issue uncovered by the change above, I added explicit
+        instantiation of PerThread's static variables.  Defined the same explicit
+        instantiated static variables with export scope in the new file PerThread.cpp
+        to eliminate separate variables allocations in each linked framework / library.
+
+        * CMakeLists.txt:
+        * bmalloc.xcodeproj/project.pbxproj:
+        * bmalloc/IsoTLS.cpp:
+        (bmalloc::IsoTLS::determineMallocFallbackState):
+        * bmalloc/PerThread.cpp: Added.
+        * bmalloc/PerThread.h:
+        * bmalloc/ProcessCheck.mm:
+        (bmalloc::gigacageEnabledForProcess):
+
+2018-07-09  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, rolling out r233547 and r233550.
+        https://bugs.webkit.org/show_bug.cgi?id=187497
+
+        Introduced flakiness for media/fullscreen-* tests on mac-wk1
+        (Requested by ryanhaddad on #webkit).
+
+        Reverted changesets:
+
+        "Disable IsoHeaps when Gigacage is off"
+        https://bugs.webkit.org/show_bug.cgi?id=187160
+        https://trac.webkit.org/changeset/233547
+
+        "Build fix (r233547): Disable IsoHeaps when Gigacage is off"
+        https://bugs.webkit.org/show_bug.cgi?id=187160
+        https://trac.webkit.org/changeset/233550
+
+2018-07-05  David Kilzer  <ddkilzer@apple.com>
+
+        Build fix (r233547): Disable IsoHeaps when Gigacage is off
+        <https://webkit.org/b/187160>
+
+        * bmalloc/PerThread.cpp: Add #if !HAVE_PTHREAD_MACHDEP_H/#endif
+        around variables only used when that macro is 0.  Include what
+        you use: Cache.h and Heap.h.
+        * bmalloc/PerThread.h: Include <memory> for std::once_flag.
+
+2018-07-05  Michael Saboff  <msaboff@apple.com>
+
+        Disable IsoHeaps when Gigacage is off
+        https://bugs.webkit.org/show_bug.cgi?id=187160
+
+        Reviewed by Saam Barati.
+
+        Updated determineMallocFallbackState to base enabling of Iso Heaps on Gigacage 
+        being enabled.  We do this because if Gigacage is disabled, it may be due to lack
+        of address space.
+
+        To work around a compiler issue uncovered by the change above, I added explicit
+        instantiation of PerThread's static variables.  Defined the same explicit
+        instantiated static variables with export scope in the new file PerThread.cpp
+        to eliminate separate variables allocations in each linked framework / library.
+
+        * CMakeLists.txt:
+        * bmalloc.xcodeproj/project.pbxproj:
+        * bmalloc/IsoTLS.cpp:
+        (bmalloc::IsoTLS::determineMallocFallbackState):
+        * bmalloc/PerThread.cpp: Added.
+        * bmalloc/PerThread.h:
+
+2018-07-04  Tim Horton  <timothy_horton@apple.com>
+
+        Introduce PLATFORM(IOSMAC)
+        https://bugs.webkit.org/show_bug.cgi?id=187315
+
+        Reviewed by Dan Bernstein.
+
+        * Configurations/Base.xcconfig:
+
+2018-06-29  Ryan Haddad  <ryanhaddad@apple.com>
+
+        Unreviewed, rolling out r233347.
+
+        Causes crashes during WK1 tests.
+
+        Reverted changeset:
+
+        "Disable IsoHeaps when Gigacage is off"
+        https://bugs.webkit.org/show_bug.cgi?id=187160
+        https://trac.webkit.org/changeset/233347
+
+2018-06-28  Michael Saboff  <msaboff@apple.com>
+
+        Disable IsoHeaps when Gigacage is off
+        https://bugs.webkit.org/show_bug.cgi?id=187160
+
+        Reviewed by Saam Barati.
+
+        If Gigacage is disabled, it may be due to lack of address space.
+        Therefore we should also turn off IsoHeaps since it uses more virtual
+        address space as well.
+
+        * bmalloc/IsoTLS.cpp:
+        (bmalloc::IsoTLS::determineMallocFallbackState):
+
+2018-06-27  Simon Fraser  <simon.fraser@apple.com>
+
+        https://hackernoon.com/ uses lots of layer backing store
+        https://bugs.webkit.org/show_bug.cgi?id=186909
+        rdar://problem/40257540
+
+        Reviewed by Tim Horton.
+        
+        Drive-by typo fix.
+
+        * bmalloc/Scavenger.cpp:
+        (bmalloc::dumpStats):
+
+2018-06-26  Saam Barati  <sbarati@apple.com>
+
+        Unreviewed followup. Fix the watchos build after r233192.
+
+        This patch also correct the changelog entry below to have the correct
+        bug and title info.
+
+        * bmalloc/ProcessCheck.mm:
+
+2018-06-26  Saam Barati  <sbarati@apple.com>
+
+        Switch to system malloc on iOS when nano malloc is disabled
+        https://bugs.webkit.org/show_bug.cgi?id=186322
+        <rdar://problem/41140257>
+
+        Reviewed by Keith Miller.
+
+        We have evidence showing that processes with small heaps using the
+        JS API are more space efficient when using system malloc. Our main
+        hypothesis as to why this is, is that when dealing with small heaps,
+        one malloc can be more efficient at optimizing memory usage than
+        two mallocs.
+
+        * bmalloc/BPlatform.h:
+        * bmalloc/Environment.cpp:
+        (bmalloc::isNanoMallocEnabled):
+        (bmalloc::Environment::computeIsDebugHeapEnabled):
+        * bmalloc/ProcessCheck.h:
+        (bmalloc::shouldProcessUnconditionallyUseBmalloc):
+        * bmalloc/ProcessCheck.mm:
+        (bmalloc::shouldProcessUnconditionallyUseBmalloc):
+
+2018-06-24  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        [bmalloc][Linux] Remove static initializers for PerProcess<>::s_object
+        https://bugs.webkit.org/show_bug.cgi?id=186966
+
+        Reviewed by Anders Carlsson.
+
+        chrome/tools/linux/dump-static-initializers.py can dump static initializers
+        in the binary and we found that PerProcess<>::s_object initialization is done
+        by static initializers in GCC + Linux environments. The example is the following.
+
+        Scavenger.cpp (initializer offset 0x38c210 size 0x3e)
+            _GLOBAL__sub_I_Scavenger.cpp+0x1e
+            _GLOBAL__sub_I_Scavenger.cpp+0x2d
+            _GLOBAL__sub_I_Scavenger.cpp+0x3c
+            _GLOBAL__sub_I_Scavenger.cpp+0xf
+            guard variable for bmalloc::PerProcess<bmalloc::AllIsoHeaps>::s_object@@Base-0x3f0d8
+            guard variable for bmalloc::PerProcess<bmalloc::Environment>::s_object@@Base-0x3f0e8
+            guard variable for bmalloc::PerProcess<bmalloc::PerHeapKind<bmalloc::Heap> >::s_object@@Base-0x3c600
+            guard variable for bmalloc::PerProcess<bmalloc::Scavenger>::s_object@@Base-0x38ce8
+
+        We can remove this by initializing `nullptr`, which leads to constexpr initialization.
+        After this change, Linux JSCOnly libJavaScriptCore.so has no static initializers.
+
+        * bmalloc/PerProcess.h:
+
+2018-06-09  Dan Bernstein  <mitz@apple.com>
+
+        [Xcode] Clean up and modernize some build setting definitions
+        https://bugs.webkit.org/show_bug.cgi?id=186463
+
+        Reviewed by Sam Weinig.
+
+        * Configurations/Base.xcconfig: Removed definition for macOS 10.11.
+        * Configurations/DebugRelease.xcconfig: Ditto.
+
+2018-06-07  Darin Adler  <darin@apple.com>
+
+        [Cocoa] Turn on ARC for the single Objective-C++ source file in bmalloc
+        https://bugs.webkit.org/show_bug.cgi?id=186398
+
+        Reviewed by Saam Barati.
+
+        * Configurations/Base.xcconfig: Turn on ARC.
+        * bmalloc/ProcessCheck.mm:
+        (bmalloc::gigacageEnabledForProcess): Removed the globals from this function,
+        since it's only called once. If it was called more than once, we could optimize
+        that with a single boolean global rather than two strings and two booleans.
+
+2018-06-07  David Kilzer  <ddkilzer@apple.com>
+
+        bmalloc: Fix 'noreturn' warnings when compiling with -std=gnu++17
+        <https://webkit.org/b/186400>
+
+        Reviewed by Saam Barati.
+
+        Fixes the following warnings when compiling with gnu++17:
+
+            Source/bmalloc/bmalloc/Scavenger.cpp:363:1: error: function 'threadRunLoop' could be declared with attribute 'noreturn' [-Werror,-Wmissing-noreturn]
+            {
+            ^
+            Source/bmalloc/bmalloc/Scavenger.cpp:358:1: error: function 'threadEntryPoint' could be declared with attribute 'noreturn' [-Werror,-Wmissing-noreturn]
+            {
+            ^
+
+        * bmalloc/BCompiler.h:
+        (BCOMPILER): Add support for the BCOMPILER() macro, then add
+        BCOMPILER(GCC_OR_CLANG).  Taken from Source/WTF/wtf/Compiler.h.
+        (BNO_RETURN): Implement 'norerturn' support using the new
+        BCOMPILER() macros.  Taken from Source/WTF/wtf/Compiler.h.
+        * bmalloc/Scavenger.cpp:
+        (bmalloc::Scavenger::threadRunLoop): Remove the workaround that
+        tricked older compilers into thinking the while() loop wasn't
+        infinite.
+        * bmalloc/Scavenger.h:
+        (bmalloc::Scavenger::threadEntryPoint): Add BNO_RETURN attribute.
+        (bmalloc::Scavenger::threadRunLoop): Ditto.
+
+2018-05-29  Saam Barati  <sbarati@apple.com>
+
+        JSC should put bmalloc's scavenger into mini mode
+        https://bugs.webkit.org/show_bug.cgi?id=185988
+
+        Reviewed by Michael Saboff.
+
+        We expose an API for putting bmalloc into mini mode. All that means now
+        is that we'll run the scavenger more aggressively.
+
+        * bmalloc/Scavenger.cpp:
+        (bmalloc::Scavenger::enableMiniMode):
+        (bmalloc::Scavenger::threadRunLoop):
+        * bmalloc/Scavenger.h:
+        * bmalloc/Sizes.h:
+        * bmalloc/bmalloc.cpp:
+        (bmalloc::api::enableMiniMode):
+        * bmalloc/bmalloc.h:
+
+2018-05-29  Geoffrey Garen  <ggaren@apple.com>
+
+        Fixed the bmalloc build
+        https://bugs.webkit.org/show_bug.cgi?id=186025
+
+        Reviewed by Sam Weinig.
+
+        * bmalloc.xcodeproj/project.pbxproj: Link Foundation because the 
+        gigacage check needs it.
+
 2018-05-23  Antti Koivisto  <antti@apple.com>
 
         Increase the simulated memory size on PLATFORM(IOS_SIMULATOR) from 512MB to 1024MB

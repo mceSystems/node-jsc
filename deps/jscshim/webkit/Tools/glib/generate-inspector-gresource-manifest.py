@@ -34,6 +34,8 @@ def get_filenames(directory):
             return True
 
     for root, dirs, files in os.walk(directory):
+        dirs.sort()
+        files.sort()
         for file in files:
             filename = os.path.join(root, file)
             base_dir_index = filename.rfind(BASE_DIR)
@@ -67,7 +69,7 @@ if __name__ == "__main__":
     args.output.write(\
     """<?xml version=1.0 encoding=UTF-8?>
     <gresources>
-        <gresource prefix="/org/webkitgtk/inspector">
+        <gresource prefix="/org/webkit/inspector">
 """)
 
     for filename in get_filenames(args.input):

@@ -29,6 +29,7 @@
 #include "GPRInfo.h"
 #include "LLIntPCRanges.h"
 #include "MacroAssemblerCodeRef.h"
+#include <wtf/Optional.h>
 #include <wtf/PlatformRegisters.h>
 #include <wtf/PointerPreparations.h>
 #include <wtf/StdLibExtras.h>
@@ -42,17 +43,17 @@ template<typename T = void*> T stackPointer(const PlatformRegisters&);
 template<typename T = void*> void setStackPointer(PlatformRegisters&, T);
 template<typename T = void*> T framePointer(const PlatformRegisters&);
 template<typename T = void*> void setFramePointer(PlatformRegisters&, T);
-inline MacroAssemblerCodePtr<CFunctionPtrTag> linkRegister(const PlatformRegisters&);
+inline MacroAssemblerCodePtr<PlatformRegistersLRPtrTag> linkRegister(const PlatformRegisters&);
 inline void setLinkRegister(PlatformRegisters&, MacroAssemblerCodePtr<CFunctionPtrTag>);
-inline MacroAssemblerCodePtr<CFunctionPtrTag> instructionPointer(const PlatformRegisters&);
+inline std::optional<MacroAssemblerCodePtr<PlatformRegistersPCPtrTag>> instructionPointer(const PlatformRegisters&);
 inline void setInstructionPointer(PlatformRegisters&, MacroAssemblerCodePtr<CFunctionPtrTag>);
 
 template<size_t N> void*& argumentPointer(PlatformRegisters&);
 template<size_t N> void* argumentPointer(const PlatformRegisters&);
-#if ENABLE(JIT)
+#if !ENABLE(C_LOOP)
 void*& llintInstructionPointer(PlatformRegisters&);
 void* llintInstructionPointer(const PlatformRegisters&);
-#endif // ENABLE(JIT)
+#endif // !ENABLE(C_LOOP)
 
 #if HAVE(MACHINE_CONTEXT)
 
@@ -66,15 +67,15 @@ template<typename T = void*> T stackPointer(const mcontext_t&);
 template<typename T = void*> void setStackPointer(mcontext_t&, T);
 template<typename T = void*> T framePointer(const mcontext_t&);
 template<typename T = void*> void setFramePointer(mcontext_t&, T);
-inline MacroAssemblerCodePtr<CFunctionPtrTag> instructionPointer(const mcontext_t&);
+inline MacroAssemblerCodePtr<PlatformRegistersPCPtrTag> instructionPointer(const mcontext_t&);
 inline void setInstructionPointer(mcontext_t&, MacroAssemblerCodePtr<CFunctionPtrTag>);
 
 template<size_t N> void*& argumentPointer(mcontext_t&);
 template<size_t N> void* argumentPointer(const mcontext_t&);
-#if ENABLE(JIT)
+#if !ENABLE(C_LOOP)
 void*& llintInstructionPointer(mcontext_t&);
 void* llintInstructionPointer(const mcontext_t&);
-#endif // ENABLE(JIT)
+#endif // !ENABLE(C_LOOP)
 #endif // HAVE(MACHINE_CONTEXT)
 #endif // OS(WINDOWS) || HAVE(MACHINE_CONTEXT)
 
@@ -187,7 +188,7 @@ static inline void*& stackPointerImpl(mcontext_t& machineContext)
 #error Unknown Architecture
 #endif
 
-#elif defined(__GLIBC__) || defined(__BIONIC__)
+#elif OS(FUCHSIA) || defined(__GLIBC__) || defined(__BIONIC__)
 
 #if CPU(X86)
     return reinterpret_cast<void*&>((uintptr_t&) machineContext.gregs[REG_ESP]);
@@ -334,7 +335,7 @@ static inline void*& framePointerImpl(mcontext_t& machineContext)
 #error Unknown Architecture
 #endif
 
-#elif defined(__GLIBC__) || defined(__BIONIC__)
+#elif OS(FUCHSIA) || defined(__GLIBC__) || defined(__BIONIC__)
 
 // The following sequence depends on glibc's sys/ucontext.h.
 #if CPU(X86)
@@ -431,7 +432,7 @@ static inline void*& instructionPointerImpl(PlatformRegisters& regs)
 }
 #endif // !USE(PLATFORM_REGISTERS_WITH_PROFILE)
 
-inline MacroAssemblerCodePtr<CFunctionPtrTag> instructionPointer(const PlatformRegisters& regs)
+inline std::optional<MacroAssemblerCodePtr<PlatformRegistersPCPtrTag>> instructionPointer(const PlatformRegisters& regs)
 {
 #if USE(PLATFORM_REGISTERS_WITH_PROFILE)
     void* value = WTF_READ_PLATFORM_REGISTERS_PC_WITH_PROFILE(regs);
@@ -439,8 +440,12 @@ inline MacroAssemblerCodePtr<CFunctionPtrTag> instructionPointer(const PlatformR
     void* value = instructionPointerImpl(const_cast<PlatformRegisters&>(regs));
 #endif
     if (!value)
-        return MacroAssemblerCodePtr<CFunctionPtrTag>(nullptr);
-    return MacroAssemblerCodePtr<CFunctionPtrTag>(value);
+        return MacroAssemblerCodePtr<PlatformRegistersPCPtrTag>(nullptr);
+    if (!usesPointerTagging())
+        return MacroAssemblerCodePtr<PlatformRegistersPCPtrTag>(value);
+    if (isTaggedWith(value, PlatformRegistersPCPtrTag))
+        return MacroAssemblerCodePtr<PlatformRegistersPCPtrTag>(value);
+    return std::nullopt;
 }
 
 inline void setInstructionPointer(PlatformRegisters& regs, MacroAssemblerCodePtr<CFunctionPtrTag> value)
@@ -477,7 +482,7 @@ static inline void*& instructionPointerImpl(mcontext_t& machineContext)
 #error Unknown Architecture
 #endif
 
-#elif defined(__GLIBC__) || defined(__BIONIC__)
+#elif OS(FUCHSIA) || defined(__GLIBC__) || defined(__BIONIC__)
 
 // The following sequence depends on glibc's sys/ucontext.h.
 #if CPU(X86)
@@ -500,14 +505,14 @@ static inline void*& instructionPointerImpl(mcontext_t& machineContext)
 }
 #endif // !USE(PLATFORM_REGISTERS_WITH_PROFILE)
 
-inline MacroAssemblerCodePtr<CFunctionPtrTag> instructionPointer(const mcontext_t& machineContext)
+inline MacroAssemblerCodePtr<PlatformRegistersPCPtrTag> instructionPointer(const mcontext_t& machineContext)
 {
 #if USE(PLATFORM_REGISTERS_WITH_PROFILE)
     void* value = WTF_READ_MACHINE_CONTEXT_PC_WITH_PROFILE(machineContext);
 #else
     void* value = instructionPointerImpl(const_cast<mcontext_t&>(machineContext));
 #endif
-    return MacroAssemblerCodePtr<CFunctionPtrTag>(value);
+    return MacroAssemblerCodePtr<PlatformRegistersPCPtrTag>(value);
 }
 
 inline void setInstructionPointer(mcontext_t& machineContext, MacroAssemblerCodePtr<CFunctionPtrTag> value)
@@ -532,14 +537,14 @@ inline void*& linkRegisterImpl(PlatformRegisters& regs)
 #endif // USE(PLATFORM_REGISTERS_WITH_PROFILE)
 
 
-inline MacroAssemblerCodePtr<CFunctionPtrTag> linkRegister(const PlatformRegisters& regs)
+inline MacroAssemblerCodePtr<PlatformRegistersLRPtrTag> linkRegister(const PlatformRegisters& regs)
 {
 #if USE(PLATFORM_REGISTERS_WITH_PROFILE)
-    void* value = WTF_READ_PLATFORM_REGISTERS_PC_WITH_PROFILE(regs);
+    void* value = WTF_READ_PLATFORM_REGISTERS_LR_WITH_PROFILE(regs);
 #else
     void* value = linkRegisterImpl(const_cast<PlatformRegisters&>(regs));
 #endif
-    return MacroAssemblerCodePtr<CFunctionPtrTag>(value);
+    return MacroAssemblerCodePtr<PlatformRegistersLRPtrTag>(value);
 }
 
 inline void setLinkRegister(PlatformRegisters& regs, MacroAssemblerCodePtr<CFunctionPtrTag> value)
@@ -634,7 +639,7 @@ inline void*& argumentPointer<1>(mcontext_t& machineContext)
 #error Unknown Architecture
 #endif
 
-#elif defined(__GLIBC__) || defined(__BIONIC__)
+#elif OS(FUCHSIA) || defined(__GLIBC__) || defined(__BIONIC__)
 
 // The following sequence depends on glibc's sys/ucontext.h.
 #if CPU(X86)
@@ -663,7 +668,7 @@ inline void* argumentPointer(const mcontext_t& machineContext)
 }
 #endif // HAVE(MACHINE_CONTEXT)
 
-#if ENABLE(JIT)
+#if !ENABLE(C_LOOP)
 #if OS(WINDOWS) || HAVE(MACHINE_CONTEXT)
 inline void*& llintInstructionPointer(PlatformRegisters& regs)
 {
@@ -751,7 +756,7 @@ inline void*& llintInstructionPointer(mcontext_t& machineContext)
 #error Unknown Architecture
 #endif
 
-#elif defined(__GLIBC__) || defined(__BIONIC__)
+#elif OS(FUCHSIA) || defined(__GLIBC__) || defined(__BIONIC__)
 
 // The following sequence depends on glibc's sys/ucontext.h.
 #if CPU(X86)
@@ -778,7 +783,7 @@ inline void* llintInstructionPointer(const mcontext_t& machineContext)
     return llintInstructionPointer(const_cast<mcontext_t&>(machineContext));
 }
 #endif // HAVE(MACHINE_CONTEXT)
-#endif // ENABLE(JIT)
+#endif // !ENABLE(C_LOOP)
 
 }
 }

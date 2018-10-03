@@ -47,10 +47,6 @@
 # include <wtf/Compiler.h>
 # include <wtf/StdLibExtras.h>
 
-#if !COMPILER(MSVC) && !PLATFORM(COCOA) && __has_include(<optional>)
-# include <optional>
-#else
-
 # define TR2_OPTIONAL_REQUIRES(...) typename std::enable_if<__VA_ARGS__::value, bool>::type = false
 
 # if defined __GNUC__ // NOTE: GNUC is also defined for Clang
@@ -235,12 +231,6 @@ template <class T> inline constexpr typename std::remove_reference<T>::type&& co
     return static_cast<typename std::remove_reference<T>::type&&>(t);
 }
 
-#if defined NDEBUG
-# define TR2_OPTIONAL_ASSERTED_EXPRESSION(CHECK, EXPR) (EXPR)
-#else
-# define TR2_OPTIONAL_ASSERTED_EXPRESSION(CHECK, EXPR) ((CHECK) ? (EXPR) : ([]{assert(!#CHECK);}(), (EXPR)))
-#endif
-
 
 // static_addressof: a constexpr version of addressof
 template <typename T>
@@ -285,14 +275,6 @@ struct nullopt_t
   constexpr explicit nullopt_t(init){}
 };
 constexpr nullopt_t nullopt{nullopt_t::init()};
-
-
-// 20.5.8, class bad_optional_access
-class bad_optional_access : public std::logic_error {
-public:
-  explicit bad_optional_access(const std::string& what_arg) : std::logic_error{what_arg} {}
-  explicit bad_optional_access(const char* what_arg) : std::logic_error{what_arg} {}
-};
 
 
 template <class T>
@@ -526,46 +508,42 @@ public:
   constexpr bool has_value() const __NOEXCEPT { return initialized(); }
 
   constexpr T const* operator ->() const {
-    return TR2_OPTIONAL_ASSERTED_EXPRESSION(initialized(), dataptr());
+    RELEASE_ASSERT_UNDER_CONSTEXPR_CONTEXT(initialized());
+    return dataptr();
   }
 
   OPTIONAL_MUTABLE_CONSTEXPR T* operator ->() {
-    // FIXME: We need to offer special assert function that can be used under the contexpr context.
-    // CONSTEXPR_ASSERT(initialized());
+    RELEASE_ASSERT_UNDER_CONSTEXPR_CONTEXT(initialized());
     return dataptr();
   }
 
   constexpr T const& operator *() const& {
-    return TR2_OPTIONAL_ASSERTED_EXPRESSION(initialized(), contained_val());
+    RELEASE_ASSERT_UNDER_CONSTEXPR_CONTEXT(initialized());
+    return contained_val();
   }
 
   OPTIONAL_MUTABLE_CONSTEXPR T& operator *() & {
-    // FIXME: We need to offer special assert function that can be used under the contexpr context.
-    // CONSTEXPR_ASSERT(initialized());
+    RELEASE_ASSERT_UNDER_CONSTEXPR_CONTEXT(initialized());
     return contained_val();
   }
 
   OPTIONAL_MUTABLE_CONSTEXPR T&& operator *() && {
-    // FIXME: We need to offer special assert function that can be used under the contexpr context.
-    // CONSTEXPR_ASSERT(initialized());
+    RELEASE_ASSERT_UNDER_CONSTEXPR_CONTEXT(initialized());
     return detail_::constexpr_move(contained_val());
   }
 
   constexpr T const& value() const& {
-    // FIXME: We need to offer special assert function that can be used under the contexpr context.
-    // return initialized() ? contained_val() : (throw bad_optional_access("bad optional access"), contained_val());
+    RELEASE_ASSERT_UNDER_CONSTEXPR_CONTEXT(initialized());
     return contained_val();
   }
 
   OPTIONAL_MUTABLE_CONSTEXPR T& value() & {
-    // FIXME: We need to offer special assert function that can be used under the contexpr context.
-    // return initialized() ? contained_val() : (throw bad_optional_access("bad optional access"), contained_val());
+    RELEASE_ASSERT_UNDER_CONSTEXPR_CONTEXT(initialized());
     return contained_val();
   }
 
   OPTIONAL_MUTABLE_CONSTEXPR T&& value() && {
-    // FIXME: We need to offer special assert function that can be used under the contexpr context.
-    // if (!initialized()) __THROW_EXCEPTION(bad_optional_access("bad optional access"));
+    RELEASE_ASSERT_UNDER_CONSTEXPR_CONTEXT(initialized());
     return std::move(contained_val());
   }
 
@@ -675,16 +653,17 @@ public:
 
   // 20.5.5.3, observers
   constexpr T* operator->() const {
-    return TR2_OPTIONAL_ASSERTED_EXPRESSION(ref, ref);
+    RELEASE_ASSERT_UNDER_CONSTEXPR_CONTEXT(ref);
+    return ref;
   }
 
   constexpr T& operator*() const {
-    return TR2_OPTIONAL_ASSERTED_EXPRESSION(ref, *ref);
+    RELEASE_ASSERT_UNDER_CONSTEXPR_CONTEXT(ref);
+    return *ref;
   }
 
   constexpr T& value() const {
-    // FIXME: We need to offer special assert function that can be used under the contexpr context.
-    // return ref ? *ref : (throw bad_optional_access("bad optional access"), *ref);
+    RELEASE_ASSERT_UNDER_CONSTEXPR_CONTEXT(ref());
     return *ref;
   }
 
@@ -1042,9 +1021,6 @@ namespace std
 }
 
 # undef TR2_OPTIONAL_REQUIRES
-# undef TR2_OPTIONAL_ASSERTED_EXPRESSION
-
-#endif // defined(__cpp_lib_optional)
 
 namespace WTF {
 

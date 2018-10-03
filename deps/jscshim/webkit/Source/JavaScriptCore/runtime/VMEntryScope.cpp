@@ -57,15 +57,16 @@ VMEntryScope::VMEntryScope(VM& vm, JSGlobalObject* globalObject)
         if (SamplingProfiler* samplingProfiler = vm.samplingProfiler())
             samplingProfiler->noticeVMEntry();
 #endif
-        tracePoint(VMEntryScopeStart);
+        if (Options::useTracePoints())
+            tracePoint(VMEntryScopeStart);
     }
 
     vm.clearLastException();
 }
 
-void VMEntryScope::addDidPopListener(std::function<void ()> listener)
+void VMEntryScope::addDidPopListener(Function<void ()>&& listener)
 {
-    m_didPopListeners.append(listener);
+    m_didPopListeners.append(WTFMove(listener));
 }
 
 VMEntryScope::~VMEntryScope()
@@ -73,7 +74,8 @@ VMEntryScope::~VMEntryScope()
     if (m_vm.entryScope != this)
         return;
 
-    tracePoint(VMEntryScopeEnd);
+    if (Options::useTracePoints())
+        tracePoint(VMEntryScopeEnd);
     
     if (m_vm.watchdog())
         m_vm.watchdog()->exitedVM();
@@ -82,6 +84,8 @@ VMEntryScope::~VMEntryScope()
 
     for (auto& listener : m_didPopListeners)
         listener();
+
+    m_vm.clearScratchBuffers();
 }
 
 } // namespace JSC

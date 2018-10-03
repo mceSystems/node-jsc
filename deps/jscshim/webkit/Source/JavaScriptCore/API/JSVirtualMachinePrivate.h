@@ -23,6 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "JSExportMacros.h"
 #include <JavaScriptCore/JavaScript.h>
 
 #if JSC_OBJC_API_ENABLED
@@ -34,11 +35,45 @@
 /*!
 @method
 @discussion Shrinks the memory footprint of the VM by deleting various internal caches,
- running synchronous garbage collection, and releasing memory back to the OS. For this
- to free as much memory as possible, do not call this when JavaScript is running on the stack.
+ running synchronous garbage collection, and releasing memory back to the OS. Note: this
+ API waits until no JavaScript is running on the stack before it frees any memory. It's
+ best to call this API when no JavaScript is running on the stack for this reason. However, if
+ you do call this API when JavaScript is running on the stack, the API will wait until all JavaScript
+ on the stack finishes running to free memory back to the OS. Therefore, calling this
+ API may not synchronously free memory.
 */
 
-- (void)shrinkFootprint; // FIXME: Annotate this with NS_AVAILABLE: <rdar://problem/40071332>.
+- (void)shrinkFootprintWhenIdle JSC_API_AVAILABLE(macosx(10.14), ios(12.0));
+
+#if ENABLE(DFG_JIT)
+
+/*!
+@method
+@abstract Set the number of threads to be used by the DFG JIT compiler.
+@discussion If called after the VM has been initialized, it will terminate
+ threads until it meets the new limit or create new threads accordingly if the
+ new limit is higher than the previous limit. If called before initialization,
+ the Options value for the number of DFG threads will be updated to ensure the
+ DFG compiler already starts with the up-to-date limit.
+@param numberOfThreads The number of threads the DFG compiler should use going forward
+@result The previous number of threads being used by the DFG compiler
+*/
++ (NSUInteger)setNumberOfDFGCompilerThreads:(NSUInteger)numberOfThreads JSC_API_AVAILABLE(macosx(10.14), ios(12.0));
+
+/*!
+@method
+@abstract Set the number of threads to be used by the FTL JIT compiler.
+@discussion If called after the VM has been initialized, it will terminate
+ threads until it meets the new limit or create new threads accordingly if the
+ new limit is higher than the previous limit. If called before initialization,
+ the Options value for the number of FTL threads will be updated to ensure the
+ FTL compiler already starts with the up-to-date limit.
+@param numberOfThreads The number of threads the FTL compiler should use going forward
+@result The previous number of threads being used by the FTL compiler
+*/
++ (NSUInteger)setNumberOfFTLCompilerThreads:(NSUInteger)numberOfThreads JSC_API_AVAILABLE(macosx(10.14), ios(12.0));
+
+#endif // ENABLE(DFG_JIT)
 
 @end
 

@@ -102,45 +102,10 @@ void JIT_OPERATION operationThrowStackOverflowError(ExecState* exec, CodeBlock* 
     // We pass in our own code block, because the callframe hasn't been populated.
     VM* vm = codeBlock->vm();
     auto scope = DECLARE_THROW_SCOPE(*vm);
-
-    EntryFrame* entryFrame = vm->topEntryFrame;
-    CallFrame* callerFrame = exec->callerFrame(entryFrame);
-    if (!callerFrame) {
-        callerFrame = exec;
-        entryFrame = vm->topEntryFrame;
-    }
-
-    NativeCallFrameTracerWithRestore tracer(vm, entryFrame, callerFrame);
-    throwStackOverflowError(callerFrame, scope);
+    exec->convertToStackOverflowFrame(*vm);
+    NativeCallFrameTracer tracer(vm, exec);
+    throwStackOverflowError(exec, scope);
 }
-
-#if ENABLE(WEBASSEMBLY)
-void JIT_OPERATION operationThrowDivideError(ExecState* exec)
-{
-    VM* vm = &exec->vm();
-    auto scope = DECLARE_THROW_SCOPE(*vm);
-
-    EntryFrame* entryFrame = vm->topEntryFrame;
-    CallFrame* callerFrame = exec->callerFrame(entryFrame);
-
-    NativeCallFrameTracerWithRestore tracer(vm, entryFrame, callerFrame);
-    ErrorHandlingScope errorScope(*vm);
-    throwException(callerFrame, scope, createError(callerFrame, ASCIILiteral("Division by zero or division overflow.")));
-}
-
-void JIT_OPERATION operationThrowOutOfBoundsAccessError(ExecState* exec)
-{
-    VM* vm = &exec->vm();
-    auto scope = DECLARE_THROW_SCOPE(*vm);
-
-    EntryFrame* entryFrame = vm->topEntryFrame;
-    CallFrame* callerFrame = exec->callerFrame(entryFrame);
-
-    NativeCallFrameTracerWithRestore tracer(vm, entryFrame, callerFrame);
-    ErrorHandlingScope errorScope(*vm);
-    throwException(callerFrame, scope, createError(callerFrame, ASCIILiteral("Out-of-bounds access.")));
-}
-#endif
 
 int32_t JIT_OPERATION operationCallArityCheck(ExecState* exec)
 {
@@ -149,10 +114,9 @@ int32_t JIT_OPERATION operationCallArityCheck(ExecState* exec)
 
     int32_t missingArgCount = CommonSlowPaths::arityCheckFor(exec, *vm, CodeForCall);
     if (missingArgCount < 0) {
-        EntryFrame* entryFrame = vm->topEntryFrame;
-        CallFrame* callerFrame = exec->callerFrame(entryFrame);
-        NativeCallFrameTracerWithRestore tracer(vm, entryFrame, callerFrame);
-        throwStackOverflowError(callerFrame, scope);
+        exec->convertToStackOverflowFrame(*vm);
+        NativeCallFrameTracer tracer(vm, exec);
+        throwStackOverflowError(vm->topCallFrame, scope);
     }
 
     return missingArgCount;
@@ -165,10 +129,9 @@ int32_t JIT_OPERATION operationConstructArityCheck(ExecState* exec)
 
     int32_t missingArgCount = CommonSlowPaths::arityCheckFor(exec, *vm, CodeForConstruct);
     if (missingArgCount < 0) {
-        EntryFrame* entryFrame = vm->topEntryFrame;
-        CallFrame* callerFrame = exec->callerFrame(entryFrame);
-        NativeCallFrameTracerWithRestore tracer(vm, entryFrame, callerFrame);
-        throwStackOverflowError(callerFrame, scope);
+        exec->convertToStackOverflowFrame(*vm);
+        NativeCallFrameTracer tracer(vm, exec);
+        throwStackOverflowError(vm->topCallFrame, scope);
     }
 
     return missingArgCount;
@@ -976,7 +939,7 @@ static SlowPathReturnType handleHostCall(ExecState* execCallee, JSValue callee, 
 
     if (callLinkInfo->specializationKind() == CodeForCall) {
         CallData callData;
-        CallType callType = getCallData(callee, callData);
+        CallType callType = getCallData(*vm, callee, callData);
     
         ASSERT(callType != CallType::JS);
     
@@ -1005,7 +968,7 @@ static SlowPathReturnType handleHostCall(ExecState* execCallee, JSValue callee, 
     ASSERT(callLinkInfo->specializationKind() == CodeForConstruct);
     
     ConstructData constructData;
-    ConstructType constructType = getConstructData(callee, constructData);
+    ConstructType constructType = getConstructData(*vm, callee, constructData);
     
     ASSERT(constructType != ConstructType::JS);
     
@@ -1537,8 +1500,9 @@ SlowPathReturnType JIT_OPERATION operationOptimize(ExecState* exec, uint32_t byt
             return encodeResult(0, 0);
         }
     } else if (codeBlock->hasOptimizedReplacement()) {
+        CodeBlock* replacement = codeBlock->replacement();
         if (UNLIKELY(Options::verboseOSR()))
-            dataLog("Considering OSR ", *codeBlock, " -> ", *codeBlock->replacement(), ".\n");
+            dataLog("Considering OSR ", codeBlock, " -> ", replacement, ".\n");
         // If we have an optimized replacement, then it must be the case that we entered
         // cti_optimize from a loop. That's because if there's an optimized replacement,
         // then all calls to this function will be relinked to the replacement and so
@@ -1552,14 +1516,14 @@ SlowPathReturnType JIT_OPERATION operationOptimize(ExecState* exec, uint32_t byt
         // attempt OSR entry. Hence it might even be correct for
         // shouldReoptimizeFromLoopNow() to always return true. But we make it do some
         // additional checking anyway, to reduce the amount of recompilation thrashing.
-        if (codeBlock->replacement()->shouldReoptimizeFromLoopNow()) {
+        if (replacement->shouldReoptimizeFromLoopNow()) {
             CODEBLOCK_LOG_EVENT(codeBlock, "delayOptimizeToDFG", ("should reoptimize from loop now"));
             if (UNLIKELY(Options::verboseOSR())) {
                 dataLog(
-                    "Triggering reoptimization of ", *codeBlock,
-                    "(", *codeBlock->replacement(), ") (in loop).\n");
+                    "Triggering reoptimization of ", codeBlock,
+                    "(", replacement, ") (in loop).\n");
             }
-            codeBlock->replacement()->jettison(Profiler::JettisonDueToBaselineLoopReoptimizationTrigger, CountReoptimization);
+            replacement->jettison(Profiler::JettisonDueToBaselineLoopReoptimizationTrigger, CountReoptimization);
             return encodeResult(0, 0);
         }
     } else {
@@ -1578,7 +1542,7 @@ SlowPathReturnType JIT_OPERATION operationOptimize(ExecState* exec, uint32_t byt
 
         unsigned numVarsWithValues;
         if (bytecodeIndex)
-            numVarsWithValues = codeBlock->m_numCalleeLocals;
+            numVarsWithValues = codeBlock->numCalleeLocals();
         else
             numVarsWithValues = 0;
         Operands<JSValue> mustHandleValues(codeBlock->numParameters(), numVarsWithValues);
@@ -1602,13 +1566,13 @@ SlowPathReturnType JIT_OPERATION operationOptimize(ExecState* exec, uint32_t byt
     }
     
     CodeBlock* optimizedCodeBlock = codeBlock->replacement();
-    ASSERT(JITCode::isOptimizingJIT(optimizedCodeBlock->jitType()));
+    ASSERT(optimizedCodeBlock && JITCode::isOptimizingJIT(optimizedCodeBlock->jitType()));
     
     if (void* dataBuffer = DFG::prepareOSREntry(exec, optimizedCodeBlock, bytecodeIndex)) {
         CODEBLOCK_LOG_EVENT(optimizedCodeBlock, "osrEntry", ("at bc#", bytecodeIndex));
         if (UNLIKELY(Options::verboseOSR())) {
             dataLog(
-                "Performing OSR ", *codeBlock, " -> ", *optimizedCodeBlock, ".\n");
+                "Performing OSR ", codeBlock, " -> ", optimizedCodeBlock, ".\n");
         }
 
         codeBlock->optimizeSoon();
@@ -1620,7 +1584,7 @@ SlowPathReturnType JIT_OPERATION operationOptimize(ExecState* exec, uint32_t byt
 
     if (UNLIKELY(Options::verboseOSR())) {
         dataLog(
-            "Optimizing ", *codeBlock, " -> ", *codeBlock->replacement(),
+            "Optimizing ", codeBlock, " -> ", codeBlock->replacement(),
             " succeeded, OSR failed, after a delay of ",
             codeBlock->optimizationDelayCounter(), ".\n");
     }
@@ -1641,8 +1605,8 @@ SlowPathReturnType JIT_OPERATION operationOptimize(ExecState* exec, uint32_t byt
         CODEBLOCK_LOG_EVENT(codeBlock, "delayOptimizeToDFG", ("should reoptimize now"));
         if (UNLIKELY(Options::verboseOSR())) {
             dataLog(
-                "Triggering reoptimization of ", *codeBlock, " -> ",
-                *codeBlock->replacement(), " (after OSR fail).\n");
+                "Triggering reoptimization of ", codeBlock, " -> ",
+                codeBlock->replacement(), " (after OSR fail).\n");
         }
         optimizedCodeBlock->jettison(Profiler::JettisonDueToBaselineLoopReoptimizationTriggerOnOSREntryFail, CountReoptimization);
         return encodeResult(0, 0);
@@ -1662,6 +1626,9 @@ char* JIT_OPERATION operationTryOSREnterAtCatch(ExecState* exec, uint32_t byteco
     NativeCallFrameTracer tracer(&vm, exec);
 
     CodeBlock* optimizedReplacement = exec->codeBlock()->replacement();
+    if (UNLIKELY(!optimizedReplacement))
+        return nullptr;
+
     switch (optimizedReplacement->jitType()) {
     case JITCode::DFGJIT:
     case JITCode::FTLJIT: {
@@ -1681,6 +1648,8 @@ char* JIT_OPERATION operationTryOSREnterAtCatchAndValueProfile(ExecState* exec, 
 
     CodeBlock* codeBlock = exec->codeBlock();
     CodeBlock* optimizedReplacement = codeBlock->replacement();
+    if (UNLIKELY(!optimizedReplacement))
+        return nullptr;
 
     switch (optimizedReplacement->jitType()) {
     case JITCode::DFGJIT:
@@ -1822,7 +1791,7 @@ int32_t JIT_OPERATION operationInstanceOfCustom(ExecState* exec, EncodedJSValue 
     JSValue value = JSValue::decode(encodedValue);
     JSValue hasInstanceValue = JSValue::decode(encodedHasInstance);
 
-    ASSERT(hasInstanceValue != exec->lexicalGlobalObject()->functionProtoHasInstanceSymbolFunction() || !constructor->structure()->typeInfo().implementsDefaultHasInstance());
+    ASSERT(hasInstanceValue != exec->lexicalGlobalObject()->functionProtoHasInstanceSymbolFunction() || !constructor->structure(vm)->typeInfo().implementsDefaultHasInstance());
 
     if (constructor->hasInstance(exec, value, hasInstanceValue))
         return 1;
@@ -1872,8 +1841,8 @@ static JSValue getByVal(ExecState* exec, JSValue baseValue, JSValue subscript, B
             if (object->indexingType() == ArrayWithContiguous && i < object->butterfly()->publicLength()) {
                 // FIXME: expand this to ArrayStorage, Int32, and maybe Double:
                 // https://bugs.webkit.org/show_bug.cgi?id=182940
-                auto* globalObject = object->globalObject();
-                skipMarkingOutOfBounds = globalObject->isOriginalArrayStructure(object->structure()) && globalObject->arrayPrototypeChainIsSane();
+                auto* globalObject = object->globalObject(vm);
+                skipMarkingOutOfBounds = globalObject->isOriginalArrayStructure(object->structure(vm)) && globalObject->arrayPrototypeChainIsSane();
             }
 
             if (!skipMarkingOutOfBounds && !CommonSlowPaths::canAccessArgumentIndexQuickly(*object, i)) {
@@ -2130,7 +2099,7 @@ size_t JIT_OPERATION operationDeleteById(ExecState* exec, EncodedJSValue encoded
     bool couldDelete = baseObj->methodTable(vm)->deleteProperty(baseObj, exec, Identifier::fromUid(&vm, uid));
     RETURN_IF_EXCEPTION(scope, false);
     if (!couldDelete && exec->codeBlock()->isStrictMode())
-        throwTypeError(exec, scope, ASCIILiteral(UnableToDeletePropertyError));
+        throwTypeError(exec, scope, UnableToDeletePropertyError);
     return couldDelete;
 }
 
@@ -2162,7 +2131,7 @@ size_t JIT_OPERATION operationDeleteByVal(ExecState* exec, EncodedJSValue encode
     }
     RETURN_IF_EXCEPTION(scope, false);
     if (!couldDelete && exec->codeBlock()->isStrictMode())
-        throwTypeError(exec, scope, ASCIILiteral(UnableToDeletePropertyError));
+        throwTypeError(exec, scope, UnableToDeletePropertyError);
     return couldDelete;
 }
 
@@ -2432,7 +2401,7 @@ char* JIT_OPERATION operationReallocateButterflyToHavePropertyStorageWithInitial
     VM& vm = exec->vm();
     NativeCallFrameTracer tracer(&vm, exec);
 
-    ASSERT(!object->structure()->outOfLineCapacity());
+    ASSERT(!object->structure(vm)->outOfLineCapacity());
     Butterfly* result = object->allocateMoreOutOfLineStorage(vm, 0, initialOutOfLineCapacity);
     object->nukeStructureAndSetButterfly(vm, object->structureID(), result);
     return reinterpret_cast<char*>(result);
@@ -2443,7 +2412,7 @@ char* JIT_OPERATION operationReallocateButterflyToGrowPropertyStorage(ExecState*
     VM& vm = exec->vm();
     NativeCallFrameTracer tracer(&vm, exec);
 
-    Butterfly* result = object->allocateMoreOutOfLineStorage(vm, object->structure()->outOfLineCapacity(), newSize);
+    Butterfly* result = object->allocateMoreOutOfLineStorage(vm, object->structure(vm)->outOfLineCapacity(), newSize);
     object->nukeStructureAndSetButterfly(vm, object->structureID(), result);
     return reinterpret_cast<char*>(result);
 }
@@ -2471,9 +2440,8 @@ void JIT_OPERATION lookupExceptionHandler(VM* vm, ExecState* exec)
 
 void JIT_OPERATION lookupExceptionHandlerFromCallerFrame(VM* vm, ExecState* exec)
 {
-    vm->topCallFrame = exec->callerFrame();
-    genericUnwind(vm, exec, UnwindFromCallerFrame);
-    ASSERT(vm->targetMachinePCForThrow);
+    exec->convertToStackOverflowFrame(*vm);
+    lookupExceptionHandler(vm, exec);
 }
 
 void JIT_OPERATION operationVMHandleException(ExecState* exec)
@@ -2494,10 +2462,10 @@ void JIT_OPERATION operationExceptionFuzz(ExecState* exec)
     NativeCallFrameTracer tracer(vm, exec);
     auto scope = DECLARE_THROW_SCOPE(*vm);
     UNUSED_PARAM(scope);
-#if COMPILER(GCC_OR_CLANG)
+#if COMPILER(GCC_COMPATIBLE)
     void* returnPC = __builtin_return_address(0);
     doExceptionFuzzing(exec, scope, "JITOperations", returnPC);
-#endif // COMPILER(GCC_OR_CLANG)
+#endif // COMPILER(GCC_COMPATIBLE)
 }
 
 ALWAYS_INLINE static EncodedJSValue unprofiledAdd(ExecState* exec, EncodedJSValue encodedOp1, EncodedJSValue encodedOp2)
@@ -2816,34 +2784,26 @@ EncodedJSValue JIT_OPERATION operationArithNegateOptimize(ExecState* exec, Encod
     return JSValue::encode(jsNumber(-number));
 }
 
-ALWAYS_INLINE static EncodedJSValue unprofiledSub(VM& vm, ExecState* exec, EncodedJSValue encodedOp1, EncodedJSValue encodedOp2)
+ALWAYS_INLINE static EncodedJSValue unprofiledSub(ExecState* exec, EncodedJSValue encodedOp1, EncodedJSValue encodedOp2)
 {
-    auto scope = DECLARE_THROW_SCOPE(vm);
     JSValue op1 = JSValue::decode(encodedOp1);
     JSValue op2 = JSValue::decode(encodedOp2);
-
-    double a = op1.toNumber(exec);
-    RETURN_IF_EXCEPTION(scope, encodedJSValue());
-    scope.release();
-    double b = op2.toNumber(exec);
-    return JSValue::encode(jsNumber(a - b));
+    
+    return JSValue::encode(jsSub(exec, op1, op2));
 }
 
 ALWAYS_INLINE static EncodedJSValue profiledSub(VM& vm, ExecState* exec, EncodedJSValue encodedOp1, EncodedJSValue encodedOp2, ArithProfile& arithProfile, bool shouldObserveLHSAndRHSTypes = true)
 {
     auto scope = DECLARE_THROW_SCOPE(vm);
+
     JSValue op1 = JSValue::decode(encodedOp1);
     JSValue op2 = JSValue::decode(encodedOp2);
 
     if (shouldObserveLHSAndRHSTypes)
         arithProfile.observeLHSAndRHS(op1, op2);
 
-    double a = op1.toNumber(exec);
+    JSValue result = jsSub(exec, op1, op2);
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
-    double b = op2.toNumber(exec);
-    RETURN_IF_EXCEPTION(scope, encodedJSValue());
-    
-    JSValue result = jsNumber(a - b);
     arithProfile.observeResult(result);
     return JSValue::encode(result);
 }
@@ -2852,7 +2812,7 @@ EncodedJSValue JIT_OPERATION operationValueSub(ExecState* exec, EncodedJSValue e
 {
     VM* vm = &exec->vm();
     NativeCallFrameTracer tracer(vm, exec);
-    return unprofiledSub(*vm, exec, encodedOp1, encodedOp2);
+    return unprofiledSub(exec, encodedOp1, encodedOp2);
 }
 
 EncodedJSValue JIT_OPERATION operationValueSubProfiled(ExecState* exec, EncodedJSValue encodedOp1, EncodedJSValue encodedOp2, ArithProfile* arithProfile)
@@ -2879,7 +2839,7 @@ EncodedJSValue JIT_OPERATION operationValueSubOptimize(ExecState* exec, EncodedJ
     exec->codeBlock()->dumpMathICStats();
 #endif
 
-    return unprofiledSub(*vm, exec, encodedOp1, encodedOp2);
+    return unprofiledSub(exec, encodedOp1, encodedOp2);
 }
 
 EncodedJSValue JIT_OPERATION operationValueSubNoOptimize(ExecState* exec, EncodedJSValue encodedOp1, EncodedJSValue encodedOp2, JITSubIC*)
@@ -2887,7 +2847,7 @@ EncodedJSValue JIT_OPERATION operationValueSubNoOptimize(ExecState* exec, Encode
     VM* vm = &exec->vm();
     NativeCallFrameTracer tracer(vm, exec);
 
-    return unprofiledSub(*vm, exec, encodedOp1, encodedOp2);
+    return unprofiledSub(exec, encodedOp1, encodedOp2);
 }
 
 EncodedJSValue JIT_OPERATION operationValueSubProfiledOptimize(ExecState* exec, EncodedJSValue encodedOp1, EncodedJSValue encodedOp2, JITSubIC* subIC)
@@ -2922,7 +2882,7 @@ void JIT_OPERATION operationProcessTypeProfilerLog(ExecState* exec)
 {
     VM& vm = exec->vm();
     NativeCallFrameTracer tracer(&vm, exec);
-    vm.typeProfilerLog()->processLogEntries(ASCIILiteral("Log Full, called from inside baseline JIT"));
+    vm.typeProfilerLog()->processLogEntries("Log Full, called from inside baseline JIT"_s);
 }
 
 void JIT_OPERATION operationProcessShadowChickenLog(ExecState* exec)
@@ -2947,109 +2907,6 @@ int32_t JIT_OPERATION operationCheckIfExceptionIsUncatchableAndNotifyProfiler(Ex
 }
 
 } // extern "C"
-
-// Note: getHostCallReturnValueWithExecState() needs to be placed before the
-// definition of getHostCallReturnValue() below because the Windows build
-// requires it.
-extern "C" EncodedJSValue HOST_CALL_RETURN_VALUE_OPTION getHostCallReturnValueWithExecState(ExecState* exec)
-{
-    if (!exec)
-        return JSValue::encode(JSValue());
-    return JSValue::encode(exec->vm().hostCallReturnValue);
-}
-
-#if COMPILER(GCC_OR_CLANG) && CPU(X86_64)
-asm (
-".globl " SYMBOL_STRING(getHostCallReturnValue) "\n"
-HIDE_SYMBOL(getHostCallReturnValue) "\n"
-SYMBOL_STRING(getHostCallReturnValue) ":" "\n"
-    "lea -8(%rsp), %rdi\n"
-    "jmp " LOCAL_REFERENCE(getHostCallReturnValueWithExecState) "\n"
-);
-
-#elif COMPILER(GCC_OR_CLANG) && CPU(X86)
-asm (
-".text" "\n" \
-".globl " SYMBOL_STRING(getHostCallReturnValue) "\n"
-HIDE_SYMBOL(getHostCallReturnValue) "\n"
-SYMBOL_STRING(getHostCallReturnValue) ":" "\n"
-    "push %ebp\n"
-    "mov %esp, %eax\n"
-    "leal -4(%esp), %esp\n"
-    "push %eax\n"
-    "call " LOCAL_REFERENCE(getHostCallReturnValueWithExecState) "\n"
-    "leal 8(%esp), %esp\n"
-    "pop %ebp\n"
-    "ret\n"
-);
-
-#elif COMPILER(GCC_OR_CLANG) && CPU(ARM_THUMB2)
-asm (
-".text" "\n"
-".align 2" "\n"
-".globl " SYMBOL_STRING(getHostCallReturnValue) "\n"
-HIDE_SYMBOL(getHostCallReturnValue) "\n"
-".thumb" "\n"
-".thumb_func " THUMB_FUNC_PARAM(getHostCallReturnValue) "\n"
-SYMBOL_STRING(getHostCallReturnValue) ":" "\n"
-    "sub r0, sp, #8" "\n"
-    "b " LOCAL_REFERENCE(getHostCallReturnValueWithExecState) "\n"
-);
-
-#elif COMPILER(GCC_OR_CLANG) && CPU(ARM_TRADITIONAL)
-asm (
-".text" "\n"
-".globl " SYMBOL_STRING(getHostCallReturnValue) "\n"
-HIDE_SYMBOL(getHostCallReturnValue) "\n"
-INLINE_ARM_FUNCTION(getHostCallReturnValue)
-SYMBOL_STRING(getHostCallReturnValue) ":" "\n"
-    "sub r0, sp, #8" "\n"
-    "b " LOCAL_REFERENCE(getHostCallReturnValueWithExecState) "\n"
-);
-
-#elif CPU(ARM64)
-asm (
-".text" "\n"
-".align 2" "\n"
-".globl " SYMBOL_STRING(getHostCallReturnValue) "\n"
-HIDE_SYMBOL(getHostCallReturnValue) "\n"
-SYMBOL_STRING(getHostCallReturnValue) ":" "\n"
-     "sub x0, sp, #16" "\n"
-     "b " LOCAL_REFERENCE(getHostCallReturnValueWithExecState) "\n"
-);
-
-#elif COMPILER(GCC_OR_CLANG) && CPU(MIPS)
-
-#if WTF_MIPS_PIC
-#define LOAD_FUNCTION_TO_T9(function) \
-        ".set noreorder" "\n" \
-        ".cpload $25" "\n" \
-        ".set reorder" "\n" \
-        "la $t9, " LOCAL_REFERENCE(function) "\n"
-#else
-#define LOAD_FUNCTION_TO_T9(function) "" "\n"
-#endif
-
-asm (
-".text" "\n"
-".globl " SYMBOL_STRING(getHostCallReturnValue) "\n"
-HIDE_SYMBOL(getHostCallReturnValue) "\n"
-SYMBOL_STRING(getHostCallReturnValue) ":" "\n"
-    LOAD_FUNCTION_TO_T9(getHostCallReturnValueWithExecState)
-    "addi $a0, $sp, -8" "\n"
-    "b " LOCAL_REFERENCE(getHostCallReturnValueWithExecState) "\n"
-);
-
-#elif COMPILER(MSVC) && CPU(X86)
-extern "C" {
-    __declspec(naked) EncodedJSValue HOST_CALL_RETURN_VALUE_OPTION getHostCallReturnValue()
-    {
-        __asm lea eax, [esp - 4]
-        __asm mov [esp + 4], eax;
-        __asm jmp getHostCallReturnValueWithExecState
-    }
-}
-#endif
 
 } // namespace JSC
 

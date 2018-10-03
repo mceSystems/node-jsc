@@ -25,8 +25,11 @@
 
 #pragma once
 
+#include "Butterfly.h"
 #include "IndexingHeader.h"
 #include "JSCell.h"
+#include "Structure.h"
+#include "VirtualRegister.h"
 
 namespace JSC {
 
@@ -68,8 +71,8 @@ public:
     unsigned vectorLength() const { return m_header.vectorLength(); }
     unsigned length() const { return m_header.publicLength(); }
 
-    Butterfly* toButterfly() const { return reinterpret_cast<Butterfly*>(bitwise_cast<char*>(this) + sizeof(JSImmutableButterfly)); }
-    static JSImmutableButterfly* fromButterfly(Butterfly* butterfly) { return reinterpret_cast<JSImmutableButterfly*>(reinterpret_cast<char*>(butterfly) - sizeof(JSImmutableButterfly)); }
+    Butterfly* toButterfly() const { return bitwise_cast<Butterfly*>(bitwise_cast<char*>(this) + offsetOfData()); }
+    static JSImmutableButterfly* fromButterfly(Butterfly* butterfly) { return bitwise_cast<JSImmutableButterfly*>(bitwise_cast<char*>(butterfly) - offsetOfData()); }
 
     JSValue get(unsigned index) const
     {
@@ -89,7 +92,7 @@ public:
     static CompleteSubspace* subspaceFor(VM& vm)
     {
         // We allocate out of the JSValue gigacage as other code expects all butterflies to live there.
-        return &vm.jsValueGigacageAuxiliarySpace;
+        return &vm.immutableButterflyJSValueGigacageAuxiliarySpace;
     }
 
     // Only call this if you just allocated this butterfly.
@@ -101,11 +104,15 @@ public:
             toButterfly()->contiguous().atUnsafe(index).set(vm, this, value);
     }
 
-private:
+    static constexpr size_t offsetOfData()
+    {
+        return WTF::roundUpToMultipleOf<sizeof(WriteBarrier<Unknown>)>(sizeof(JSImmutableButterfly));
+    }
 
+private:
     static Checked<size_t, RecordOverflow> allocationSize(Checked<size_t, RecordOverflow> numItems)
     {
-        return sizeof(JSImmutableButterfly) + numItems * sizeof(WriteBarrier<Unknown>);
+        return offsetOfData() + numItems * sizeof(WriteBarrier<Unknown>);
     }
 
     JSImmutableButterfly(VM& vm, Structure* structure, unsigned length)

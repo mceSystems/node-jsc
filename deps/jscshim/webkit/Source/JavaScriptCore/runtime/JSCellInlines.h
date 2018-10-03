@@ -225,7 +225,7 @@ inline bool JSCell::isCustomGetterSetter() const
 
 inline bool JSCell::isCustomAPIValue() const
 {
-	return m_type == CustomAPIValueType;
+    return m_type == CustomAPIValueType;
 }
 
 inline bool JSCell::isProxy() const
@@ -252,6 +252,19 @@ inline bool JSCell::isCallable(VM& vm, CallType& callType, CallData& callData)
     return callType != CallType::None;
 }
 
+inline bool JSCell::isConstructor(VM& vm)
+{
+    ConstructType constructType;
+    ConstructData constructData;
+    return isConstructor(vm, constructType, constructData);
+}
+
+inline bool JSCell::isConstructor(VM& vm, ConstructType& constructType, ConstructData& constructData)
+{
+    constructType = methodTable(vm)->getConstructData(this, constructData);
+    return constructType != ConstructType::None;
+}
+
 inline bool JSCell::isAPIValueWrapper() const
 {
     return m_type == APIValueWrapperType;
@@ -259,9 +272,9 @@ inline bool JSCell::isAPIValueWrapper() const
 
 ALWAYS_INLINE void JSCell::setStructure(VM& vm, Structure* structure)
 {
-    ASSERT(structure->classInfo() == this->structure()->classInfo());
-    ASSERT(!this->structure()
-        || this->structure()->transitionWatchpointSetHasBeenInvalidated()
+    ASSERT(structure->classInfo() == this->structure(vm)->classInfo());
+    ASSERT(!this->structure(vm)
+        || this->structure(vm)->transitionWatchpointSetHasBeenInvalidated()
         || Heap::heap(this)->structureIDTable().get(structure->id()) == structure);
     m_structureID = structure->id();
     m_flags = TypeInfo::mergeInlineTypeFlags(structure->typeInfo().inlineTypeFlags(), m_flags);
@@ -279,18 +292,13 @@ ALWAYS_INLINE void JSCell::setStructure(VM& vm, Structure* structure)
     vm.heap.writeBarrier(this, structure);
 }
 
-inline const MethodTable* JSCell::methodTable() const
-{
-    VM& vm = *Heap::heap(this)->vm();
-    return methodTable(vm);
-}
-
 inline const MethodTable* JSCell::methodTable(VM& vm) const
 {
     Structure* structure = this->structure(vm);
+#if !ASSERT_DISABLED
     if (Structure* rootStructure = structure->structure(vm))
-        ASSERT_UNUSED(rootStructure, rootStructure == rootStructure->structure(vm));
-
+        ASSERT(rootStructure == rootStructure->structure(vm));
+#endif
     return &structure->classInfo()->methodTable;
 }
 
@@ -336,7 +344,7 @@ inline bool JSCell::toBoolean(ExecState* exec) const
 {
     if (isString())
         return static_cast<const JSString*>(this)->toBoolean();
-    return !structure()->masqueradesAsUndefined(exec->lexicalGlobalObject());
+    return !structure(exec->vm())->masqueradesAsUndefined(exec->lexicalGlobalObject());
 }
 
 inline TriState JSCell::pureToBoolean() const

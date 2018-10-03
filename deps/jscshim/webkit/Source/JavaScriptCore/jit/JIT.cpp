@@ -972,14 +972,14 @@ void JIT::doMainThreadPreparationBeforeCompile()
 {
     // This ensures that we have the most up to date type information when performing typecheck optimizations for op_profile_type.
     if (m_vm->typeProfiler())
-        m_vm->typeProfilerLog()->processLogEntries(ASCIILiteral("Preparing for JIT compilation."));
+        m_vm->typeProfilerLog()->processLogEntries("Preparing for JIT compilation."_s);
 }
 
 unsigned JIT::frameRegisterCountFor(CodeBlock* codeBlock)
 {
-    ASSERT(static_cast<unsigned>(codeBlock->m_numCalleeLocals) == WTF::roundUpToMultipleOf(stackAlignmentRegisters(), static_cast<unsigned>(codeBlock->m_numCalleeLocals)));
+    ASSERT(static_cast<unsigned>(codeBlock->numCalleeLocals()) == WTF::roundUpToMultipleOf(stackAlignmentRegisters(), static_cast<unsigned>(codeBlock->numCalleeLocals())));
 
-    return roundLocalRegisterCountForFramePointerOffset(codeBlock->m_numCalleeLocals + maxFrameExtentForSlowPathCallInRegisters);
+    return roundLocalRegisterCountForFramePointerOffset(codeBlock->numCalleeLocals() + maxFrameExtentForSlowPathCallInRegisters);
 }
 
 int JIT::stackPointerOffsetFor(CodeBlock* codeBlock)

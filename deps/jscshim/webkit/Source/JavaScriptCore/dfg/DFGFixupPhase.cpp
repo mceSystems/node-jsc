@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -587,21 +587,21 @@ private:
             // If either child can be proved to be Null or Undefined, comparing them is greatly simplified.
             bool oneArgumentIsUsedAsSpecOther = false;
             if (node->child1()->isUndefinedOrNullConstant()) {
-                fixEdge<OtherUse>(node->child1());
+                fixEdge<KnownOtherUse>(node->child1());
                 oneArgumentIsUsedAsSpecOther = true;
             } else if (node->child1()->shouldSpeculateOther()) {
                 m_insertionSet.insertNode(m_indexInBlock, SpecNone, Check, node->origin,
                     Edge(node->child1().node(), OtherUse));
-                fixEdge<OtherUse>(node->child1());
+                fixEdge<KnownOtherUse>(node->child1());
                 oneArgumentIsUsedAsSpecOther = true;
             }
             if (node->child2()->isUndefinedOrNullConstant()) {
-                fixEdge<OtherUse>(node->child2());
+                fixEdge<KnownOtherUse>(node->child2());
                 oneArgumentIsUsedAsSpecOther = true;
             } else if (node->child2()->shouldSpeculateOther()) {
                 m_insertionSet.insertNode(m_indexInBlock, SpecNone, Check, node->origin,
                     Edge(node->child2().node(), OtherUse));
-                fixEdge<OtherUse>(node->child2());
+                fixEdge<KnownOtherUse>(node->child2());
                 oneArgumentIsUsedAsSpecOther = true;
             }
             if (oneArgumentIsUsedAsSpecOther) {
@@ -668,8 +668,7 @@ private:
             switch (arrayMode.type()) {
             case Array::Contiguous:
             case Array::Double:
-                if (arrayMode.arrayClass() == Array::OriginalArray
-                    && arrayMode.speculation() == Array::InBounds) {
+                if (arrayMode.isJSArrayWithOriginalStructure() && arrayMode.speculation() == Array::InBounds) {
                     // Check if SaneChain will work on a per-type basis. Note that:
                     //
                     // 1) We don't want double arrays to sometimes return undefined, since
@@ -714,8 +713,8 @@ private:
                     
                     if (canDoSaneChain) {
                         JSGlobalObject* globalObject = m_graph.globalObjectFor(node->origin.semantic);
-                        Structure* arrayPrototypeStructure = globalObject->arrayPrototype()->structure();
-                        Structure* objectPrototypeStructure = globalObject->objectPrototype()->structure();
+                        Structure* arrayPrototypeStructure = globalObject->arrayPrototype()->structure(vm());
+                        Structure* objectPrototypeStructure = globalObject->objectPrototype()->structure(vm());
                         if (arrayPrototypeStructure->transitionWatchpointSetIsStillValid()
                             && objectPrototypeStructure->transitionWatchpointSetIsStillValid()
                             && globalObject->arrayPrototypeChainIsSane()) {
@@ -908,7 +907,7 @@ private:
                 // conversions.
                 if (!child->shouldSpeculateInt32()
                     && !child->shouldSpeculateAnyInt()
-                    && !(child->shouldSpeculateNumberOrBoolean() && isFTL(m_graph.m_plan.mode)))
+                    && !(child->shouldSpeculateNumberOrBoolean() && m_graph.m_plan.isFTL()))
                     badNews = true;
             }
             
@@ -931,7 +930,7 @@ private:
                 else if (child->shouldSpeculateAnyInt())
                     fixEdge<Int52RepUse>(child);
                 else {
-                    RELEASE_ASSERT(child->shouldSpeculateNumberOrBoolean() && isFTL(m_graph.m_plan.mode));
+                    RELEASE_ASSERT(child->shouldSpeculateNumberOrBoolean() && m_graph.m_plan.isFTL());
                     fixDoubleOrBooleanEdge(child);
                 }
             }
@@ -1184,8 +1183,8 @@ private:
             // When we go down the fast path, we don't consult the prototype chain, so we must prove
             // that it doesn't contain any indexed properties, and that any holes will result in
             // jsUndefined().
-            Structure* arrayPrototypeStructure = globalObject->arrayPrototype()->structure();
-            Structure* objectPrototypeStructure = globalObject->objectPrototype()->structure();
+            Structure* arrayPrototypeStructure = globalObject->arrayPrototype()->structure(vm());
+            Structure* objectPrototypeStructure = globalObject->objectPrototype()->structure(vm());
             if (node->child1()->shouldSpeculateArray()
                 && arrayPrototypeStructure->transitionWatchpointSetIsStillValid()
                 && objectPrototypeStructure->transitionWatchpointSetIsStillValid()
@@ -1447,6 +1446,15 @@ private:
             break;
         }
 
+        case ObjectCreate: {
+            if (node->child1()->shouldSpeculateObject()) {
+                fixEdge<ObjectUse>(node->child1());
+                node->clearFlags(NodeMustGenerate);
+                break;
+            }
+            break;
+        }
+
         case CheckStringIdent: {
             fixEdge<StringIdentUse>(node->child1());
             break;
@@ -1604,7 +1612,6 @@ private:
         case CheckTierUpInLoop:
         case CheckTierUpAtReturn:
         case CheckTierUpAndOSREnter:
-        case InvalidationPoint:
         case CheckArray:
         case CheckInBounds:
         case ConstantStoragePointer:
@@ -1776,7 +1783,7 @@ private:
                 }
                 if (!set.isEmpty()) {
                     fixEdge<CellUse>(node->child1());
-                    node->convertToCheckStructure(m_graph.addStructureSet(set));
+                    node->convertToCheckStructureOrEmpty(m_graph.addStructureSet(set));
                 }
             }
 
@@ -1987,6 +1994,11 @@ private:
             break;
         }
 
+        case StringValueOf: {
+            fixupStringValueOf(node);
+            break;
+        }
+
         case StringSlice: {
             fixEdge<StringUse>(node->child1());
             fixEdge<Int32Use>(node->child2());
@@ -2096,6 +2108,60 @@ private:
             fixEdge<CellUse>(node->child1());
             break;
 
+        case DataViewGetInt:
+        case DataViewGetFloat: {
+            fixEdge<DataViewObjectUse>(node->child1());
+            fixEdge<Int32Use>(node->child2());
+            if (node->child3())
+                fixEdge<BooleanUse>(node->child3());
+
+            if (node->op() == DataViewGetInt) {
+                DataViewData data = node->dataViewData();
+                switch (data.byteSize) {
+                case 1:
+                case 2:
+                    node->setResult(NodeResultInt32);
+                    break;
+                case 4:
+                    if (data.isSigned)
+                        node->setResult(NodeResultInt32);
+                    else
+                        node->setResult(NodeResultInt52);
+                    break;
+                default:
+                    RELEASE_ASSERT_NOT_REACHED();
+                }
+            }
+            break;
+        }
+
+        case DataViewSet: {
+            fixEdge<DataViewObjectUse>(m_graph.varArgChild(node, 0));
+            fixEdge<Int32Use>(m_graph.varArgChild(node, 1));
+            if (m_graph.varArgChild(node, 3))
+                fixEdge<BooleanUse>(m_graph.varArgChild(node, 3));
+            
+            DataViewData data = node->dataViewData();
+            Edge& valueToStore = m_graph.varArgChild(node, 2);
+            if (data.isFloatingPoint)
+                fixEdge<DoubleRepUse>(valueToStore);
+            else {
+                switch (data.byteSize) {
+                case 1:
+                case 2:
+                    fixEdge<Int32Use>(valueToStore);
+                    break;
+                case 4:
+                    if (data.isSigned)
+                        fixEdge<Int32Use>(valueToStore);
+                    else
+                        fixEdge<Int52RepUse>(valueToStore);
+                    break;
+                }
+            }
+            break;
+        }
+
 #if !ASSERT_DISABLED
         // Have these no-op cases here to ensure that nobody forgets to add handlers for new opcodes.
         case SetArgument:
@@ -2159,6 +2225,7 @@ private:
         case Unreachable:
         case ExtractOSREntryLocal:
         case ExtractCatchLocal:
+        case ClearCatchLocals:
         case LoopHint:
         case MovHint:
         case InitializeEntrypointArguments:
@@ -2174,6 +2241,11 @@ private:
         case GetGlobalThis:
         case ExtractValueFromWeakMapGet:
         case CPUIntrinsic:
+        case FilterCallLinkStatus:
+        case FilterGetByIdStatus:
+        case FilterPutByIdStatus:
+        case FilterInByIdStatus:
+        case InvalidationPoint:
             break;
 #else
         default:
@@ -2681,6 +2753,31 @@ private:
         // we can say that ToString never throws an error!
         if (node->child1()->shouldSpeculateNotCell()) {
             fixEdge<NotCellUse>(node->child1());
+            node->clearFlags(NodeMustGenerate);
+            return;
+        }
+    }
+
+    void fixupStringValueOf(Node* node)
+    {
+        if (node->child1()->shouldSpeculateString()) {
+            fixEdge<StringUse>(node->child1());
+            node->convertToIdentity();
+            return;
+        }
+
+        if (node->child1()->shouldSpeculateStringObject()) {
+            fixEdge<StringObjectUse>(node->child1());
+            node->convertToToString();
+            // It does not need to look up a toString property for the StringObject case. So we can clear NodeMustGenerate.
+            node->clearFlags(NodeMustGenerate);
+            return;
+        }
+
+        if (node->child1()->shouldSpeculateStringOrStringObject()) {
+            fixEdge<StringOrStringObjectUse>(node->child1());
+            node->convertToToString();
+            // It does not need to look up a toString property for the StringObject case. So we can clear NodeMustGenerate.
             node->clearFlags(NodeMustGenerate);
             return;
         }
@@ -3484,7 +3581,7 @@ private:
             node->setOpAndDefaultFlags(CompareStrictEq);
             return;
         }
-        if (node->child1()->shouldSpeculateString() && node->child2()->shouldSpeculateString() && ((GPRInfo::numberOfRegisters >= 7) || isFTL(m_graph.m_plan.mode))) {
+        if (node->child1()->shouldSpeculateString() && node->child2()->shouldSpeculateString() && ((GPRInfo::numberOfRegisters >= 7) || m_graph.m_plan.isFTL())) {
             fixEdge<StringUse>(node->child1());
             fixEdge<StringUse>(node->child2());
             node->setOpAndDefaultFlags(CompareStrictEq);
@@ -3556,12 +3653,12 @@ private:
             node->setOpAndDefaultFlags(CompareStrictEq);
             return;
         }
-        if (node->child1()->shouldSpeculateString() && ((GPRInfo::numberOfRegisters >= 8) || isFTL(m_graph.m_plan.mode))) {
+        if (node->child1()->shouldSpeculateString() && ((GPRInfo::numberOfRegisters >= 8) || m_graph.m_plan.isFTL())) {
             fixEdge<StringUse>(node->child1());
             node->setOpAndDefaultFlags(CompareStrictEq);
             return;
         }
-        if (node->child2()->shouldSpeculateString() && ((GPRInfo::numberOfRegisters >= 8) || isFTL(m_graph.m_plan.mode))) {
+        if (node->child2()->shouldSpeculateString() && ((GPRInfo::numberOfRegisters >= 8) || m_graph.m_plan.isFTL())) {
             fixEdge<StringUse>(node->child2());
             node->setOpAndDefaultFlags(CompareStrictEq);
             return;

@@ -79,9 +79,9 @@ IntlDateTimeFormatConstructor::IntlDateTimeFormatConstructor(VM& vm, Structure* 
 
 void IntlDateTimeFormatConstructor::finishCreation(VM& vm, IntlDateTimeFormatPrototype* dateTimeFormatPrototype, Structure* dateTimeFormatStructure)
 {
-    Base::finishCreation(vm, ASCIILiteral("DateTimeFormat"));
+    Base::finishCreation(vm, "DateTimeFormat"_s);
     putDirectWithoutTransition(vm, vm.propertyNames->prototype, dateTimeFormatPrototype, PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly);
-    putDirectWithoutTransition(vm, vm.propertyNames->length, jsNumber(0), PropertyAttribute::ReadOnly | PropertyAttribute::DontEnum | PropertyAttribute::DontDelete);
+    putDirectWithoutTransition(vm, vm.propertyNames->length, jsNumber(0), PropertyAttribute::ReadOnly | PropertyAttribute::DontEnum);
     dateTimeFormatPrototype->putDirectWithoutTransition(vm, vm.propertyNames->constructor, this, static_cast<unsigned>(PropertyAttribute::DontEnum));
     m_dateTimeFormatStructure.set(vm, this, dateTimeFormatStructure);
 }
@@ -134,7 +134,7 @@ EncodedJSValue JSC_HOST_CALL IntlDateTimeFormatConstructorFuncSupportedLocalesOf
     // 12.2.2 Intl.DateTimeFormat.supportedLocalesOf(locales [, options]) (ECMA-402 2.0)
 
     // 1. Let availableLocales be %DateTimeFormat%.[[availableLocales]].
-    JSGlobalObject* globalObject = state->jsCallee()->globalObject();
+    JSGlobalObject* globalObject = state->jsCallee()->globalObject(vm);
     const HashSet<String> availableLocales = globalObject->intlDateTimeFormatAvailableLocales();
 
     // 2. Let requestedLocales be CanonicalizeLocaleList(locales).

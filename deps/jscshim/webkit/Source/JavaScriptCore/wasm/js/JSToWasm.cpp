@@ -31,6 +31,8 @@
 #include "CCallHelpers.h"
 #include "JSWebAssemblyInstance.h"
 #include "WasmCallingConvention.h"
+#include "WasmContextInlines.h"
+#include "WasmSignatureInlines.h"
 
 namespace JSC { namespace Wasm {
 

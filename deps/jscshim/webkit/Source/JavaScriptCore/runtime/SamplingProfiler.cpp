@@ -356,7 +356,11 @@ void SamplingProfiler::takeSample(const AbstractLocker&, Seconds& stackTraceProc
                 m_jscExecutionThread->getRegisters(registers);
                 machineFrame = MachineContext::framePointer(registers);
                 callFrame = static_cast<ExecState*>(machineFrame);
-                machinePC = MachineContext::instructionPointer(registers).untaggedExecutableAddress();
+                auto instructionPointer = MachineContext::instructionPointer(registers);
+                if (instructionPointer)
+                    machinePC = instructionPointer->untaggedExecutableAddress();
+                else
+                    machinePC = nullptr;
                 llintPC = removeCodePtrTag(MachineContext::llintInstructionPointer(registers));
                 assertIsNotTagged(machinePC);
             }
@@ -504,7 +508,7 @@ void SamplingProfiler::processUnverifiedStackTraces()
                 FrameType result = FrameType::Unknown;
                 CallData callData;
                 CallType callType;
-                callType = getCallData(calleeCell, callData);
+                callType = getCallData(m_vm, calleeCell, callData);
                 if (callType == CallType::Host)
                     result = FrameType::Host;
 
@@ -563,8 +567,9 @@ void SamplingProfiler::processUnverifiedStackTraces()
                 // output on the command line, but we could extend it to the web
                 // inspector in the future if we find a need for it there.
                 RELEASE_ASSERT(stackTrace.frames.size());
+                m_liveCellPointers.add(machineCodeBlock);
                 for (size_t i = startIndex; i < stackTrace.frames.size() - 1; i++)
-                    stackTrace.frames[i].machineLocation = std::make_pair(machineLocation, Strong<CodeBlock>(m_vm, machineCodeBlock));
+                    stackTrace.frames[i].machineLocation = std::make_pair(machineLocation, machineCodeBlock);
             }
         };
 
@@ -597,10 +602,15 @@ void SamplingProfiler::processUnverifiedStackTraces()
                     storeCalleeIntoLastFrame(unprocessedStackTrace.frames[0].unverifiedCallee);
                     startIndex = 1;
                 }
-            } else if (std::optional<CodeOrigin> codeOrigin = topCodeBlock->findPC(unprocessedStackTrace.topPC)) {
-                appendCodeOrigin(topCodeBlock, *codeOrigin);
-                storeCalleeIntoLastFrame(unprocessedStackTrace.frames[0].unverifiedCallee);
-                startIndex = 1;
+            } else {
+#if ENABLE(JIT)
+                if (std::optional<CodeOrigin> codeOrigin = topCodeBlock->findPC(unprocessedStackTrace.topPC)) {
+                    appendCodeOrigin(topCodeBlock, *codeOrigin);
+                    storeCalleeIntoLastFrame(unprocessedStackTrace.frames[0].unverifiedCallee);
+                    startIndex = 1;
+                }
+#endif
+                UNUSED_PARAM(appendCodeOrigin);
             }
         }
 
@@ -716,7 +726,7 @@ String SamplingProfiler::StackFrame::nameFromCallee(VM& vm)
         return String();
 
     auto scope = DECLARE_CATCH_SCOPE(vm);
-    ExecState* exec = callee->globalObject()->globalExec();
+    ExecState* exec = callee->globalObject(vm)->globalExec();
     auto getPropertyIfPureOperation = [&] (const Identifier& ident) -> String {
         PropertySlot slot(callee, PropertySlot::InternalMethodType::VMInquiry);
         PropertyName propertyName(ident);
@@ -756,10 +766,10 @@ String SamplingProfiler::StackFrame::displayName(VM& vm)
             WTF::dataLog("couldn't get a name");
         }
 #endif
-        return ASCIILiteral("(unknown)");
+        return "(unknown)"_s;
     }
     if (frameType == FrameType::Host)
-        return ASCIILiteral("(host)");
+        return "(host)"_s;
 
     if (executable->isHostFunction())
         return static_cast<NativeExecutable*>(executable)->name();
@@ -767,9 +777,9 @@ String SamplingProfiler::StackFrame::displayName(VM& vm)
     if (executable->isFunctionExecutable())
         return static_cast<FunctionExecutable*>(executable)->inferredName().string();
     if (executable->isProgramExecutable() || executable->isEvalExecutable())
-        return ASCIILiteral("(program)");
+        return "(program)"_s;
     if (executable->isModuleProgramExecutable())
-        return ASCIILiteral("(module)");
+        return "(module)"_s;
 
     RELEASE_ASSERT_NOT_REACHED();
     return String();
@@ -784,9 +794,9 @@ String SamplingProfiler::StackFrame::displayNameForJSONTests(VM& vm)
     }
 
     if (frameType == FrameType::Unknown || frameType == FrameType::C)
-        return ASCIILiteral("(unknown)");
+        return "(unknown)"_s;
     if (frameType == FrameType::Host)
-        return ASCIILiteral("(host)");
+        return "(host)"_s;
 
     if (executable->isHostFunction())
         return static_cast<NativeExecutable*>(executable)->name();
@@ -794,15 +804,15 @@ String SamplingProfiler::StackFrame::displayNameForJSONTests(VM& vm)
     if (executable->isFunctionExecutable()) {
         String result = static_cast<FunctionExecutable*>(executable)->inferredName().string();
         if (result.isEmpty())
-            return ASCIILiteral("(anonymous function)");
+            return "(anonymous function)"_s;
         return result;
     }
     if (executable->isEvalExecutable())
-        return ASCIILiteral("(eval)");
+        return "(eval)"_s;
     if (executable->isProgramExecutable())
-        return ASCIILiteral("(program)");
+        return "(program)"_s;
     if (executable->isModuleProgramExecutable())
-        return ASCIILiteral("(module)");
+        return "(module)"_s;
 
     RELEASE_ASSERT_NOT_REACHED();
     return String();
@@ -948,6 +958,7 @@ void SamplingProfiler::reportTopFunctions()
 void SamplingProfiler::reportTopFunctions(PrintStream& out)
 {
     LockHolder locker(m_lock);
+    DeferGCForAWhile deferGC(m_vm.heap);
 
     {
         HeapIterationScope heapIterationScope(m_vm.heap);
@@ -1000,6 +1011,7 @@ void SamplingProfiler::reportTopBytecodes()
 void SamplingProfiler::reportTopBytecodes(PrintStream& out)
 {
     LockHolder locker(m_lock);
+    DeferGCForAWhile deferGC(m_vm.heap);
 
     {
         HeapIterationScope heapIterationScope(m_vm.heap);
@@ -1031,7 +1043,7 @@ void SamplingProfiler::reportTopBytecodes(PrintStream& out)
 
         StackFrame& frame = stackTrace.frames.first();
         String frameDescription = makeString(frame.displayName(m_vm), descriptionForLocation(frame.semanticLocation));
-        if (std::optional<std::pair<StackFrame::CodeLocation, Strong<CodeBlock>>> machineLocation = frame.machineLocation) {
+        if (std::optional<std::pair<StackFrame::CodeLocation, CodeBlock*>> machineLocation = frame.machineLocation) {
             frameDescription = makeString(frameDescription, " <-- ",
                 machineLocation->second->inferredName().data(), descriptionForLocation(machineLocation->first));
         }

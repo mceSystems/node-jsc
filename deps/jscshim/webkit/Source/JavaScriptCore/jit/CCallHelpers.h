@@ -314,7 +314,7 @@ private:
         std::array<RegType, TargetSize> result { };
 
         for (unsigned i = 0; i < TargetSize; i++) {
-            ASSERT(sourceArray[i] != InfoTypeForReg<RegType>::InvalidIndex);
+            ASSERT(sourceArray[i] != static_cast<int32_t>(InfoTypeForReg<RegType>::InvalidIndex));
             result[i] = sourceArray[i];
         }
 
@@ -329,7 +329,9 @@ private:
 
         currentGPRArgument += extraGPRArgs;
         currentFPRArgument -= numCrossSources;
+        IGNORE_WARNINGS_BEGIN("type-limits")
         ASSERT(currentGPRArgument >= GPRInfo::numberOfArgumentRegisters || currentFPRArgument >= FPRInfo::numberOfArgumentRegisters);
+        IGNORE_WARNINGS_END
 
         unsigned pokeOffset = POKE_ARGUMENT_OFFSET + extraPoke;
         pokeOffset += std::max(currentGPRArgument, numberOfGPArgumentRegisters) - numberOfGPArgumentRegisters;

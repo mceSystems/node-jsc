@@ -450,6 +450,11 @@ public:
         return PatchableJump(branch32(cond, reg, imm));
     }
 
+    PatchableJump patchableBranch8(RelationalCondition cond, Address address, TrustedImm32 imm)
+    {
+        return PatchableJump(branch8(cond, address, imm));
+    }
+
     PatchableJump patchableBranch32(RelationalCondition cond, Address address, TrustedImm32 imm)
     {
         return PatchableJump(branch32(cond, address, imm));
@@ -1290,6 +1295,13 @@ public:
 
         return shouldBlindPointerForSpecificArch(value);
     }
+
+    uint8_t generateRotationSeed(size_t widthInBits)
+    {
+        // Generate the seed in [1, widthInBits - 1]. We should not generate widthInBits or 0
+        // since it leads to `<< widthInBits` or `>> widthInBits`, which cause undefined behaviors.
+        return (random() % (widthInBits - 1)) + 1;
+    }
     
     struct RotatedImmPtr {
         RotatedImmPtr(uintptr_t v1, uint8_t v2)
@@ -1303,7 +1315,7 @@ public:
     
     RotatedImmPtr rotationBlindConstant(ImmPtr imm)
     {
-        uint8_t rotation = random() % (sizeof(void*) * 8);
+        uint8_t rotation = generateRotationSeed(sizeof(void*) * 8);
         uintptr_t value = imm.asTrustedImmPtr().asIntptr();
         value = (value << rotation) | (value >> (sizeof(void*) * 8 - rotation));
         return RotatedImmPtr(value, rotation);
@@ -1371,7 +1383,7 @@ public:
     
     RotatedImm64 rotationBlindConstant(Imm64 imm)
     {
-        uint8_t rotation = random() % (sizeof(int64_t) * 8);
+        uint8_t rotation = generateRotationSeed(sizeof(int64_t) * 8);
         uint64_t value = imm.asTrustedImm64().m_value;
         value = (value << rotation) | (value >> (sizeof(int64_t) * 8 - rotation));
         return RotatedImm64(value, rotation);
@@ -1954,7 +1966,7 @@ public:
     // MacroAssembler.
     void probe(Probe::Function, void* arg);
 
-    JS_EXPORT_PRIVATE void probe(std::function<void(Probe::Context&)>);
+    JS_EXPORT_PRIVATE void probe(Function<void(Probe::Context&)>);
 
     // Let's you print from your JIT generated code.
     // See comments in MacroAssemblerPrinter.h for examples of how to use this.
@@ -1990,8 +2002,8 @@ private:
     
 public:
     
-    enum RegisterID { NoRegister };
-    enum FPRegisterID { NoFPRegister };
+    enum RegisterID : int8_t { NoRegister, InvalidGPRReg = -1 };
+    enum FPRegisterID : int8_t { NoFPRegister, InvalidFPRReg = -1 };
 };
 
 } // namespace JSC

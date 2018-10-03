@@ -29,6 +29,7 @@
 
 # FIXME: Is this the right way to do this?
 from webkitpy.tool.steps.addsvnmimetypeforpng import AddSvnMimetypeForPng
+from webkitpy.tool.steps.addradar import AddRadar
 from webkitpy.tool.steps.applypatch import ApplyPatch
 from webkitpy.tool.steps.applypatchwithlocalcommit import ApplyPatchWithLocalCommit
 from webkitpy.tool.steps.applywatchlist import ApplyWatchList
@@ -66,3 +67,4 @@ from webkitpy.tool.steps.update import Update
 from webkitpy.tool.steps.updatechangelogswithreviewer import UpdateChangeLogsWithReviewer
 from webkitpy.tool.steps.validatechangelogs import ValidateChangeLogs
 from webkitpy.tool.steps.validatereviewer import ValidateReviewer
+from webkitpy.tool.steps.wptchangeexport import WPTChangeExport

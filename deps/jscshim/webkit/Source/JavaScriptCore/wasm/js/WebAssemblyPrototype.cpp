@@ -91,7 +91,7 @@ static void webAssemblyModuleValidateAsyncInternal(ExecState* exec, JSPromiseDef
     Vector<Strong<JSCell>> dependencies;
     dependencies.append(Strong<JSCell>(vm, globalObject));
 
-    vm.promiseDeferredTimer->addPendingPromise(promise, WTFMove(dependencies));
+    vm.promiseDeferredTimer->addPendingPromise(vm, promise, WTFMove(dependencies));
 
     Wasm::Module::validateAsync(&vm.wasmContext, WTFMove(source), createSharedTask<Wasm::Module::CallbackType>([promise, globalObject, &vm] (Wasm::Module::ValidationResult&& result) mutable {
         vm.promiseDeferredTimer->scheduleWorkSoon(promise, [promise, globalObject, result = WTFMove(result), &vm] () mutable {
@@ -147,8 +147,8 @@ static void resolve(VM& vm, ExecState* exec, JSPromiseDeferred* promise, JSWebAs
         promise->resolve(exec, moduleRecord);
     } else {
         JSObject* result = constructEmptyObject(exec);
-        result->putDirect(vm, Identifier::fromString(&vm, ASCIILiteral("module")), module);
-        result->putDirect(vm, Identifier::fromString(&vm, ASCIILiteral("instance")), instance);
+        result->putDirect(vm, Identifier::fromString(&vm, "module"_s), module);
+        result->putDirect(vm, Identifier::fromString(&vm, "instance"_s), instance);
         promise->resolve(exec, result);
     }
     CLEAR_AND_RETURN_IF_EXCEPTION(scope, void());
@@ -173,12 +173,12 @@ static void instantiate(VM& vm, ExecState* exec, JSPromiseDeferred* promise, JSW
     // The instance keeps the module alive.
     dependencies.append(Strong<JSCell>(vm, instance));
     dependencies.append(Strong<JSCell>(vm, importObject));
-    vm.promiseDeferredTimer->addPendingPromise(promise, WTFMove(dependencies));
+    vm.promiseDeferredTimer->addPendingPromise(vm, promise, WTFMove(dependencies));
     // Note: This completion task may or may not get called immediately.
     module->module().compileAsync(&vm.wasmContext, instance->memoryMode(), createSharedTask<Wasm::CodeBlock::CallbackType>([promise, instance, module, importObject, resolveKind, creationMode, &vm] (Ref<Wasm::CodeBlock>&& refCodeBlock) mutable {
         RefPtr<Wasm::CodeBlock> codeBlock = WTFMove(refCodeBlock);
         vm.promiseDeferredTimer->scheduleWorkSoon(promise, [promise, instance, module, importObject, resolveKind, creationMode, &vm, codeBlock = WTFMove(codeBlock)] () mutable {
-            ExecState* exec = instance->globalObject()->globalExec();
+            ExecState* exec = instance->globalObject(vm)->globalExec();
             resolve(vm, exec, promise, instance, module, importObject, codeBlock.releaseNonNull(), resolveKind, creationMode);
         });
     }), &Wasm::createJSToWasmWrapper, &Wasm::wasmToJSException);
@@ -194,7 +194,7 @@ static void compileAndInstantiate(VM& vm, ExecState* exec, JSPromiseDeferred* pr
     Vector<Strong<JSCell>> dependencies;
     dependencies.append(Strong<JSCell>(vm, importObject));
     dependencies.append(Strong<JSCell>(vm, moduleKeyCell));
-    vm.promiseDeferredTimer->addPendingPromise(promise, WTFMove(dependencies));
+    vm.promiseDeferredTimer->addPendingPromise(vm, promise, WTFMove(dependencies));
 
     Vector<uint8_t> source = createSourceBufferFromValue(vm, exec, buffer);
     RETURN_IF_EXCEPTION(scope, reject(exec, scope, promise));
@@ -231,7 +231,7 @@ static void webAssemblyModuleInstantinateAsyncInternal(ExecState* exec, JSPromis
     Vector<Strong<JSCell>> dependencies;
     dependencies.append(Strong<JSCell>(vm, importObject));
     dependencies.append(Strong<JSCell>(vm, globalObject));
-    vm.promiseDeferredTimer->addPendingPromise(promise, WTFMove(dependencies));
+    vm.promiseDeferredTimer->addPendingPromise(vm, promise, WTFMove(dependencies));
 
     Wasm::Module::validateAsync(&vm.wasmContext, WTFMove(source), createSharedTask<Wasm::Module::CallbackType>([promise, importObject, globalObject, &vm] (Wasm::Module::ValidationResult&& result) mutable {
         vm.promiseDeferredTimer->scheduleWorkSoon(promise, [promise, importObject, globalObject, result = WTFMove(result), &vm] () mutable {
@@ -271,7 +271,7 @@ static EncodedJSValue JSC_HOST_CALL webAssemblyInstantiateFunc(ExecState* exec)
         JSObject* importObject = importArgument.getObject();
         if (UNLIKELY(!importArgument.isUndefined() && !importObject)) {
             promise->reject(exec, createTypeError(exec,
-                ASCIILiteral("second argument to WebAssembly.instantiate must be undefined or an Object"), defaultSourceAppender, runtimeTypeForValue(vm, importArgument)));
+                "second argument to WebAssembly.instantiate must be undefined or an Object"_s, defaultSourceAppender, runtimeTypeForValue(vm, importArgument)));
             CLEAR_AND_RETURN_IF_EXCEPTION(catchScope, JSValue::encode(promise->promise()));
         } else {
             JSValue firstArgument = exec->argument(0);
@@ -294,10 +294,10 @@ static EncodedJSValue JSC_HOST_CALL webAssemblyValidateFunc(ExecState* exec)
     size_t byteSize;
     std::tie(base, byteSize) = getWasmBufferFromValue(exec, exec->argument(0));
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
-    BBQPlan plan(&vm.wasmContext, base, byteSize, BBQPlan::Validation, Plan::dontFinalize());
+    BBQPlan plan(&vm.wasmContext, BBQPlan::Validation, Plan::dontFinalize());
     // FIXME: We might want to throw an OOM exception here if we detect that something will OOM.
     // https://bugs.webkit.org/show_bug.cgi?id=166015
-    return JSValue::encode(jsBoolean(plan.parseAndValidateModule()));
+    return JSValue::encode(jsBoolean(plan.parseAndValidateModule(base, byteSize)));
 }
 
 EncodedJSValue JSC_HOST_CALL webAssemblyCompileStreamingInternal(ExecState* exec)
@@ -310,7 +310,7 @@ EncodedJSValue JSC_HOST_CALL webAssemblyCompileStreamingInternal(ExecState* exec
 
     Vector<Strong<JSCell>> dependencies;
     dependencies.append(Strong<JSCell>(vm, globalObject));
-    vm.promiseDeferredTimer->addPendingPromise(promise, WTFMove(dependencies));
+    vm.promiseDeferredTimer->addPendingPromise(vm, promise, WTFMove(dependencies));
 
     if (globalObject->globalObjectMethodTable()->compileStreaming)
         globalObject->globalObjectMethodTable()->compileStreaming(globalObject, exec, promise, exec->argument(0));
@@ -340,14 +340,14 @@ EncodedJSValue JSC_HOST_CALL webAssemblyInstantiateStreamingInternal(ExecState* 
         JSObject* importObject = importArgument.getObject();
         if (UNLIKELY(!importArgument.isUndefined() && !importObject)) {
             promise->reject(exec, createTypeError(exec,
-                ASCIILiteral("second argument to WebAssembly.instantiateStreaming must be undefined or an Object"), defaultSourceAppender, runtimeTypeForValue(vm, importArgument)));
+                "second argument to WebAssembly.instantiateStreaming must be undefined or an Object"_s, defaultSourceAppender, runtimeTypeForValue(vm, importArgument)));
             CLEAR_AND_RETURN_IF_EXCEPTION(catchScope, JSValue::encode(promise->promise()));
         } else {
             if (globalObject->globalObjectMethodTable()->instantiateStreaming) {
                 Vector<Strong<JSCell>> dependencies;
                 dependencies.append(Strong<JSCell>(vm, globalObject));
                 dependencies.append(Strong<JSCell>(vm, importObject));
-                vm.promiseDeferredTimer->addPendingPromise(promise, WTFMove(dependencies));
+                vm.promiseDeferredTimer->addPendingPromise(vm, promise, WTFMove(dependencies));
 
                 // FIXME: <http://webkit.org/b/184888> if there's an importObject and it contains a Memory, then we can compile the module with the right memory type (fast or not) by looking at the memory's type.
                 globalObject->globalObjectMethodTable()->instantiateStreaming(globalObject, exec, promise, exec->argument(0), importObject);

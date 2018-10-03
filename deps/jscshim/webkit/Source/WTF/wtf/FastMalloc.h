@@ -73,6 +73,8 @@ WTF_EXPORT_PRIVATE void releaseFastMallocFreeMemoryForThisThread();
 WTF_EXPORT_PRIVATE void fastCommitAlignedMemory(void*, size_t);
 WTF_EXPORT_PRIVATE void fastDecommitAlignedMemory(void*, size_t);
 
+WTF_EXPORT_PRIVATE void fastEnableMiniMode();
+
 struct FastMallocStatistics {
     size_t reservedVMBytes;
     size_t committedVMBytes;
@@ -248,9 +250,9 @@ using WTF::tryFastZeroedMalloc;
 using WTF::fastAlignedMalloc;
 using WTF::fastAlignedFree;
 
-#if COMPILER(GCC_OR_CLANG) && OS(DARWIN)
+#if COMPILER(GCC_COMPATIBLE) && OS(DARWIN)
 #define WTF_PRIVATE_INLINE __private_extern__ inline __attribute__((always_inline))
-#elif COMPILER(GCC_OR_CLANG)
+#elif COMPILER(GCC_COMPATIBLE)
 #define WTF_PRIVATE_INLINE inline __attribute__((always_inline))
 #elif COMPILER(MSVC)
 #define WTF_PRIVATE_INLINE __forceinline

@@ -80,7 +80,7 @@ JSArray* constructArrayWithSizeQuirk(ExecState* exec, ArrayAllocationProfile* pr
     
     uint32_t n = length.toUInt32(exec);
     if (n != length.toNumber(exec)) {
-        throwException(exec, scope, createRangeError(exec, ASCIILiteral("Array size is not a small enough positive integer.")));
+        throwException(exec, scope, createRangeError(exec, "Array size is not a small enough positive integer."_s));
         return nullptr;
     }
     scope.release();
@@ -89,7 +89,8 @@ JSArray* constructArrayWithSizeQuirk(ExecState* exec, ArrayAllocationProfile* pr
 
 static inline JSArray* constructArrayWithSizeQuirk(ExecState* exec, const ArgList& args, JSValue newTarget)
 {
-    JSGlobalObject* globalObject = jsCast<InternalFunction*>(exec->jsCallee())->globalObject();
+    VM& vm = exec->vm();
+    JSGlobalObject* globalObject = jsCast<InternalFunction*>(exec->jsCallee())->globalObject(vm);
 
     // a single numeric argument denotes the array size (!)
     if (args.size() == 1)
@@ -118,7 +119,7 @@ static ALWAYS_INLINE bool isArraySlowInline(ExecState* exec, ProxyObject* proxy)
 
     while (true) {
         if (proxy->isRevoked()) {
-            throwTypeError(exec, scope, ASCIILiteral("Array.isArray cannot be called on a Proxy that has been revoked"));
+            throwTypeError(exec, scope, "Array.isArray cannot be called on a Proxy that has been revoked"_s);
             return false;
         }
         JSObject* argument = proxy->target();

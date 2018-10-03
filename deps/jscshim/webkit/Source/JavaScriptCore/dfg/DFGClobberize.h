@@ -144,8 +144,15 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
     case Check:
     case CheckVarargs:
     case ExtractOSREntryLocal:
-    case ExtractCatchLocal:
     case CheckStructureImmediate:
+        return;
+
+    case ExtractCatchLocal:
+        read(AbstractHeap(CatchLocals, node->catchOSREntryIndex()));
+        return;
+
+    case ClearCatchLocals:
+        write(CatchLocals);
         return;
         
     case LazyJSConstant:
@@ -446,6 +453,10 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
     case ProfileControlFlow:
     case PutHint:
     case InitializeEntrypointArguments:
+    case FilterCallLinkStatus:
+    case FilterGetByIdStatus:
+    case FilterPutByIdStatus:
+    case FilterInByIdStatus:
         write(SideState);
         return;
         
@@ -460,11 +471,8 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         return;
 
     case CheckTraps:
-        if (Options::usePollingTraps()) {
-            read(InternalState);
-            write(InternalState);
-        } else
-            write(Watchpoint_fire);
+        read(InternalState);
+        write(InternalState);
         return;
 
     case InvalidationPoint:
@@ -509,7 +517,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
     case PhantomClonedArguments:
         // DFG backend requires that the locals that this reads are flushed. FTL backend can handle those
         // locals being promoted.
-        if (!isFTL(graph.m_plan.mode))
+        if (!graph.m_plan.isFTL())
             read(Stack);
         
         // Even though it's phantom, it still has the property that one can't be replaced with another.
@@ -644,6 +652,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
     case NumberToStringWithRadix:
     case CreateThis:
     case InstanceOf:
+    case StringValueOf:
         read(World);
         write(Heap);
         return;
@@ -1489,6 +1498,23 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         return;
     }
 
+    case ObjectCreate: {
+        switch (node->child1().useKind()) {
+        case ObjectUse:
+            read(HeapObjectCount);
+            write(HeapObjectCount);
+            return;
+        case UntypedUse:
+            read(World);
+            write(Heap);
+            return;
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+            return;
+        }
+    }
+
+
     case NewObject:
     case NewRegexp:
     case NewStringObject:
@@ -1730,7 +1756,24 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
     case NumberToStringWithValidRadixConstant:
         def(PureValue(node, node->validRadixConstant()));
         return;
-        
+
+    case DataViewGetFloat:
+    case DataViewGetInt: {
+        read(MiscFields);
+        read(TypedArrayProperties);
+        LocationKind indexedPropertyLoc = indexedPropertyLocForResultType(node->result());
+        def(HeapLocation(indexedPropertyLoc, AbstractHeap(TypedArrayProperties, node->dataViewData().asQuadWord),
+            node->child1(), node->child2(), node->child3()), LazyNode(node));
+        return;
+    }
+
+    case DataViewSet: {
+        read(MiscFields);
+        read(TypedArrayProperties);
+        write(TypedArrayProperties);
+        return;
+    }
+
     case LastNodeType:
         RELEASE_ASSERT_NOT_REACHED();
         return;

@@ -377,8 +377,8 @@ public:
 
         // Validate clobbered states.
         struct DefLambdaAdaptor {
-            std::function<void(PureValue)> pureValue;
-            std::function<void(HeapLocation, LazyNode)> locationAndNode;
+            Function<void(PureValue)> pureValue;
+            Function<void(HeapLocation, LazyNode)> locationAndNode;
 
             void operator()(PureValue value) const
             {
@@ -414,6 +414,14 @@ public:
                         }
                 });
             }
+        }
+
+        for (BasicBlock* block : m_graph.blocksInNaturalOrder()) {
+            // We expect the predecessor list to be de-duplicated.
+            HashSet<BasicBlock*> predecessors;
+            for (BasicBlock* predecessor : block->predecessors)
+                predecessors.add(predecessor);
+            VALIDATE((block), predecessors.size() == block->predecessors.size());
         }
     }
     

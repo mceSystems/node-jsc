@@ -215,8 +215,18 @@ static InlineCacheAction tryCacheGetByID(ExecState* exec, JSValue baseValue, con
                 }
 
                 newCase = AccessCase::create(vm, codeBlock, AccessCase::ArrayLength);
-            } else if (isJSString(baseCell))
+            } else if (isJSString(baseCell)) {
+                if (stubInfo.cacheType == CacheType::Unset) {
+                    bool generatedCodeInline = InlineAccess::generateStringLength(stubInfo);
+                    if (generatedCodeInline) {
+                        ftlThunkAwareRepatchCall(codeBlock, stubInfo.slowPathCallLocation(), appropriateOptimizingGetByIdFunction(kind));
+                        stubInfo.initStringLength();
+                        return RetryCacheLater;
+                    }
+                }
+
                 newCase = AccessCase::create(vm, codeBlock, AccessCase::StringLength);
+            }
             else if (DirectArguments* arguments = jsDynamicCast<DirectArguments*>(vm, baseCell)) {
                 // If there were overrides, then we can handle this as a normal property load! Guarding
                 // this with such a check enables us to add an IC case for that load if needed.
@@ -573,7 +583,9 @@ static InlineCacheAction tryCachePutByID(ExecState* exec, JSValue baseValue, Str
                         if (!conditionSet.isValid())
                             return GiveUpOnCache;
 
-                        RELEASE_ASSERT(offset == conditionSet.slotBaseCondition().offset());
+                        PropertyOffset conditionSetOffset = conditionSet.slotBaseCondition().offset();
+                        if (UNLIKELY(offset != conditionSetOffset))
+                            CRASH_WITH_INFO(offset, conditionSetOffset, slot.base()->type(), baseCell->type(), conditionSet.size());
                     }
 
                 }
@@ -623,7 +635,7 @@ static InlineCacheAction tryCacheInByID(
         if (forceICFailure(exec))
             return GiveUpOnCache;
         
-        if (!base->structure()->propertyAccessesAreCacheable() || (!wasFound && !base->structure()->propertyAccessesAreCacheableForAbsence()))
+        if (!base->structure(vm)->propertyAccessesAreCacheable() || (!wasFound && !base->structure(vm)->propertyAccessesAreCacheableForAbsence()))
             return GiveUpOnCache;
         
         if (wasFound) {
@@ -734,28 +746,27 @@ static InlineCacheAction tryCacheInstanceOf(
         GCSafeConcurrentJSLocker locker(codeBlock->m_lock, vm.heap);
         
         JSCell* value = valueValue.asCell();
-        JSObject* prototype = jsDynamicCast<JSObject*>(vm, prototypeValue);
-        
         Structure* structure = value->structure(vm);
-        
         std::unique_ptr<AccessCase> newCase;
-        
-        if (!jsDynamicCast<JSObject*>(vm, value)) {
-            newCase = InstanceOfAccessCase::create(
-                vm, codeBlock, AccessCase::InstanceOfMiss, structure, ObjectPropertyConditionSet(),
-                prototype);
-        } else if (prototype && structure->prototypeQueriesAreCacheable()) {
-            // FIXME: Teach this to do poly proto.
-            // https://bugs.webkit.org/show_bug.cgi?id=185663
-            
-            ObjectPropertyConditionSet conditionSet = generateConditionsForInstanceOf(
-                vm, codeBlock, exec, structure, prototype, wasFound);
-            
-            if (conditionSet.isValid()) {
+        JSObject* prototype = jsDynamicCast<JSObject*>(vm, prototypeValue);
+        if (prototype) {
+            if (!jsDynamicCast<JSObject*>(vm, value)) {
                 newCase = InstanceOfAccessCase::create(
-                    vm, codeBlock,
-                    wasFound ? AccessCase::InstanceOfHit : AccessCase::InstanceOfMiss,
-                    structure, conditionSet, prototype);
+                    vm, codeBlock, AccessCase::InstanceOfMiss, structure, ObjectPropertyConditionSet(),
+                    prototype);
+            } else if (structure->prototypeQueriesAreCacheable()) {
+                // FIXME: Teach this to do poly proto.
+                // https://bugs.webkit.org/show_bug.cgi?id=185663
+
+                ObjectPropertyConditionSet conditionSet = generateConditionsForInstanceOf(
+                    vm, codeBlock, exec, structure, prototype, wasFound);
+
+                if (conditionSet.isValid()) {
+                    newCase = InstanceOfAccessCase::create(
+                        vm, codeBlock,
+                        wasFound ? AccessCase::InstanceOfHit : AccessCase::InstanceOfMiss,
+                        structure, conditionSet, prototype);
+                }
             }
         }
         
@@ -931,6 +942,7 @@ void linkVirtualFor(ExecState* exec, CallLinkInfo& callLinkInfo)
     MacroAssemblerCodeRef<JITStubRoutinePtrTag> virtualThunk = virtualThunkFor(&vm, callLinkInfo);
     revertCall(&vm, callLinkInfo, virtualThunk);
     callLinkInfo.setSlowStub(createJITStubRoutine(virtualThunk, vm, nullptr, true));
+    callLinkInfo.setClearedByVirtual();
 }
 
 namespace {

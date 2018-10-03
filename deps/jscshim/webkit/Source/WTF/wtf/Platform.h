@@ -74,6 +74,7 @@
 #define WTF_MIPS_ISA_AT_LEAST(v) (defined WTF_MIPS_ARCH && WTF_MIPS_ARCH >= v)
 #define WTF_MIPS_ARCH_REV __mips_isa_rev
 #define WTF_MIPS_ISA_REV(v) (defined WTF_MIPS_ARCH_REV && WTF_MIPS_ARCH_REV == v)
+#define WTF_MIPS_ISA_REV_AT_LEAST(v) (defined WTF_MIPS_ARCH_REV && WTF_MIPS_ARCH_REV >= v)
 #define WTF_MIPS_DOUBLE_FLOAT (defined __mips_hard_float && !defined __mips_single_float)
 #define WTF_MIPS_FP64 (defined __mips_fpr && __mips_fpr == 64)
 /* MIPS requires allocators to use aligned memory */
@@ -326,6 +327,32 @@
 #define WTF_CPU_NEEDS_ALIGNED_ACCESS 1
 #endif
 
+#if COMPILER(GCC_COMPATIBLE)
+/* __LP64__ is not defined on 64bit Windows since it uses LLP64. Using __SIZEOF_POINTER__ is simpler. */
+#if __SIZEOF_POINTER__ == 8
+#define WTF_CPU_ADDRESS64 1
+#elif __SIZEOF_POINTER__ == 4
+#define WTF_CPU_ADDRESS32 1
+#else
+#error "Unsupported pointer width"
+#endif
+#elif COMPILER(MSVC)
+#if defined(_WIN64)
+#define WTF_CPU_ADDRESS64 1
+#else
+#define WTF_CPU_ADDRESS32 1
+#endif
+#else
+/* This is the most generic way. But in OS(DARWIN), Platform.h can be included by sandbox definition file (.sb).
+ * At that time, we cannot include "stdint.h" header. So in the case of known compilers, we use predefined constants instead. */
+#include <stdint.h>
+#if UINTPTR_MAX > UINT32_MAX
+#define WTF_CPU_ADDRESS64 1
+#else
+#define WTF_CPU_ADDRESS32 1
+#endif
+#endif
+
 /* ==== OS() - underlying operating system; only to be used for mandated low-level services like 
    virtual memory, not to choose a GUI toolkit ==== */
 
@@ -356,6 +383,11 @@
 /* OS(FREEBSD) - FreeBSD */
 #if defined(__FreeBSD__) || defined(__DragonFly__) || defined(__FreeBSD_kernel__)
 #define WTF_OS_FREEBSD 1
+#endif
+
+/* OS(FUCHSIA) - Fuchsia */
+#ifdef __Fuchsia__
+#define WTF_OS_FUCHSIA 1
 #endif
 
 /* OS(HURD) - GNU/Hurd */
@@ -390,6 +422,7 @@
 #if    OS(AIX)              \
     || OS(DARWIN)           \
     || OS(FREEBSD)          \
+    || OS(FUCHSIA)          \
     || OS(HURD)             \
     || OS(LINUX)            \
     || OS(NETBSD)           \
@@ -404,7 +437,7 @@
 
 /* CPU(BIG_ENDIAN) or CPU(MIDDLE_ENDIAN) or neither, as appropriate. */
 
-#if COMPILER(GCC_OR_CLANG)
+#if COMPILER(GCC_COMPATIBLE)
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 #define WTF_CPU_BIG_ENDIAN 1
 #elif __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
@@ -492,6 +525,9 @@
 #if TARGET_OS_SIMULATOR
 #define WTF_PLATFORM_IOS_SIMULATOR 1
 #endif
+#if defined(TARGET_OS_IOSMAC) && TARGET_OS_IOSMAC
+#define WTF_PLATFORM_IOSMAC 1
+#endif
 #elif OS(WINDOWS)
 #define WTF_PLATFORM_WIN 1
 #endif
@@ -553,12 +589,11 @@
 
 #if PLATFORM(COCOA)
 
+#define HAVE_OUT_OF_PROCESS_LAYER_HOSTING 1
 #define USE_CF 1
+#define USE_FILE_LOCK 1
 #define USE_FOUNDATION 1
 #define USE_NETWORK_CFDATA_ARRAY_CALLBACK 1
-#define HAVE_OUT_OF_PROCESS_LAYER_HOSTING 1
-#define HAVE_DTRACE 0
-#define USE_FILE_LOCK 1
 
 /* Cocoa defines a series of platform macros for debugging. */
 /* Some of them are really annoying because they use common names (e.g. check()). */
@@ -630,6 +665,11 @@
 #define USE_PTHREADS 1
 #endif /* OS(UNIX) */
 
+#if OS(UNIX) && !OS(FUCHSIA)
+#define HAVE_RESOURCE_H 1
+#define HAVE_PTHREAD_SETSCHEDPARAM 1
+#endif
+
 #if OS(DARWIN)
 #define HAVE_DISPATCH_H 1
 #define HAVE_MADV_FREE 1
@@ -657,7 +697,7 @@
 #define HAVE_CFNETWORK_STORAGE_PARTITIONING 1
 #endif
 
-#if OS(DARWIN) || ((OS(FREEBSD) || defined(__GLIBC__) || defined(__BIONIC__)) && (CPU(X86) || CPU(X86_64) || CPU(ARM) || CPU(ARM64) || CPU(MIPS)))
+#if OS(DARWIN) || OS(FUCHSIA) || ((OS(FREEBSD) || defined(__GLIBC__) || defined(__BIONIC__)) && (CPU(X86) || CPU(X86_64) || CPU(ARM) || CPU(ARM64) || CPU(MIPS)))
 #define HAVE_MACHINE_CONTEXT 1
 #endif
 
@@ -691,30 +731,10 @@
 #endif
 
 #if !defined(USE_JSVALUE64) && !defined(USE_JSVALUE32_64)
-#if COMPILER(GCC_OR_CLANG)
-/* __LP64__ is not defined on 64bit Windows since it uses LLP64. Using __SIZEOF_POINTER__ is simpler. */
-#if __SIZEOF_POINTER__ == 8
-#define USE_JSVALUE64 1
-#elif __SIZEOF_POINTER__ == 4
-#define USE_JSVALUE32_64 1
-#else
-#error "Unsupported pointer width"
-#endif
-#elif COMPILER(MSVC)
-#if defined(_WIN64)
+#if CPU(ADDRESS64)
 #define USE_JSVALUE64 1
 #else
 #define USE_JSVALUE32_64 1
-#endif
-#else
-/* This is the most generic way. But in OS(DARWIN), Platform.h can be included by sandbox definition file (.sb).
- * At that time, we cannot include "stdint.h" header. So in the case of known compilers, we use predefined constants instead. */
-#include <stdint.h>
-#if UINTPTR_MAX > UINT32_MAX
-#define USE_JSVALUE64 1
-#else
-#define USE_JSVALUE32_64 1
-#endif
 #endif
 #endif /* !defined(USE_JSVALUE64) && !defined(USE_JSVALUE32_64) */
 
@@ -735,6 +755,15 @@
 #if USE(JSVALUE32_64) && OS(WINDOWS)
 #undef ENABLE_JIT
 #define ENABLE_JIT 0
+#endif
+
+#if !defined(ENABLE_C_LOOP)
+#if ENABLE(JIT) \
+    || CPU(X86_64) || (CPU(ARM64) && !defined(__ILP32__))
+#define ENABLE_C_LOOP 0
+#else
+#define ENABLE_C_LOOP 1
+#endif
 #endif
 
 /* The FTL *does not* work on 32-bit platforms. Disable it even if someone asked us to enable it. */
@@ -843,7 +872,7 @@
  * In configurations other than Windows and Darwin, because layout of mcontext_t depends on standard libraries (like glibc),
  * sampling profiler is enabled if WebKit uses pthreads and glibc. */
 #if !defined(ENABLE_SAMPLING_PROFILER)
-#if ENABLE(JIT) && (OS(WINDOWS) || HAVE(MACHINE_CONTEXT))
+#if !ENABLE(C_LOOP) && (OS(WINDOWS) || HAVE(MACHINE_CONTEXT))
 #define ENABLE_SAMPLING_PROFILER 1
 #else
 #define ENABLE_SAMPLING_PROFILER 0
@@ -883,7 +912,7 @@
 /* Configure the JIT */
 #if CPU(X86) && COMPILER(MSVC)
 #define JSC_HOST_CALL __fastcall
-#elif CPU(X86) && COMPILER(GCC_OR_CLANG)
+#elif CPU(X86) && COMPILER(GCC_COMPATIBLE)
 #define JSC_HOST_CALL __attribute__ ((fastcall))
 #else
 #define JSC_HOST_CALL
@@ -922,16 +951,16 @@
 #endif
 
 /* Configure the interpreter */
-#if COMPILER(GCC_OR_CLANG)
+#if COMPILER(GCC_COMPATIBLE)
 #define HAVE_COMPUTED_GOTO 1
 #endif
 
 /* Determine if we need to enable Computed Goto Opcodes or not: */
-#if HAVE(COMPUTED_GOTO) || ENABLE(JIT)
+#if HAVE(COMPUTED_GOTO) || !ENABLE(C_LOOP)
 #define ENABLE_COMPUTED_GOTO_OPCODES 1
 #endif
 
-#if ENABLE(JIT) && !COMPILER(MSVC) && \
+#if !ENABLE(C_LOOP) && !COMPILER(MSVC) && \
     (CPU(X86) || CPU(X86_64) || CPU(ARM64) || (CPU(ARM_THUMB2) && OS(DARWIN)))
 /* This feature works by embedding the OpcodeID in the 32 bit just before the generated LLint code
    that executes each opcode. It cannot be supported by the CLoop since there's no way to embed the
@@ -953,14 +982,15 @@
 
 #if ENABLE(YARR_JIT)
 #if CPU(ARM64) || (CPU(X86_64) && !OS(WINDOWS))
-/* Enable JIT'ing Regular Expressions that have nested parenthesis. */
+/* Enable JIT'ing Regular Expressions that have nested parenthesis and back references. */
 #define ENABLE_YARR_JIT_ALL_PARENS_EXPRESSIONS 1
+#define ENABLE_YARR_JIT_BACKREFERENCES 1
 #endif
 #endif
 
 /* If either the JIT or the RegExp JIT is enabled, then the Assembler must be
    enabled as well: */
-#if ENABLE(JIT) || ENABLE(YARR_JIT)
+#if ENABLE(JIT) || ENABLE(YARR_JIT) || !ENABLE(C_LOOP)
 #if defined(ENABLE_ASSEMBLER) && !ENABLE_ASSEMBLER
 #error "Cannot enable the JIT or RegExp JIT without enabling the Assembler"
 #else
@@ -1008,11 +1038,11 @@
 #endif
 
 #if PLATFORM(IOS)
-#if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV) && !ENABLE(MINIMAL_SIMULATOR)
+#if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV) && !PLATFORM(IOSMAC)
 #define USE_QUICK_LOOK 1
 #define HAVE_APP_LINKS 1
 #endif
-#if !ENABLE(MINIMAL_SIMULATOR)
+#if !PLATFORM(IOSMAC)
 #define HAVE_AUDIO_TOOLBOX_AUDIO_SESSION 1
 #define HAVE_CELESTIAL 1
 #define HAVE_CORE_ANIMATION_RENDER_SERVER 1
@@ -1028,12 +1058,12 @@
 #define USE_AVFOUNDATION 1
 #define USE_PROTECTION_SPACE_AUTH_CALLBACK 1
 
-#if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV) && !ENABLE(MINIMAL_SIMULATOR)
+#if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV) && !PLATFORM(IOSMAC)
 #define ENABLE_DATA_DETECTION 1
 #define HAVE_PARENTAL_CONTROLS 1
 #endif
 
-#if !PLATFORM(APPLETV)
+#if !PLATFORM(APPLETV) && (!PLATFORM(IOSMAC) || __IPHONE_OS_VERSION_MIN_REQUIRED < 130000)
 #define HAVE_AVKIT 1
 #endif
 
@@ -1041,7 +1071,7 @@
 #if PLATFORM(MAC)
 #define USE_OPENGL 1
 #define USE_OPENGL_ES 0
-#elif ENABLE(MINIMAL_SIMULATOR) && __has_include(<OpenGL/OpenGL.h>)
+#elif PLATFORM(IOSMAC) && __has_include(<OpenGL/OpenGL.h>)
 #define USE_OPENGL 1
 #define USE_OPENGL_ES 0
 #else
@@ -1049,6 +1079,8 @@
 #define USE_OPENGL_ES 1
 #endif
 #endif
+
+#define USE_METAL 1
 
 #if HAVE(ACCESSIBILITY)
 #define USE_ACCESSIBILITY_CONTEXT_MENUS 1
@@ -1114,18 +1146,18 @@
 #define USE_COREMEDIA 1
 #define USE_VIDEOTOOLBOX 1
 
-#if !ENABLE(MINIMAL_SIMULATOR)
+#if !PLATFORM(IOSMAC)
 #define HAVE_AVFOUNDATION_VIDEO_OUTPUT 1
 #define HAVE_CORE_VIDEO 1
 #define HAVE_MEDIA_PLAYER 1
 #endif
 #endif
 
-#if PLATFORM(IOS) || PLATFORM(MAC) || (OS(WINDOWS) && USE(CG))
+#if PLATFORM(IOS) || PLATFORM(MAC)
 #define HAVE_AVFOUNDATION_MEDIA_SELECTION_GROUP 1
 #endif
 
-#if PLATFORM(IOS) || PLATFORM(MAC) || (OS(WINDOWS) && USE(CG))
+#if PLATFORM(IOS) || PLATFORM(MAC)
 #define HAVE_AVFOUNDATION_LEGIBLE_OUTPUT_SUPPORT 1
 #define HAVE_MEDIA_ACCESSIBILITY_FRAMEWORK 1
 #endif
@@ -1198,7 +1230,7 @@
 #define HAVE_IOSURFACE 1
 #endif
 
-#if PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR) && !ENABLE(MINIMAL_SIMULATOR)
+#if PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR) && !PLATFORM(IOSMAC)
 #define HAVE_IOSURFACE_ACCELERATOR 1
 #endif
 
@@ -1280,7 +1312,7 @@
 #endif
 #endif
 
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || PLATFORM(IOS)
 #define USE_MEDIAREMOTE 1
 #endif
 
@@ -1292,6 +1324,7 @@
 #if PLATFORM(MAC)
 #define HAVE_TOUCH_BAR 1
 #define HAVE_ADVANCED_SPELL_CHECKING 1
+#define USE_DICTATION_ALTERNATIVES 1
 
 #if defined(__LP64__)
 #define ENABLE_WEB_PLAYBACK_CONTROLS_MANAGER 1
@@ -1321,6 +1354,10 @@
 #if (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 120000) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400)
 #define ENABLE_ACCESSIBILITY_EVENTS 1
 #define HAVE_SEC_KEY_PROXY 1
+#endif
+
+#if PLATFORM(COCOA) && USE(CA) && !PLATFORM(IOS_SIMULATOR)
+#define USE_IOSURFACE_CANVAS_BACKING_STORE 1
 #endif
 
 #endif /* WTF_Platform_h */

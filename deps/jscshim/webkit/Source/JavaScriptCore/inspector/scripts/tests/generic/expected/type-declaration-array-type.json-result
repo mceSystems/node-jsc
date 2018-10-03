@@ -375,6 +375,18 @@ std::optional<Inspector::Protocol::Debugger::Reason> parseEnumValueFromString<In
 } // namespace Protocol
 
 } // namespace Inspector
+
+namespace WTF {
+
+template<typename T> struct DefaultHash;
+
+// Hash declarations in the 'Debugger' Domain
+template<>
+struct DefaultHash<Inspector::Protocol::Debugger::Reason> {
+    typedef IntHash<Inspector::Protocol::Debugger::Reason> Hash;
+};
+
+} // namespace WTF
 ### End File: TestProtocolObjects.h
 
 ### Begin File: TestProtocolObjects.cpp
@@ -837,13 +849,13 @@ inline String toProtocolString(TestProtocolPlatform value)
 {
     switch(value) {
     case TestProtocolPlatformAll:
-        return ASCIILiteral("all");
+        return "all"_s;
     case TestProtocolPlatformGeneric:
-        return ASCIILiteral("generic");
+        return "generic"_s;
     case TestProtocolPlatformIOS:
-        return ASCIILiteral("ios");
+        return "ios"_s;
     case TestProtocolPlatformMacOS:
-        return ASCIILiteral("macos");
+        return "macos"_s;
     }
 }
 
@@ -866,11 +878,11 @@ inline String toProtocolString(TestProtocolDebuggerReason value)
 {
     switch(value) {
     case TestProtocolDebuggerReasonDied:
-        return ASCIILiteral("Died");
+        return "Died"_s;
     case TestProtocolDebuggerReasonFainted:
-        return ASCIILiteral("Fainted");
+        return "Fainted"_s;
     case TestProtocolDebuggerReasonHungry:
-        return ASCIILiteral("Hungry");
+        return "Hungry"_s;
     }
 }
 

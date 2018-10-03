@@ -27,6 +27,7 @@
 
 #include "DebugHeap.h"
 #include "Environment.h"
+#include "Gigacage.h"
 #include "IsoTLSEntryInlines.h"
 #include "IsoTLSInlines.h"
 #include "IsoTLSLayout.h"
@@ -68,7 +69,9 @@ IsoTLS* IsoTLS::ensureEntries(unsigned offset)
 #if HAVE_PTHREAD_MACHDEP_H
             pthread_key_init_np(tlsKey, destructor);
 #else
-            pthread_key_create(&s_tlsKey, destructor);
+            int error = pthread_key_create(&s_tlsKey, destructor);
+            if (error)
+                BCRASH();
             s_didInitialize = true;
 #endif
         });
@@ -201,12 +204,20 @@ void IsoTLS::determineMallocFallbackState()
         [] {
             if (s_mallocFallbackState != MallocFallbackState::Undecided)
                 return;
-            
+
+#if GIGACAGE_ENABLED
+            if (!Gigacage::shouldBeEnabled()) {
+                s_mallocFallbackState = MallocFallbackState::FallBackToMalloc;
+                return;
+            }
             const char* env = getenv("bmalloc_IsoHeap");
             if (env && (!strcasecmp(env, "false") || !strcasecmp(env, "no") || !strcmp(env, "0")))
                 s_mallocFallbackState = MallocFallbackState::FallBackToMalloc;
             else
                 s_mallocFallbackState = MallocFallbackState::DoNotFallBack;
+#else
+            s_mallocFallbackState = MallocFallbackState::FallBackToMalloc;
+#endif
         });
 }
 

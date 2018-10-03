@@ -132,6 +132,8 @@ macro doVMEntry(makeCall)
     storep t4, VMEntryRecord::m_prevTopCallFrame[sp]
     loadp VM::topEntryFrame[vm], t4
     storep t4, VMEntryRecord::m_prevTopEntryFrame[sp]
+    loadp ProtoCallFrame::calleeValue[protoCallFrame], t4
+    storep t4, VMEntryRecord::m_callee[sp]
 
     loadi ProtoCallFrame::paddedArgCount[protoCallFrame], t4
     addp CallFrameHeaderSlots, t4, t4
@@ -144,11 +146,6 @@ macro doVMEntry(makeCall)
     # before we start copying the args from the protoCallFrame below.
     if C_LOOP
         bpaeq t3, VM::m_cloopStackLimit[vm], .stackHeightOK
-    else
-        bpaeq t3, VM::m_softStackLimit[vm], .stackHeightOK
-    end
-
-    if C_LOOP
         move entry, t4
         move vm, t5
         cloopCallSlowPath _llint_stack_check_at_vm_entry, vm, t3
@@ -160,26 +157,10 @@ macro doVMEntry(makeCall)
 .stackCheckFailed:
         move t4, entry
         move t5, vm
+        jmp .throwStackOverflow
+    else
+        bpb t3, VM::m_softStackLimit[vm], .throwStackOverflow
     end
-
-.throwStackOverflow:
-    move vm, a0
-    move protoCallFrame, a1
-    cCall2(_llint_throw_stack_overflow_error)
-
-    vmEntryRecord(cfr, t4)
-
-    loadp VMEntryRecord::m_vm[t4], vm
-    loadp VMEntryRecord::m_prevTopCallFrame[t4], extraTempReg
-    storep extraTempReg, VM::topCallFrame[vm]
-    loadp VMEntryRecord::m_prevTopEntryFrame[t4], extraTempReg
-    storep extraTempReg, VM::topEntryFrame[vm]
-
-    subp cfr, CalleeRegisterSaveSize, sp
-
-    popCalleeSaves()
-    functionEpilogue()
-    ret
 
 .stackHeightOK:
     move t3, sp
@@ -244,7 +225,25 @@ macro doVMEntry(makeCall)
 
     popCalleeSaves()
     functionEpilogue()
+    ret
 
+.throwStackOverflow:
+    move vm, a0
+    move protoCallFrame, a1
+    cCall2(_llint_throw_stack_overflow_error)
+
+    vmEntryRecord(cfr, t4)
+
+    loadp VMEntryRecord::m_vm[t4], vm
+    loadp VMEntryRecord::m_prevTopCallFrame[t4], extraTempReg
+    storep extraTempReg, VM::topCallFrame[vm]
+    loadp VMEntryRecord::m_prevTopEntryFrame[t4], extraTempReg
+    storep extraTempReg, VM::topEntryFrame[vm]
+
+    subp cfr, CalleeRegisterSaveSize, sp
+
+    popCalleeSaves()
+    functionEpilogue()
     ret
 end
 
@@ -282,10 +281,9 @@ _handleUncaughtException:
     andp MarkedBlockMask, t3
     loadp MarkedBlockFooterOffset + MarkedBlock::Footer::m_vm[t3], t3
     restoreCalleeSavesFromVMEntryFrameCalleeSavesBuffer(t3, t0)
-    loadp VM::callFrameForCatch[t3], cfr
     storep 0, VM::callFrameForCatch[t3]
 
-    loadp CallerFrame[cfr], cfr
+    loadp VM::topEntryFrame[t3], cfr
     vmEntryRecord(cfr, t2)
 
     loadp VMEntryRecord::m_vm[t2], t3
@@ -508,6 +506,12 @@ macro functionArityCheck(doneLabel, slowPath)
     move PC, a1
     cCall2(slowPath)   # This slowPath has the protocol: r0 = 0 => no error, r0 != 0 => error
     btiz r0, .noError
+
+    # We're throwing before the frame is fully set up. This frame will be
+    # ignored by the unwinder. So, let's restore the callee saves before we
+    # start unwinding. We need to do this before we change the cfr.
+    restoreCalleeSavesUsedByLLInt()
+
     move r1, cfr   # r1 contains caller frame
     jmp _llint_throw_from_slow_path_trampoline
 
@@ -1821,8 +1825,7 @@ _llint_op_jmp:
 macro jumpTrueOrFalse(conditionOp, slow)
     loadisFromInstruction(1, t1)
     loadConstantOrVariable(t1, t0)
-    xorq ValueFalse, t0
-    btqnz t0, -1, .slow
+    btqnz t0, ~0xf, .slow
     conditionOp(t0, .target)
     dispatch(3)
 

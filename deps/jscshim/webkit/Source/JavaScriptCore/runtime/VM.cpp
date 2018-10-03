@@ -144,6 +144,7 @@
 #include "TypeProfilerLog.h"
 #include "UnlinkedCodeBlock.h"
 #include "VMEntryScope.h"
+#include "VMInlines.h"
 #include "VMInspector.h"
 #include "VariableEnvironment.h"
 #include "WasmWorklist.h"
@@ -159,7 +160,7 @@
 #include <wtf/text/AtomicStringTable.h>
 #include <wtf/text/SymbolRegistry.h>
 
-#if !ENABLE(JIT)
+#if ENABLE(C_LOOP)
 #include "CLoopStack.h"
 #include "CLoopStackInlines.h"
 #endif
@@ -175,6 +176,15 @@
 using namespace WTF;
 
 namespace JSC {
+
+#if ENABLE(JIT)
+#if !ASSERT_DISABLED
+bool VM::s_canUseJITIsSet = false;
+#endif
+bool VM::s_canUseJIT = false;
+#endif
+
+Atomic<unsigned> VM::s_numberOfIDs;
 
 // Note: Platform.h will enforce that ENABLE(ASSEMBLER) is true if either
 // ENABLE(JIT) or ENABLE(YARR_JIT) or both are enabled. The code below
@@ -211,17 +221,14 @@ bool VM::canUseAssembler()
 #endif
 }
 
-bool VM::canUseJIT()
+void VM::computeCanUseJIT()
 {
 #if ENABLE(JIT)
-    static std::once_flag onceKey;
-    static bool enabled = false;
-    std::call_once(onceKey, [] {
-        enabled = VM::canUseAssembler() && Options::useJIT();
-    });
-    return enabled;
-#else
-    return false; // interpreter only
+#if !ASSERT_DISABLED
+    RELEASE_ASSERT(!s_canUseJITIsSet);
+    s_canUseJITIsSet = true;
+#endif
+    s_canUseJIT = VM::canUseAssembler() && Options::useJIT();
 #endif
 }
 
@@ -244,8 +251,20 @@ bool VM::isInMiniMode()
     return !canUseJIT() || Options::forceMiniVMMode();
 }
 
+inline unsigned VM::nextID()
+{
+    for (;;) {
+        unsigned currentNumberOfIDs = s_numberOfIDs.load();
+        unsigned newID = currentNumberOfIDs + 1;
+        if (s_numberOfIDs.compareExchangeWeak(currentNumberOfIDs, newID))
+            return newID;
+    }
+}
+
+
 VM::VM(VMType vmType, HeapType heapType)
-    : m_apiLock(adoptRef(new JSLock(this)))
+    : m_id(nextID())
+    , m_apiLock(adoptRef(new JSLock(this)))
 #if USE(CF)
     , m_runLoop(CFRunLoopGetCurrent())
 #endif // USE(CF)
@@ -255,6 +274,7 @@ VM::VM(VMType vmType, HeapType heapType)
     , jsValueGigacageAllocator(std::make_unique<GigacageAlignedMemoryAllocator>(Gigacage::JSValue))
     , auxiliaryHeapCellType(std::make_unique<HeapCellType>(CellAttributes(DoesNotNeedDestruction, HeapCell::Auxiliary)))
     , cellJSValueOOBHeapCellType(std::make_unique<HeapCellType>(CellAttributes(DoesNotNeedDestruction, HeapCell::JSCell)))
+    , immutableButterflyHeapCellType(std::make_unique<HeapCellType>(CellAttributes(DoesNotNeedDestruction, HeapCell::JSCellWithInteriorPointers)))
     , cellDangerousBitsHeapCellType(std::make_unique<HeapCellType>(CellAttributes(DoesNotNeedDestruction, HeapCell::JSCell)))
     , destructibleCellHeapCellType(std::make_unique<HeapCellType>(CellAttributes(NeedsDestruction, HeapCell::JSCell)))
     , stringHeapCellType(std::make_unique<JSStringHeapCellType>())
@@ -265,6 +285,7 @@ VM::VM(VMType vmType, HeapType heapType)
 #endif
     , primitiveGigacageAuxiliarySpace("Primitive Gigacage Auxiliary", heap, auxiliaryHeapCellType.get(), primitiveGigacageAllocator.get())
     , jsValueGigacageAuxiliarySpace("JSValue Gigacage Auxiliary", heap, auxiliaryHeapCellType.get(), jsValueGigacageAllocator.get())
+    , immutableButterflyJSValueGigacageAuxiliarySpace("ImmutableButterfly Gigacage JSCellWithInteriorPointers", heap, immutableButterflyHeapCellType.get(), jsValueGigacageAllocator.get())
     , cellJSValueOOBSpace("JSCell JSValueOOB", heap, cellJSValueOOBHeapCellType.get(), fastMallocAllocator.get())
     , cellDangerousBitsSpace("JSCell DangerousBits", heap, cellDangerousBitsHeapCellType.get(), fastMallocAllocator.get())
     , jsValueGigacageCellSpace("JSValue Gigacage JSCell", heap, cellJSValueOOBHeapCellType.get(), jsValueGigacageAllocator.get())
@@ -279,13 +300,10 @@ VM::VM(VMType vmType, HeapType heapType)
     , boundFunctionSpace ISO_SUBSPACE_INIT(heap, cellJSValueOOBHeapCellType.get(), JSBoundFunction)
     , callbackFunctionSpace ISO_SUBSPACE_INIT(heap, destructibleObjectHeapCellType.get(), JSCallbackFunction)
     , customGetterSetterFunctionSpace ISO_SUBSPACE_INIT(heap, cellJSValueOOBHeapCellType.get(), JSCustomGetterSetterFunction)
-    , directEvalExecutableSpace ISO_SUBSPACE_INIT(heap, destructibleCellHeapCellType.get(), DirectEvalExecutable)
     , errorConstructorSpace ISO_SUBSPACE_INIT(heap, destructibleObjectHeapCellType.get(), ErrorConstructor)
     , executableToCodeBlockEdgeSpace ISO_SUBSPACE_INIT(heap, cellDangerousBitsHeapCellType.get(), ExecutableToCodeBlockEdge)
-    , functionExecutableSpace ISO_SUBSPACE_INIT(heap, destructibleCellHeapCellType.get(), FunctionExecutable)
     , functionSpace ISO_SUBSPACE_INIT(heap, cellJSValueOOBHeapCellType.get(), JSFunction)
     , generatorFunctionSpace ISO_SUBSPACE_INIT(heap, cellJSValueOOBHeapCellType.get(), JSGeneratorFunction)
-    , indirectEvalExecutableSpace ISO_SUBSPACE_INIT(heap, destructibleCellHeapCellType.get(), IndirectEvalExecutable)
     , inferredTypeSpace ISO_SUBSPACE_INIT(heap, destructibleCellHeapCellType.get(), InferredType)
     , inferredValueSpace ISO_SUBSPACE_INIT(heap, destructibleCellHeapCellType.get(), InferredValue)
     , internalFunctionSpace ISO_SUBSPACE_INIT(heap, destructibleObjectHeapCellType.get(), InternalFunction)
@@ -295,14 +313,12 @@ VM::VM(VMType vmType, HeapType heapType)
     , intlNumberFormatConstructorSpace ISO_SUBSPACE_INIT(heap, destructibleObjectHeapCellType.get(), IntlNumberFormatConstructor)
     , intlPluralRulesConstructorSpace ISO_SUBSPACE_INIT(heap, destructibleObjectHeapCellType.get(), IntlPluralRulesConstructor)
 #endif
-    , moduleProgramExecutableSpace ISO_SUBSPACE_INIT(heap, destructibleCellHeapCellType.get(), ModuleProgramExecutable)
     , nativeErrorConstructorSpace ISO_SUBSPACE_INIT(heap, destructibleObjectHeapCellType.get(), NativeErrorConstructor)
     , nativeExecutableSpace ISO_SUBSPACE_INIT(heap, destructibleCellHeapCellType.get(), NativeExecutable)
     , nativeStdFunctionSpace ISO_SUBSPACE_INIT(heap, cellJSValueOOBHeapCellType.get(), JSNativeStdFunction)
 #if JSC_OBJC_API_ENABLED
     , objCCallbackFunctionSpace ISO_SUBSPACE_INIT(heap, destructibleObjectHeapCellType.get(), ObjCCallbackFunction)
 #endif
-    , programExecutableSpace ISO_SUBSPACE_INIT(heap, destructibleCellHeapCellType.get(), ProgramExecutable)
     , propertyTableSpace ISO_SUBSPACE_INIT(heap, destructibleCellHeapCellType.get(), PropertyTable)
     , proxyRevokeSpace ISO_SUBSPACE_INIT(heap, destructibleObjectHeapCellType.get(), ProxyRevoke)
     , regExpConstructorSpace ISO_SUBSPACE_INIT(heap, destructibleObjectHeapCellType.get(), RegExpConstructor)
@@ -311,6 +327,7 @@ VM::VM(VMType vmType, HeapType heapType)
     , structureSpace ISO_SUBSPACE_INIT(heap, destructibleCellHeapCellType.get(), Structure)
     , weakSetSpace ISO_SUBSPACE_INIT(heap, destructibleObjectHeapCellType.get(), JSWeakSet)
     , weakMapSpace ISO_SUBSPACE_INIT(heap, destructibleObjectHeapCellType.get(), JSWeakMap)
+    , errorInstanceSpace ISO_SUBSPACE_INIT(heap, destructibleObjectHeapCellType.get(), ErrorInstance)
 #if ENABLE(WEBASSEMBLY)
     , webAssemblyCodeBlockSpace ISO_SUBSPACE_INIT(heap, webAssemblyCodeBlockHeapCellType.get(), JSWebAssemblyCodeBlock)
     , webAssemblyFunctionSpace ISO_SUBSPACE_INIT(heap, cellJSValueOOBHeapCellType.get(), WebAssemblyFunction)
@@ -324,6 +341,12 @@ VM::VM(VMType vmType, HeapType heapType)
     , functionCodeBlockSpace ISO_SUBSPACE_INIT(heap, destructibleCellHeapCellType.get(), FunctionCodeBlock)
     , moduleProgramCodeBlockSpace ISO_SUBSPACE_INIT(heap, destructibleCellHeapCellType.get(), ModuleProgramCodeBlock)
     , programCodeBlockSpace ISO_SUBSPACE_INIT(heap, destructibleCellHeapCellType.get(), ProgramCodeBlock)
+    , directEvalExecutableSpace ISO_SUBSPACE_INIT(heap, destructibleCellHeapCellType.get(), DirectEvalExecutable)
+    , functionExecutableSpace ISO_SUBSPACE_INIT(heap, destructibleCellHeapCellType.get(), FunctionExecutable)
+    , indirectEvalExecutableSpace ISO_SUBSPACE_INIT(heap, destructibleCellHeapCellType.get(), IndirectEvalExecutable)
+    , moduleProgramExecutableSpace ISO_SUBSPACE_INIT(heap, destructibleCellHeapCellType.get(), ModuleProgramExecutable)
+    , programExecutableSpace ISO_SUBSPACE_INIT(heap, destructibleCellHeapCellType.get(), ProgramExecutable)
+    , unlinkedFunctionExecutableSpace ISO_SUBSPACE_INIT(heap, destructibleCellHeapCellType.get(), UnlinkedFunctionExecutable)
     , vmType(vmType)
     , clientData(0)
     , topEntryFrame(nullptr)
@@ -359,6 +382,8 @@ VM::VM(VMType vmType, HeapType heapType)
     StackBounds stack = Thread::current().stack();
     updateSoftReservedZoneSize(Options::softReservedZoneSize());
     setLastStackTop(stack.origin());
+
+    JSRunLoopTimer::Manager::shared().registerVM(*this);
 
     // Need to be careful to keep everything consistent here
     JSLockHolder lock(this);
@@ -420,7 +445,7 @@ VM::VM(VMType vmType, HeapType heapType)
     mapIteratorStructure.set(*this, JSMapIterator::createStructure(*this, 0, jsNull()));
     bigIntStructure.set(*this, JSBigInt::createStructure(*this, 0, jsNull()));
     executableToCodeBlockEdgeStructure.set(*this, ExecutableToCodeBlockEdge::createStructure(*this, nullptr, jsNull()));
-	customAPIValueStructure.set(*this, CustomAPIValue::createStructure(*this, nullptr, jsNull()));
+    customAPIValueStructure.set(*this, CustomAPIValue::createStructure(*this, nullptr, jsNull()));
 
     sentinelSetBucket.set(*this, JSSet::BucketType::createSentinel(*this));
     sentinelMapBucket.set(*this, JSMap::BucketType::createSentinel(*this));
@@ -438,7 +463,7 @@ VM::VM(VMType vmType, HeapType heapType)
     ftlThunks = std::make_unique<FTL::Thunks>();
 #endif // ENABLE(FTL_JIT)
     
-#if ENABLE(JIT)
+#if !ENABLE(C_LOOP)
     initializeHostCallReturnValue(); // This is needed to convince the linker not to drop host call return support.
 #endif
     
@@ -561,6 +586,8 @@ VM::~VM()
     ASSERT(currentThreadIsHoldingAPILock());
     m_apiLock->willDestroyVM(this);
     heap.lastChanceToFinalize();
+
+    JSRunLoopTimer::Manager::shared().unregisterVM(*this);
     
     delete interpreter;
 #ifndef NDEBUG
@@ -716,9 +743,8 @@ NativeExecutable* VM::getHostFunction(NativeFunction function, Intrinsic intrins
             intrinsic != NoIntrinsic ? thunkGeneratorForIntrinsic(intrinsic) : 0,
             intrinsic, signature, name);
     }
-#else // ENABLE(JIT)
-    UNUSED_PARAM(intrinsic);
 #endif // ENABLE(JIT)
+    UNUSED_PARAM(intrinsic);
     return NativeExecutable::create(*this,
         adoptRef(*new NativeJITCode(LLInt::getCodeRef<JSEntryPtrTag>(llint_native_call_trampoline), JITCode::HostCallThunk)), function,
         adoptRef(*new NativeJITCode(LLInt::getCodeRef<JSEntryPtrTag>(llint_native_construct_trampoline), JITCode::HostCallThunk)), constructor,
@@ -751,14 +777,14 @@ void VM::resetDateCache()
     dateInstanceCache.reset();
 }
 
-void VM::whenIdle(std::function<void()> callback)
+void VM::whenIdle(Function<void()>&& callback)
 {
     if (!entryScope) {
         callback();
         return;
     }
 
-    entryScope->addDidPopListener(callback);
+    entryScope->addDidPopListener(WTFMove(callback));
 }
 
 void VM::deleteAllLinkedCode(DeleteAllCodeEffort effort)
@@ -779,14 +805,16 @@ void VM::deleteAllCode(DeleteAllCodeEffort effort)
     });
 }
 
-void VM::shrinkFootprint()
+void VM::shrinkFootprintWhenIdle()
 {
-    sanitizeStackForVM(this);
-    deleteAllCode(DeleteAllCodeIfNotCollecting);
-    heap.collectNow(Synchronousness::Sync);
-    WTF::releaseFastMallocFreeMemory();
-    // FIXME: Consider stopping various automatic threads here.
-    // https://bugs.webkit.org/show_bug.cgi?id=185447
+    whenIdle([=] () {
+        sanitizeStackForVM(this);
+        deleteAllCode(DeleteAllCodeIfNotCollecting);
+        heap.collectNow(Synchronousness::Sync, CollectionScope::Full);
+        // FIXME: Consider stopping various automatic threads here.
+        // https://bugs.webkit.org/show_bug.cgi?id=185447
+        WTF::releaseFastMallocFreeMemory();
+    });
 }
 
 SourceProviderCache* VM::addSourceProviderCache(SourceProvider* sourceProvider)
@@ -804,15 +832,16 @@ void VM::clearSourceProviderCaches()
 
 void VM::throwException(ExecState* exec, Exception* exception)
 {
+    ASSERT(exec == topCallFrame || exec->isGlobalExec());
+    CallFrame* throwOriginFrame = exec->isGlobalExec() ? exec : topJSCallFrame();
+
     if (Options::breakOnThrow()) {
-        CodeBlock* codeBlock = exec->codeBlock();
-        dataLog("Throwing exception in call frame ", RawPointer(exec), " for code block ", codeBlock, "\n");
+        CodeBlock* codeBlock = throwOriginFrame ? throwOriginFrame->codeBlock() : nullptr;
+        dataLog("Throwing exception in call frame ", RawPointer(throwOriginFrame), " for code block ", codeBlock, "\n");
         CRASH();
     }
 
-    ASSERT(exec == topCallFrame || exec == exec->lexicalGlobalObject()->globalExec() || exec == exec->vmEntryGlobalObject()->globalExec());
-
-    interpreter->notifyDebuggerOfExceptionToBeThrown(*this, exec, exception);
+    interpreter->notifyDebuggerOfExceptionToBeThrown(*this, throwOriginFrame, exception);
 
     setException(exception);
 
@@ -848,7 +877,7 @@ size_t VM::updateSoftReservedZoneSize(size_t softReservedZoneSize)
 {
     size_t oldSoftReservedZoneSize = m_currentSoftReservedZoneSize;
     m_currentSoftReservedZoneSize = softReservedZoneSize;
-#if !ENABLE(JIT)
+#if ENABLE(C_LOOP)
     interpreter->cloopStack().setSoftReservedZoneSize(softReservedZoneSize);
 #endif
 
@@ -1019,7 +1048,8 @@ void VM::addImpureProperty(const String& propertyName)
         watchpointSet->fireAll(*this, "Impure property added");
 }
 
-static bool enableProfilerWithRespectToCount(unsigned& counter, std::function<void()> doEnableWork)
+template<typename Func>
+static bool enableProfilerWithRespectToCount(unsigned& counter, const Func& doEnableWork)
 {
     bool needsToRecompile = false;
     if (!counter) {
@@ -1031,7 +1061,8 @@ static bool enableProfilerWithRespectToCount(unsigned& counter, std::function<vo
     return needsToRecompile;
 }
 
-static bool disableProfilerWithRespectToCount(unsigned& counter, std::function<void()> doDisableWork)
+template<typename Func>
+static bool disableProfilerWithRespectToCount(unsigned& counter, const Func& doDisableWork)
 {
     RELEASE_ASSERT(counter > 0);
     bool needsToRecompile = false;
@@ -1087,7 +1118,7 @@ void VM::dumpTypeProfilerData()
     if (!typeProfiler())
         return;
 
-    typeProfilerLog()->processLogEntries(ASCIILiteral("VM Dump Types"));
+    typeProfilerLog()->processLogEntries("VM Dump Types"_s);
     typeProfiler()->dumpTypeProfilerData(*this);
 }
 
@@ -1115,7 +1146,7 @@ void sanitizeStackForVM(VM* vm)
         ASSERT(vm->currentThreadIsHoldingAPILock());
         ASSERT_UNUSED(stackBounds, stackBounds.contains(vm->lastStackTop()));
     }
-#if !ENABLE(JIT)
+#if ENABLE(C_LOOP)
     vm->interpreter->cloopStack().sanitizeStack();
 #else
     sanitizeStackForVMImpl(vm);
@@ -1124,7 +1155,7 @@ void sanitizeStackForVM(VM* vm)
 
 size_t VM::committedStackByteCount()
 {
-#if ENABLE(JIT)
+#if !ENABLE(C_LOOP)
     // When using the C stack, we don't know how many stack pages are actually
     // committed. So, we use the current stack usage as an estimate.
     ASSERT(Thread::current().stack().isGrowingDownward());
@@ -1136,7 +1167,7 @@ size_t VM::committedStackByteCount()
 #endif
 }
 
-#if !ENABLE(JIT)
+#if ENABLE(C_LOOP)
 bool VM::ensureStackCapacityForCLoop(Register* newTopOfStack)
 {
     return interpreter->cloopStack().ensureCapacityFor(newTopOfStack);
@@ -1146,7 +1177,7 @@ bool VM::isSafeToRecurseSoftCLoop() const
 {
     return interpreter->cloopStack().isSafeToRecurse();
 }
-#endif // !ENABLE(JIT)
+#endif // ENABLE(C_LOOP)
 
 #if ENABLE(EXCEPTION_SCOPE_VERIFICATION)
 void VM::verifyExceptionCheckNeedIsSatisfied(unsigned recursionDepth, ExceptionEventLocation& location)
@@ -1185,27 +1216,11 @@ void VM::verifyExceptionCheckNeedIsSatisfied(unsigned recursionDepth, ExceptionE
 #endif
 
 #if USE(CF)
-void VM::registerRunLoopTimer(JSRunLoopTimer* timer)
-{
-    ASSERT(runLoop());
-    ASSERT(!m_runLoopTimers.contains(timer));
-    m_runLoopTimers.add(timer);
-    timer->setRunLoop(runLoop());
-}
-
-void VM::unregisterRunLoopTimer(JSRunLoopTimer* timer)
-{
-    ASSERT(m_runLoopTimers.contains(timer));
-    m_runLoopTimers.remove(timer);
-    timer->setRunLoop(nullptr);
-}
-
 void VM::setRunLoop(CFRunLoopRef runLoop)
 {
     ASSERT(runLoop);
     m_runLoop = runLoop;
-    for (auto timer : m_runLoopTimers)
-        timer->setRunLoop(runLoop);
+    JSRunLoopTimer::Manager::shared().didChangeRunLoop(*this, runLoop);
 }
 #endif // USE(CF)
 
@@ -1230,6 +1245,24 @@ ScratchBuffer* VM::scratchBufferForSize(size_t size)
 
     ScratchBuffer* result = m_scratchBuffers.last();
     return result;
+}
+
+void VM::clearScratchBuffers()
+{
+    auto lock = holdLock(m_scratchBufferLock);
+    for (auto* scratchBuffer : m_scratchBuffers)
+        scratchBuffer->setActiveLength(0);
+}
+
+JSGlobalObject* VM::vmEntryGlobalObject(const CallFrame* callFrame) const
+{
+    if (callFrame && callFrame->isGlobalExec()) {
+        ASSERT(callFrame->callee().isCell() && callFrame->callee().asCell()->isObject());
+        ASSERT(callFrame == callFrame->lexicalGlobalObject()->globalExec());
+        return callFrame->lexicalGlobalObject();
+    }
+    ASSERT(entryScope);
+    return entryScope->globalObject();
 }
 
 } // namespace JSC

@@ -30,11 +30,12 @@
 
 import json
 import logging
+import os
 
 
-WPT_GH_ORG = 'w3c'
-WPT_GH_REPO_NAME = 'web-platform-tests'
-WPT_GH_URL = 'https://github.com/%s/%s/' % (WPT_GH_ORG, WPT_GH_REPO_NAME)
+WPT_GH_ORG = os.environ.get('WPT_GH_ORG', 'web-platform-tests')
+WPT_GH_REPO_NAME = os.environ.get('WPT_GH_REPO_NAME', 'wpt')
+WPT_GH_URL = 'https://github.com/%s/%s' % (WPT_GH_ORG, WPT_GH_REPO_NAME)
 WPT_MIRROR_URL = 'https://chromium.googlesource.com/external/w3c/web-platform-tests.git'
 WPT_GH_SSH_URL_TEMPLATE = 'https://{}@github.com/%s/%s.git' % (WPT_GH_ORG, WPT_GH_REPO_NAME)
 WPT_REVISION_FOOTER = 'WPT-Export-Revision:'
@@ -97,3 +98,16 @@ def is_file_exportable(path):
     assert path.startswith(CHROMIUM_WPT_DIR)
     basename = path[path.rfind('/') + 1:]
     return not is_basename_skipped(basename)
+
+
+class WPTPaths:
+    CHECKOUT_DIRECTORY = ["WebKitBuild", "w3c-tests"]
+    WPT_CHECKOUT_PATH = CHECKOUT_DIRECTORY + ["web-platform-tests"]
+
+    @staticmethod
+    def checkout_directory(finder):
+        return finder.path_from_webkit_base(*WPTPaths.CHECKOUT_DIRECTORY)
+
+    @staticmethod
+    def wpt_checkout_path(finder):
+        return finder.path_from_webkit_base(*WPTPaths.WPT_CHECKOUT_PATH)

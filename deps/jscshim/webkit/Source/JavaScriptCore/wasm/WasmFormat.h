@@ -140,9 +140,10 @@ struct Global {
     uint64_t initialBitsOrImportNumber { 0 };
 };
 
-struct FunctionLocationInBinary {
+struct FunctionData {
     size_t start;
     size_t end;
+    Vector<uint8_t> data;
 };
 
 class I32InitExpr {
@@ -275,6 +276,7 @@ struct InternalFunction {
 // meant as fast lookup tables for these opcodes and do not own code.
 struct WasmToWasmImportableFunction {
     using LoadLocation = MacroAssemblerCodePtr<WasmEntryPtrTag>*;
+    static ptrdiff_t offsetOfSignatureIndex() { return OBJECT_OFFSETOF(WasmToWasmImportableFunction, signatureIndex); }
     static ptrdiff_t offsetOfEntrypointLoadLocation() { return OBJECT_OFFSETOF(WasmToWasmImportableFunction, entrypointLoadLocation); }
 
     // FIXME: Pack signature index and code pointer into one 64-bit value. See <https://bugs.webkit.org/show_bug.cgi?id=165511>.

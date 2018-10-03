@@ -115,6 +115,7 @@ inline CapabilityLevel canCompile(Node* node)
     case Upsilon:
     case ExtractOSREntryLocal:
     case ExtractCatchLocal:
+    case ClearCatchLocals:
     case LoopHint:
     case SkipScope:
     case GetGlobalObject:
@@ -191,6 +192,7 @@ inline CapabilityLevel canCompile(Node* node)
     case ToObject:
     case CallObjectConstructor:
     case CallStringConstructor:
+    case ObjectCreate:
     case MakeRope:
     case NewArrayWithSize:
     case TryGetById:
@@ -319,6 +321,7 @@ inline CapabilityLevel canCompile(Node* node)
     case SameValue:
     case DefineDataProperty:
     case DefineAccessorProperty:
+    case StringValueOf:
     case StringSlice:
     case ToLowerCase:
     case NumberToStringWithRadix:
@@ -352,6 +355,14 @@ inline CapabilityLevel canCompile(Node* node)
     case PutByValDirect:
     case PutByValWithThis:
     case MatchStructure:
+    case FilterCallLinkStatus:
+    case FilterGetByIdStatus:
+    case FilterPutByIdStatus:
+    case FilterInByIdStatus:
+    case CreateThis:
+    case DataViewGetInt:
+    case DataViewGetFloat:
+    case DataViewSet:
         // These are OK.
         break;
 
@@ -363,7 +374,6 @@ inline CapabilityLevel canCompile(Node* node)
         break;
 
     case IdentityWithProfile:
-    case CreateThis:
     case CheckTierUpInLoop:
     case CheckTierUpAndOSREnter:
     case CheckTierUpAtReturn:
@@ -439,12 +449,14 @@ CapabilityLevel canCompile(Graph& graph)
                 case SetObjectUse:
                 case WeakMapObjectUse:
                 case WeakSetObjectUse:
+                case DataViewObjectUse:
                 case FinalObjectUse:
                 case RegExpObjectUse:
                 case ProxyObjectUse:
                 case DerivedArrayUse:
                 case NotCellUse:
                 case OtherUse:
+                case KnownOtherUse:
                 case MiscUse:
                 case StringIdentUse:
                 case NotStringVarUse:

@@ -108,10 +108,12 @@ public:
     bool isObject() const;
     bool isGetterSetter() const;
     bool isCustomGetterSetter() const;
-	bool isCustomAPIValue() const;
+    bool isCustomAPIValue() const;
     bool isProxy() const;
     bool isFunction(VM&);
     bool isCallable(VM&, CallType&, CallData&);
+    bool isConstructor(VM&);
+    bool isConstructor(VM&, ConstructType&, ConstructData&);
     bool inherits(VM&, const ClassInfo*) const;
     template<typename Target> bool inherits(VM&) const;
     bool isAPIValueWrapper() const;
@@ -169,8 +171,8 @@ public:
     void dump(PrintStream&) const;
     JS_EXPORT_PRIVATE static void dumpToStream(const JSCell*, PrintStream&);
 
-    size_t estimatedSizeInBytes() const;
-    JS_EXPORT_PRIVATE static size_t estimatedSize(JSCell*);
+    size_t estimatedSizeInBytes(VM&) const;
+    JS_EXPORT_PRIVATE static size_t estimatedSize(JSCell*, VM&);
 
     static void visitChildren(JSCell*, SlotVisitor&);
     static void visitOutputConstraints(JSCell*, SlotVisitor&);
@@ -179,7 +181,6 @@ public:
 
     // Object operations, with the toObject operation included.
     const ClassInfo* classInfo(VM&) const;
-    const MethodTable* methodTable() const;
     const MethodTable* methodTable(VM&) const;
     JS_EXPORT_PRIVATE static bool put(JSCell*, ExecState*, PropertyName, JSValue, PutPropertySlot&);
     JS_EXPORT_PRIVATE static bool putByIndex(JSCell*, ExecState*, unsigned propertyName, JSValue, bool shouldThrow);
@@ -258,14 +259,12 @@ protected:
     JS_EXPORT_PRIVATE static NO_RETURN_DUE_TO_CRASH bool setPrototype(JSObject*, ExecState*, JSValue, bool);
     JS_EXPORT_PRIVATE static NO_RETURN_DUE_TO_CRASH JSValue getPrototype(JSObject*, ExecState*);
 
-    JS_EXPORT_PRIVATE static String className(const JSObject*);
+    JS_EXPORT_PRIVATE static String className(const JSObject*, VM&);
     JS_EXPORT_PRIVATE static String toStringName(const JSObject*, ExecState*);
     JS_EXPORT_PRIVATE static bool customHasInstance(JSObject*, ExecState*, JSValue);
     JS_EXPORT_PRIVATE static bool defineOwnProperty(JSObject*, ExecState*, PropertyName, const PropertyDescriptor&, bool shouldThrow);
     JS_EXPORT_PRIVATE static bool getOwnPropertySlot(JSObject*, ExecState*, PropertyName, PropertySlot&);
     JS_EXPORT_PRIVATE static bool getOwnPropertySlotByIndex(JSObject*, ExecState*, unsigned propertyName, PropertySlot&);
-    JS_EXPORT_PRIVATE static ArrayBuffer* slowDownAndWasteMemory(JSArrayBufferView*);
-    JS_EXPORT_PRIVATE static RefPtr<ArrayBufferView> getTypedArrayImpl(JSArrayBufferView*);
 
 private:
     friend class LLIntOffsetsExtractor;

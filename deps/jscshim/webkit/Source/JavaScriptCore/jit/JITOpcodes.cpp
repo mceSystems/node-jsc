@@ -40,6 +40,7 @@
 #include "JSPropertyNameEnumerator.h"
 #include "LinkBuffer.h"
 #include "MaxFrameExtentForSlowPathCall.h"
+#include "OpcodeInlines.h"
 #include "SlowPathCall.h"
 #include "SuperSampler.h"
 #include "ThunkGenerators.h"
@@ -57,8 +58,17 @@ void JIT::emit_op_mov(Instruction* currentInstruction)
     int dst = currentInstruction[1].u.operand;
     int src = currentInstruction[2].u.operand;
 
-    emitGetVirtualRegister(src, regT0);
-    emitPutVirtualRegister(dst);
+    if (m_codeBlock->isConstantRegisterIndex(src)) {
+        JSValue value = m_codeBlock->getConstant(src);
+        if (!value.isNumber())
+            store64(TrustedImm64(JSValue::encode(value)), addressFor(dst));
+        else
+            store64(Imm64(JSValue::encode(value)), addressFor(dst));
+        return;
+    }
+
+    load64(addressFor(src), regT0);
+    store64(regT0, addressFor(dst));
 }
 
 
@@ -342,14 +352,12 @@ void JIT::emit_op_jfalse(Instruction* currentInstruction)
     unsigned target = currentInstruction[2].u.operand;
 
     GPRReg value = regT0;
-    GPRReg result = regT1;
-    GPRReg scratch = regT2;
+    GPRReg scratch1 = regT1;
+    GPRReg scratch2 = regT2;
     bool shouldCheckMasqueradesAsUndefined = true;
 
     emitGetVirtualRegister(currentInstruction[1].u.operand, value);
-    emitConvertValueToBoolean(*vm(), JSValueRegs(value), result, scratch, fpRegT0, fpRegT1, shouldCheckMasqueradesAsUndefined, m_codeBlock->globalObject());
-
-    addJump(branchTest32(Zero, result), target);
+    addJump(branchIfFalsey(*vm(), JSValueRegs(value), scratch1, scratch2, fpRegT0, fpRegT1, shouldCheckMasqueradesAsUndefined, m_codeBlock->globalObject()), target);
 }
 
 void JIT::emit_op_jeq_null(Instruction* currentInstruction)
@@ -433,12 +441,11 @@ void JIT::emit_op_jtrue(Instruction* currentInstruction)
     unsigned target = currentInstruction[2].u.operand;
 
     GPRReg value = regT0;
-    GPRReg result = regT1;
-    GPRReg scratch = regT2;
+    GPRReg scratch1 = regT1;
+    GPRReg scratch2 = regT2;
     bool shouldCheckMasqueradesAsUndefined = true;
     emitGetVirtualRegister(currentInstruction[1].u.operand, value);
-    emitConvertValueToBoolean(*vm(), JSValueRegs(value), result, scratch, fpRegT0, fpRegT1, shouldCheckMasqueradesAsUndefined, m_codeBlock->globalObject());
-    addJump(branchTest32(NonZero, result), target);
+    addJump(branchIfTruthy(*vm(), JSValueRegs(value), scratch1, scratch2, fpRegT0, fpRegT1, shouldCheckMasqueradesAsUndefined, m_codeBlock->globalObject()), target);
 }
 
 void JIT::emit_op_neq(Instruction* currentInstruction)
@@ -786,7 +793,7 @@ void JIT::emit_op_enter(Instruction*)
     // Even though CTI doesn't use them, we initialize our constant
     // registers to zap stale pointers, to avoid unnecessarily prolonging
     // object lifetime and increasing GC pressure.
-    size_t count = m_codeBlock->m_numVars;
+    size_t count = m_codeBlock->numVars();
     for (size_t j = CodeBlock::llintBaselineCalleeSaveSpaceAsVirtualRegisters(); j < count; ++j)
         emitInitRegister(virtualRegisterForLocal(j).offset());
 
@@ -984,7 +991,8 @@ void JIT::emitSlow_op_check_traps(Instruction*, Vector<SlowCaseEntry>::iterator&
 void JIT::emit_op_new_regexp(Instruction* currentInstruction)
 {
     int dst = currentInstruction[1].u.operand;
-    callOperation(operationNewRegexp, m_codeBlock->regexp(currentInstruction[2].u.operand));
+    int regexp = currentInstruction[2].u.operand;
+    callOperation(operationNewRegexp, jsCast<RegExp*>(m_codeBlock->getConstant(regexp)));
     emitStoreCell(dst, returnValueGPR);
 }
 
@@ -1152,7 +1160,7 @@ void JIT::emit_op_has_indexed_property(Instruction* currentInstruction)
     int dst = currentInstruction[1].u.operand;
     int base = currentInstruction[2].u.operand;
     int property = currentInstruction[3].u.operand;
-    ArrayProfile* profile = currentInstruction[4].u.arrayProfile;
+    ArrayProfile* profile = arrayProfileFor<OpHasIndexedPropertyShape>(currentInstruction);
     ByValInfo* byValInfo = m_codeBlock->addByValInfo();
     
     emitGetVirtualRegisters(base, regT0, property, regT1);

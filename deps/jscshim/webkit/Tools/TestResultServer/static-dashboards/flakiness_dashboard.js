@@ -43,12 +43,6 @@ var PLATFORMS = {
             'MAC': {
                 expectationsDirectory: 'mac',
                 subPlatforms: {
-                    'ELCAPITAN': {
-                        subPlatforms: {
-                            'WK1': { fallbackPlatforms: ['APPLE_MAC_ELCAPITAN', 'APPLE_MAC'] },
-                            'WK2': { fallbackPlatforms: ['APPLE_MAC_ELCAPITAN', 'APPLE_MAC', 'WK2'], expectationsDirectory: 'mac-wk2'}
-                        }
-                    },
                     'SIERRA': {
                         subPlatforms: {
                             'WK1': { fallbackPlatforms: ['APPLE_MAC_SIERRA', 'APPLE_MAC'] },
@@ -59,6 +53,12 @@ var PLATFORMS = {
                         subPlatforms: {
                             'WK1': { fallbackPlatforms: ['APPLE_MAC_HIGHSIERRA', 'APPLE_MAC'] },
                             'WK2': { fallbackPlatforms: ['APPLE_MAC_HIGHSIERRA', 'APPLE_MAC', 'WK2'], expectationsDirectory: 'mac-wk2'}
+                        }
+                    },
+                    'MOJAVE': {
+                        subPlatforms: {
+                            'WK1': { fallbackPlatforms: ['APPLE_MAC_MOJAVE', 'APPLE_MAC'] },
+                            'WK2': { fallbackPlatforms: ['APPLE_MAC_MOJAVE', 'APPLE_MAC', 'WK2'], expectationsDirectory: 'mac-wk2'}
                         }
                     },
                 }
@@ -350,6 +350,8 @@ function determineBuilderPlatform(builderNameUpperCase)
     if (string.contains(builderNameUpperCase, 'WPE LINUX'))
         return 'WPE_LINUX';
 
+    if (string.contains(builderNameUpperCase, 'MOJAVE'))
+        return determineWKPlatform(builderNameUpperCase, 'APPLE_MAC_MOJAVE');
     if (string.contains(builderNameUpperCase, 'HIGHSIERRA'))
         return determineWKPlatform(builderNameUpperCase, 'APPLE_MAC_HIGHSIERRA');
     if (string.contains(builderNameUpperCase, 'SIERRA'))
@@ -700,6 +702,7 @@ function getParsedExpectations(data)
             'ElCapitan': 'ELCAPITAN',
             'Sierra': 'SIERRA',
             'HighSierra': 'HIGHSIERRA',
+            'Mojave': 'MOJAVE',
             'Win7': 'WIN7',
             'XP': 'XP',
             'Vista': 'VISTA',

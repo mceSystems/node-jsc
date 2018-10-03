@@ -44,6 +44,7 @@
 #include "ObjectPrototype.h"
 #include "JSCInlines.h"
 #include "SetupVarargsFrame.h"
+#include "SuperSampler.h"
 #include "Watchdog.h"
 
 namespace JSC { namespace DFG {
@@ -1713,8 +1714,8 @@ void SpeculativeJIT::emitBranch(Node* node)
 
         bool shouldCheckMasqueradesAsUndefined = !masqueradesAsUndefinedWatchpointIsStillValid();
         JSGlobalObject* globalObject = m_jit.graph().globalObjectFor(node->origin.semantic);
-        m_jit.emitConvertValueToBoolean(*m_jit.vm(), valueRegs, resultGPR, temp.gpr(), valueFPR.fpr(), tempFPR.fpr(), shouldCheckMasqueradesAsUndefined, globalObject);
-        branchTest32(JITCompiler::Zero, resultGPR, notTaken);
+        auto falsey = m_jit.branchIfFalsey(*m_jit.vm(), valueRegs, resultGPR, temp.gpr(), valueFPR.fpr(), tempFPR.fpr(), shouldCheckMasqueradesAsUndefined, globalObject);
+        addBranch(falsey, notTaken);
         jump(taken, ForceJump);
 
         noResult(node, UseChildrenCalledExplicitly);
@@ -3076,8 +3077,9 @@ void SpeculativeJIT::compile(Node* node)
     }
         
     case ToString:
-    case CallStringConstructor: {
-        compileToStringOrCallStringConstructor(node);
+    case CallStringConstructor:
+    case StringValueOf: {
+        compileToStringOrCallStringConstructorOrStringValueOf(node);
         break;
     }
         
@@ -3129,6 +3131,11 @@ void SpeculativeJIT::compile(Node* node)
         
     case ToThis: {
         compileToThis(node);
+        break;
+    }
+
+    case ObjectCreate: {
+        compileObjectCreate(node);
         break;
     }
 
@@ -3958,10 +3965,7 @@ void SpeculativeJIT::compile(Node* node)
         break;
 
     case CheckTraps:
-        if (Options::usePollingTraps())
-            compileCheckTraps(node);
-        else
-            noResult(node); // This is a no-op.
+        compileCheckTraps(node);
         break;
 
     case CountExecution:
@@ -4034,8 +4038,20 @@ void SpeculativeJIT::compile(Node* node)
         break;
     }
 
+    case ClearCatchLocals:
+        compileClearCatchLocals(node);
+        break;
+
     case CheckStructureOrEmpty:
         DFG_CRASH(m_jit.graph(), node, "CheckStructureOrEmpty only used in 64-bit DFG");
+        break;
+        
+    case FilterCallLinkStatus:
+    case FilterGetByIdStatus:
+    case FilterPutByIdStatus:
+    case FilterInByIdStatus:
+        m_interpreter.filterICStatus(node);
+        noResult(node);
         break;
 
     case LastNodeType:
@@ -4089,6 +4105,9 @@ void SpeculativeJIT::compile(Node* node)
     case EntrySwitch:
     case CPUIntrinsic:
     case AssertNotEmpty:
+    case DataViewGetInt:
+    case DataViewGetFloat:
+    case DataViewSet:
         DFG_CRASH(m_jit.graph(), node, "unexpected node in DFG backend");
         break;
     }

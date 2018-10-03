@@ -49,9 +49,10 @@ option_parser.add_option('--timeout', action='store', type='int', dest='timeout'
                          help='Time in seconds until a test times out (use 0 to disable)')
 option_parser.add_option('--json-output', action='store', metavar="FILE",
                          help='Write results to JSON file at the given path')
-option_parser.add_option('--display-server', choices=['xvfb', 'xorg', 'weston', 'wayland'], default='xvfb',
+option_parser.add_option('--display-server', choices=['xvfb', 'xorg', 'weston', 'wayland', 'headless'], default='xvfb',
                          help='"xvfb": Use a virtualized X11 server. "xorg": Use the current X11 session. '
-                              '"weston": Use a virtualized Weston server. "wayland": Use the current wayland session.')
+                              '"weston": Use a virtualized Weston server. "wayland": Use the current wayland session.'
+                              '"headless": Headless mode in current session')
 
 options, args = option_parser.parse_args()
 
@@ -65,14 +66,20 @@ except NotImplementedError, e:
 
 if port.name() in ['gtk', 'wpe']:
     import os
-    top_level_directory = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..'))
-    sys.path.insert(0, os.path.join(top_level_directory, 'Tools', 'jhbuild'))
-    import jhbuildutils
 
-    if not jhbuildutils.enter_jhbuild_environment_if_available(port.name()):
-        print '***'
-        print '*** Warning: jhbuild environment not present. Run update-webkitgtk-libs before build-webkit to ensure proper testing.'
-        print '***'
+    top_level_directory = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..'))
+    sys.path.insert(0, os.path.join(top_level_directory, 'Tools', 'flatpak'))
+    import flatpakutils
+    flatpakutils.run_in_sandbox_if_available(sys.argv)
+    if not flatpakutils.is_sandboxed():
+        sys.path.insert(0, os.path.join(top_level_directory, 'Tools', 'jhbuild'))
+        import jhbuildutils
+
+        if not jhbuildutils.enter_jhbuild_environment_if_available(port.name()):
+            print '***'
+            print '*** Warning: jhbuild environment not present and not running in flatpak.'
+            print '*** Run update-webkitgtk-libs or update-webkitgtk-flatpak before build-webkit to ensure proper testing..'
+            print '***'
 
 port._display_server = options.display_server
 runner = WebDriverTestRunner(port)

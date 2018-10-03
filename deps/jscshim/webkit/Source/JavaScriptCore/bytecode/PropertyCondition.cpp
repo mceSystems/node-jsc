@@ -43,19 +43,19 @@ void PropertyCondition::dumpInContext(PrintStream& out, DumpContext* context) co
         return;
     }
     
-    switch (m_kind) {
+    switch (m_header.type()) {
     case Presence:
-        out.print(m_kind, " of ", m_uid, " at ", offset(), " with attributes ", attributes());
+        out.print(m_header.type(), " of ", m_header.pointer(), " at ", offset(), " with attributes ", attributes());
         return;
     case Absence:
     case AbsenceOfSetEffect:
-        out.print(m_kind, " of ", m_uid, " with prototype ", inContext(JSValue(prototype()), context));
+        out.print(m_header.type(), " of ", m_header.pointer(), " with prototype ", inContext(JSValue(prototype()), context));
         return;
     case Equivalence:
-        out.print(m_kind, " of ", m_uid, " with ", inContext(requiredValue(), context));
+        out.print(m_header.type(), " of ", m_header.pointer(), " with ", inContext(requiredValue(), context));
         return;
     case HasPrototype:
-        out.print(m_kind, " with prototype ", inContext(JSValue(prototype()), context));
+        out.print(m_header.type(), " with prototype ", inContext(JSValue(prototype()), context));
         return;
     }
     RELEASE_ASSERT_NOT_REACHED();
@@ -81,7 +81,7 @@ bool PropertyCondition::isStillValidAssumingImpurePropertyWatchpoint(
         return false;
     }
 
-    switch (m_kind) {
+    switch (m_header.type()) {
     case Presence:
     case Absence:
     case AbsenceOfSetEffect:
@@ -102,7 +102,7 @@ bool PropertyCondition::isStillValidAssumingImpurePropertyWatchpoint(
         break;
     }
     
-    switch (m_kind) {
+    switch (m_header.type()) {
     case Presence: {
         unsigned currentAttributes;
         PropertyOffset currentOffset = structure->getConcurrently(uid(), currentAttributes);
@@ -237,7 +237,7 @@ bool PropertyCondition::isStillValidAssumingImpurePropertyWatchpoint(
             return false;
         }
 
-        JSValue currentValue = base->getDirect(currentOffset);
+        JSValue currentValue = base->getDirectConcurrently(structure, currentOffset);
         if (currentValue != requiredValue()) {
             if (PropertyConditionInternal::verbose) {
                 dataLog(
@@ -259,7 +259,7 @@ bool PropertyCondition::validityRequiresImpurePropertyWatchpoint(Structure* stru
     if (!*this)
         return false;
     
-    switch (m_kind) {
+    switch (m_header.type()) {
     case Presence:
     case Absence:
     case Equivalence:
@@ -281,7 +281,7 @@ bool PropertyCondition::isStillValid(Structure* structure, JSObject* base) const
     // Currently we assume that an impure property can cause a property to appear, and can also
     // "shadow" an existing JS property on the same object. Hence it affects both presence and
     // absence. It doesn't affect AbsenceOfSetEffect because impure properties aren't ever setters.
-    switch (m_kind) {
+    switch (m_header.type()) {
     case Absence:
         if (structure->typeInfo().getOwnPropertySlotIsImpure() || structure->typeInfo().getOwnPropertySlotIsImpureForPropertyAbsence())
             return false;
@@ -304,7 +304,7 @@ bool PropertyCondition::isWatchableWhenValid(
     if (structure->transitionWatchpointSetHasBeenInvalidated())
         return false;
     
-    switch (m_kind) {
+    switch (m_header.type()) {
     case Equivalence: {
         PropertyOffset offset = structure->getConcurrently(uid());
         
@@ -321,7 +321,7 @@ bool PropertyCondition::isWatchableWhenValid(
             break;
         case EnsureWatchability:
             set = structure->ensurePropertyReplacementWatchpointSet(
-                *Heap::heap(structure)->vm(), offset);
+                *structure->vm(), offset);
             break;
         }
         
@@ -377,6 +377,8 @@ void PropertyCondition::validateReferences(const TrackedReferences& tracked) con
 
 bool PropertyCondition::isValidValueForAttributes(VM& vm, JSValue value, unsigned attributes)
 {
+    if (!value)
+        return false;
     bool attributesClaimAccessor = !!(attributes & PropertyAttribute::Accessor);
     bool valueClaimsAccessor = !!jsDynamicCast<GetterSetter*>(vm, value);
     return attributesClaimAccessor == valueClaimsAccessor;
@@ -389,10 +391,9 @@ bool PropertyCondition::isValidValueForPresence(VM& vm, JSValue value) const
 
 PropertyCondition PropertyCondition::attemptToMakeEquivalenceWithoutBarrier(VM& vm, JSObject* base) const
 {
-    Structure* structure = base->structure();
-    if (!structure->isValidOffset(offset()))
-        return PropertyCondition();
-    JSValue value = base->getDirect(offset());
+    Structure* structure = base->structure(vm);
+
+    JSValue value = base->getDirectConcurrently(structure, offset());
     if (!isValidValueForPresence(vm, value))
         return PropertyCondition();
     return equivalenceWithoutBarrier(uid(), value);

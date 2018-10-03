@@ -37,7 +37,7 @@ _log = logging.getLogger(__name__)
 class IOSPort(DarwinPort):
     port_name = "ios"
 
-    CURRENT_VERSION = Version(11)
+    CURRENT_VERSION = Version(12)
 
     def __init__(self, host, port_name, **kwargs):
         super(IOSPort, self).__init__(host, port_name, **kwargs)
@@ -96,7 +96,7 @@ class IOSPort(DarwinPort):
             wk_string = 'wk2'
 
         versions_to_fallback = []
-        if self.ios_version() == self.CURRENT_VERSION:
+        if self.ios_version().major == self.CURRENT_VERSION.major:
             versions_to_fallback = [self.CURRENT_VERSION]
         elif self.ios_version():
             temp_version = Version(self.ios_version().major)

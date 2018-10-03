@@ -59,7 +59,7 @@ class OSRExitCompiler;
 class SpeculativeJIT;
 }
 #endif
-#if !ENABLE(JIT)
+#if ENABLE(C_LOOP)
 namespace LLInt {
 class CLoop;
 }
@@ -125,7 +125,7 @@ enum WhichValueWord {
 int64_t tryConvertToInt52(double);
 bool isInt52(double);
 
-enum class SourceCodeRepresentation {
+enum class SourceCodeRepresentation : uint8_t {
     Other,
     Integer,
     Double
@@ -147,7 +147,7 @@ class JSValue {
     friend class DFG::OSRExitCompiler;
     friend class DFG::SpeculativeJIT;
 #endif
-#if !ENABLE(JIT)
+#if ENABLE(C_LOOP)
     friend class LLInt::CLoop;
 #endif
 
@@ -220,8 +220,8 @@ public:
     bool isEmpty() const;
     bool isFunction(VM&) const;
     bool isCallable(VM&, CallType&, CallData&) const;
-    bool isConstructor() const;
-    bool isConstructor(ConstructType&, ConstructData&) const;
+    bool isConstructor(VM&) const;
+    bool isConstructor(VM&, ConstructType&, ConstructData&) const;
     bool isUndefined() const;
     bool isNull() const;
     bool isUndefinedOrNull() const;
@@ -234,7 +234,7 @@ public:
     bool isPrimitive() const;
     bool isGetterSetter() const;
     bool isCustomGetterSetter() const;
-	bool isCustomAPIValue() const;
+    bool isCustomAPIValue() const;
     bool isObject() const;
     bool inherits(VM&, const ClassInfo*) const;
     template<typename Target> bool inherits(VM&) const;

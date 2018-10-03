@@ -194,7 +194,9 @@ private:
         // invoked with inCharacterClass set.
         NO_RETURN_DUE_TO_ASSERT void assertionWordBoundary(bool) { RELEASE_ASSERT_NOT_REACHED(); }
         NO_RETURN_DUE_TO_ASSERT void atomBackReference(unsigned) { RELEASE_ASSERT_NOT_REACHED(); }
-        NO_RETURN_DUE_TO_ASSERT void atomNamedBackReference(String) { RELEASE_ASSERT_NOT_REACHED(); }
+        NO_RETURN_DUE_TO_ASSERT void atomNamedBackReference(const String&) { RELEASE_ASSERT_NOT_REACHED(); }
+        NO_RETURN_DUE_TO_ASSERT bool isValidNamedForwardReference(const String&) { RELEASE_ASSERT_NOT_REACHED(); }
+        NO_RETURN_DUE_TO_ASSERT void atomNamedForwardReference(const String&) { RELEASE_ASSERT_NOT_REACHED(); }
 
     private:
         Delegate& m_delegate;
@@ -421,9 +423,16 @@ private:
             if (!atEndOfPattern() && !inCharacterClass) {
                 if (consume() == '<') {
                     auto groupName = tryConsumeGroupName();
-                    if (groupName && m_captureGroupNames.contains(groupName.value())) {
-                        delegate.atomNamedBackReference(groupName.value());
-                        break;
+                    if (groupName) {
+                        if (m_captureGroupNames.contains(groupName.value())) {
+                            delegate.atomNamedBackReference(groupName.value());
+                            break;
+                        }
+                        
+                        if (delegate.isValidNamedForwardReference(groupName.value())) {
+                            delegate.atomNamedForwardReference(groupName.value());
+                            break;
+                        }
                     }
                     if (m_isUnicode) {
                         m_errorCode = ErrorCode::InvalidBackreference;
@@ -974,13 +983,10 @@ private:
 
     unsigned consumeNumber()
     {
-        unsigned n = consumeDigit();
-        // check for overflow.
-        for (unsigned newValue; peekIsDigit() && ((newValue = n * 10 + peekDigit()) >= n); ) {
-            n = newValue;
-            consume();
-        }
-        return n;
+        Checked<unsigned, RecordOverflow> n = consumeDigit();
+        while (peekIsDigit())
+            n = n * 10 + consumeDigit();
+        return n.hasOverflowed() ? quantifyInfinite : n.unsafeGet();
     }
 
     unsigned consumeOctal()
@@ -1139,7 +1145,9 @@ private:
  *    void atomParentheticalAssertionBegin(bool invert = false);
  *    void atomParenthesesEnd();
  *    void atomBackReference(unsigned subpatternId);
- *    void atomNamedBackReference(String subpatternName);
+ *    void atomNamedBackReference(const String& subpatternName);
+ *    bool isValidNamedForwardReference(const String& subpatternName);
+ *    void atomNamedForwardReference(const String& subpatternName);
  *
  *    void quantifyAtom(unsigned min, unsigned max, bool greedy);
  *

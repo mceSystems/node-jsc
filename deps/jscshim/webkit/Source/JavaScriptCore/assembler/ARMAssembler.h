@@ -38,7 +38,7 @@ namespace JSC {
 
     namespace ARMRegisters {
 
-        typedef enum {
+        typedef enum : int8_t {
             r0,
             r1,
             r2,
@@ -62,15 +62,16 @@ namespace JSC {
             r12 = ip, S1 = ip,
             r13 = sp,
             r14 = lr,
-            r15 = pc
+            r15 = pc,
+            InvalidGPRReg = -1,
         } RegisterID;
 
-        typedef enum {
+        typedef enum : int8_t {
             apsr,
             fpscr
         } SPRegisterID;
 
-        typedef enum {
+        typedef enum : int8_t {
             d0,
             d1,
             d2,
@@ -105,6 +106,7 @@ namespace JSC {
             d30,
             d31,
 #endif // CPU(ARM_NEON) || CPU(ARM_VFP_V3_D32)
+            InvalidFPRReg = -1,
         } FPRegisterID;
 
     } // namespace ARMRegisters
@@ -1162,7 +1164,7 @@ namespace JSC {
             return AL | B | (offset & BranchOffsetMask);
         }
 
-#if OS(LINUX) && COMPILER(GCC_OR_CLANG)
+#if OS(LINUX) && COMPILER(GCC_COMPATIBLE)
         static inline void linuxPageFlush(uintptr_t begin, uintptr_t end)
         {
             asm volatile(
@@ -1182,7 +1184,7 @@ namespace JSC {
 
         static void cacheFlush(void* code, size_t size)
         {
-#if OS(LINUX) && COMPILER(GCC_OR_CLANG)
+#if OS(LINUX) && COMPILER(GCC_COMPATIBLE)
             size_t page = pageSize();
             uintptr_t current = reinterpret_cast<uintptr_t>(code);
             uintptr_t end = current + size;

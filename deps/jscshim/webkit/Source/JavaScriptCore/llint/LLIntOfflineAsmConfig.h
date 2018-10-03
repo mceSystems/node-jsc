@@ -30,7 +30,7 @@
 #include <wtf/Gigacage.h>
 #include <wtf/Poisoned.h>
 
-#if !ENABLE(JIT)
+#if ENABLE(C_LOOP)
 #define OFFLINE_ASM_C_LOOP 1
 #define OFFLINE_ASM_X86 0
 #define OFFLINE_ASM_X86_WIN 0
@@ -45,7 +45,7 @@
 #define OFFLINE_ASM_ARMv7s 0
 #define OFFLINE_ASM_MIPS 0
 
-#else // ENABLE(JIT)
+#else // ENABLE(C_LOOP)
 
 #define OFFLINE_ASM_C_LOOP 0
 
@@ -137,7 +137,7 @@
 #endif
 #endif
 
-#endif // ENABLE(JIT)
+#endif // ENABLE(C_LOOP)
 
 #if USE(JSVALUE64)
 #define OFFLINE_ASM_JSVALUE64 1
@@ -163,10 +163,10 @@
 #define OFFLINE_ASM_BIG_ENDIAN 0
 #endif
 
-#if LLINT_EXECUTION_TRACING
-#define OFFLINE_ASM_EXECUTION_TRACING 1
+#if LLINT_TRACING
+#define OFFLINE_ASM_TRACING 1
 #else
-#define OFFLINE_ASM_EXECUTION_TRACING 0
+#define OFFLINE_ASM_TRACING 0
 #endif
 
 #if USE(POINTER_PROFILING)

@@ -70,11 +70,13 @@ enum UseKind {
     SetObjectUse,
     WeakMapObjectUse,
     WeakSetObjectUse,
+    DataViewObjectUse,
     StringObjectUse,
     StringOrStringObjectUse,
     NotStringVarUse,
     NotSymbolUse,
     NotCellUse,
+    KnownOtherUse,
     OtherUse,
     MiscUse,
 
@@ -159,6 +161,8 @@ inline SpeculatedType typeFilterFor(UseKind useKind)
         return SpecWeakMapObject;
     case WeakSetObjectUse:
         return SpecWeakSetObject;
+    case DataViewObjectUse:
+        return SpecDataViewObject;
     case StringObjectUse:
         return SpecStringObject;
     case StringOrStringObjectUse:
@@ -169,6 +173,7 @@ inline SpeculatedType typeFilterFor(UseKind useKind)
         return ~SpecSymbol;
     case NotCellUse:
         return ~SpecCellCheck;
+    case KnownOtherUse:
     case OtherUse:
         return SpecOther;
     case MiscUse:
@@ -188,6 +193,7 @@ inline bool shouldNotHaveTypeCheck(UseKind kind)
     case KnownStringUse:
     case KnownPrimitiveUse:
     case KnownBooleanUse:
+    case KnownOtherUse:
     case Int52RepUse:
     case DoubleRepUse:
         return true;
@@ -256,6 +262,7 @@ inline bool isCell(UseKind kind)
     case SetObjectUse:
     case WeakMapObjectUse:
     case WeakSetObjectUse:
+    case DataViewObjectUse:
         return true;
     default:
         return false;
@@ -313,6 +320,7 @@ inline bool checkMayCrashIfInputIsEmpty(UseKind kind)
     case CellUse:
     case KnownCellUse:
     case CellOrOtherUse:
+    case KnownOtherUse:
     case OtherUse:
     case MiscUse:
     case NotCellUse:

@@ -94,7 +94,7 @@ class PropertySlot {
         TypeGetter,
         TypeCustom,
         TypeCustomAccessor,
-		TypeCustomAPI
+        TypeCustomAPI
     };
 
 public:
@@ -138,11 +138,11 @@ public:
     bool isAccessor() const { return m_propertyType == TypeGetter; }
     bool isCustom() const { return m_propertyType == TypeCustom; }
     bool isCustomAccessor() const { return m_propertyType == TypeCustomAccessor; }
-	bool isCustomAPIValue() const { return m_propertyType == TypeCustomAPI; }
+    bool isCustomAPIValue() const { return m_propertyType == TypeCustomAPI; }
     bool isCacheableValue() const { return isCacheable() && isValue(); }
     bool isCacheableGetter() const { return isCacheable() && isAccessor(); }
     bool isCacheableCustom() const { return isCacheable() && isCustom(); }
-	bool isCacheableCustomAPIValue() const { return isCacheable() && isCustomAPIValue(); }
+    bool isCacheableCustomAPIValue() const { return isCacheable() && isCustomAPIValue(); }
     void setIsTaintedByOpaqueObject() { m_isTaintedByOpaqueObject = true; }
     bool isTaintedByOpaqueObject() const { return m_isTaintedByOpaqueObject; }
 
@@ -316,21 +316,21 @@ public:
         m_offset = invalidOffset;
     }
 
-	void setCustomAPIValue(JSObject* slotBase, unsigned attributes, CustomAPIValue* customAPIValue)
-	{
-		ASSERT(attributes == attributesForStructure(attributes));
+    void setCustomAPIValue(JSObject* slotBase, unsigned attributes, CustomAPIValue* customAPIValue)
+    {
+        ASSERT(attributes == attributesForStructure(attributes));
 
-		disableCaching();
+        disableCaching();
 
-		ASSERT(customAPIValue);
-		m_data.customAPIValue = customAPIValue;
-		m_attributes = attributes;
+        ASSERT(customAPIValue);
+        m_data.customAPIValue = customAPIValue;
+        m_attributes = attributes;
 
-		ASSERT(slotBase);
-		m_slotBase = slotBase;
-		m_propertyType = TypeCustomAPI;
-		m_offset = invalidOffset;
-	}
+        ASSERT(slotBase);
+        m_slotBase = slotBase;
+        m_propertyType = TypeCustomAPI;
+        m_offset = invalidOffset;
+    }
 
     void setGetterSlot(JSObject* slotBase, unsigned attributes, GetterSetter* getterSetter)
     {
@@ -402,7 +402,7 @@ private:
         struct {
             CustomGetterSetter* getterSetter;
         } customAccessor;
-		CustomAPIValue* customAPIValue;
+        CustomAPIValue* customAPIValue;
     } m_data;
 
     PropertyOffset m_offset;
@@ -428,8 +428,8 @@ ALWAYS_INLINE JSValue PropertySlot::getValue(ExecState* exec, PropertyName prope
         return functionGetter(exec);
     if (m_propertyType == TypeCustomAccessor)
         return customAccessorGetter(exec, propertyName);
-	if (m_propertyType == TypeCustomAPI)
-		return m_data.customAPIValue->get(exec, m_slotBase, m_thisValue, propertyName);
+    if (m_propertyType == TypeCustomAPI)
+        return m_data.customAPIValue->get(exec, m_slotBase, m_thisValue, propertyName);
     return customGetter(exec, propertyName);
 }
 
@@ -441,8 +441,8 @@ ALWAYS_INLINE JSValue PropertySlot::getValue(ExecState* exec, unsigned propertyN
         return functionGetter(exec);
     if (m_propertyType == TypeCustomAccessor)
         return customAccessorGetter(exec, Identifier::from(exec, propertyName));
-	if (m_propertyType == TypeCustomAPI)
-		return m_data.customAPIValue->get(exec, m_slotBase, m_thisValue, Identifier::from(exec, propertyName));
+    if (m_propertyType == TypeCustomAPI)
+        return m_data.customAPIValue->get(exec, m_slotBase, m_thisValue, Identifier::from(exec, propertyName));
     return customGetter(exec, Identifier::from(exec, propertyName));
 }
 

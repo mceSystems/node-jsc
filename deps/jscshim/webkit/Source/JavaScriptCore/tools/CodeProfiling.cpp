@@ -44,10 +44,7 @@ volatile CodeProfile* CodeProfiling::s_profileStack = 0;
 CodeProfiling::Mode CodeProfiling::s_mode = CodeProfiling::Disabled;
 WTF::MetaAllocatorTracker* CodeProfiling::s_tracker = 0;
 
-#if COMPILER(CLANG)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wmissing-noreturn"
-#endif
+IGNORE_CLANG_WARNINGS_BEGIN("missing-noreturn")
 
 #if HAVE(MACHINE_CONTEXT)
 // Helper function to start & stop the timer.
@@ -63,17 +60,17 @@ static void setProfileTimer(unsigned usec)
 }
 #endif
 
-#if COMPILER(CLANG)
-#pragma clang diagnostic pop
-#endif
+IGNORE_CLANG_WARNINGS_END
 
 #if HAVE(MACHINE_CONTEXT)
 static void profilingTimer(int, siginfo_t*, void* uap)
 {
     PlatformRegisters& platformRegisters = WTF::registersFromUContext(static_cast<ucontext_t*>(uap));
-    CodeProfiling::sample(
-        MachineContext::instructionPointer(platformRegisters).untaggedExecutableAddress(),
-        reinterpret_cast<void**>(MachineContext::framePointer(platformRegisters)));
+    if (auto instructionPointer = MachineContext::instructionPointer(platformRegisters)) {
+        CodeProfiling::sample(
+            instructionPointer->untaggedExecutableAddress(),
+            reinterpret_cast<void**>(MachineContext::framePointer(platformRegisters)));
+    }
 }
 #endif
 

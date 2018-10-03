@@ -40,7 +40,7 @@ from StringIO import StringIO
 
 from webkitpy.common.config.committervalidator import CommitterValidator
 from webkitpy.common.config.ports import DeprecatedPort
-from webkitpy.common.net.bugzilla import Attachment
+from webkitpy.common.net.bugzilla import Bugzilla, Attachment
 from webkitpy.common.system.executive import ScriptError
 from webkitpy.tool.bot.botinfo import BotInfo
 from webkitpy.tool.bot.commitqueuetask import CommitQueueTask, CommitQueueTaskDelegate
@@ -90,6 +90,8 @@ class AbstractQueue(Command, QueueEngineDelegate):
         # because our global option code looks for the first argument which does
         # not begin with "-" and assumes that is the command name.
         webkit_patch_args += ["--status-host=%s" % self._tool.status_server.host]
+        if not self._tool.status_server.use_https:
+            webkit_patch_args += ['--status-host-uses-http']
         if self._tool.status_server.bot_id:
             webkit_patch_args += ["--bot-id=%s" % self._tool.status_server.bot_id]
         if self._options.port:
@@ -217,14 +219,18 @@ class AbstractPatchQueue(AbstractQueue):
             patch_id = self._tool.status_server.next_work_item(self.name)
             if not patch_id:
                 return None
-            patch = self._tool.bugs.fetch_attachment(patch_id)
+            try:
+                patch = self._tool.bugs.fetch_attachment(patch_id, throw_on_access_error=True)
+            except Bugzilla.AccessError as e:
+                if e.error_code == Bugzilla.AccessError.NOT_PERMITTED:
+                    patch = self._tool.status_server.fetch_attachment(patch_id)
             if not patch:
                 # FIXME: Using a fake patch because release_work_item has the wrong API.
                 # We also don't really need to release the lock (although that's fine),
                 # mostly we just need to remove this bogus patch from our queue.
                 # If for some reason bugzilla is just down, then it will be re-fed later.
                 fake_patch = Attachment({'id': patch_id}, None)
-                self._release_work_item(fake_patch)
+                self._did_skip(fake_patch)
         return patch
 
     def _release_work_item(self, patch):
@@ -295,6 +301,13 @@ class PatchProcessingQueue(AbstractPatchQueue):
 
         self._create_port()
 
+    # FIXME: Bugzilla member functions should perform this check as they can do it as part of the same
+    # network request. This would also avoid bugs where the access of the Bugzilla bug changes between
+    # the time-of-check (calling this function) and time-of-use (when we ask Bugzilla to perform the
+    # actual operation).
+    def _can_access_bug(self, bug_id):
+        return bool(self._tool.bugs.fetch_bug(bug_id))
+
     def _upload_results_archive_for_patch(self, patch, results_archive_zip):
         if not self._port:
             self._create_port()
@@ -312,7 +325,20 @@ class PatchProcessingQueue(AbstractPatchQueue):
         # FIXME: We could easily list the test failures from the archive here,
         # currently callers do that separately.
         comment_text += BotInfo(self._tool, self._port.name()).summary_text()
-        self._tool.bugs.add_attachment_to_bug(patch.bug_id(), results_archive_file, description, filename="layout-test-results.zip", comment_text=comment_text)
+        if self._can_access_bug(patch.bug_id()):
+            self._tool.bugs.add_attachment_to_bug(patch.bug_id(), results_archive_file, description, filename="layout-test-results.zip", comment_text=comment_text)
+
+    def _refetch_patch(self, patch):
+        patch_id = patch.id()
+        try:
+            patch = self._tool.bugs.fetch_attachment(patch_id, throw_on_access_error=True)
+        except Bugzilla.AccessError as e:
+            # FIXME: Need a way to ask the status server to fetch the patch again. For now
+            # we return the attachment as it was when it was originally uploaded to the
+            # status server. See <https://bugs.webkit.org/show_bug.cgi?id=186817>.
+            if e.error_code == Bugzilla.AccessError.NOT_PERMITTED:
+                patch = self._tool.status_server.fetch_attachment(patch_id)
+        return patch
 
 
 class CommitQueue(PatchProcessingQueue, StepSequenceErrorHandler, CommitQueueTaskDelegate):
@@ -346,8 +372,9 @@ class CommitQueue(PatchProcessingQueue, StepSequenceErrorHandler, CommitQueueTas
             self._did_error(patch, "%s did not process patch. Reason: %s" % (self.name, error.failure_message))
             return False
         except ScriptError as e:
-            validator = CommitterValidator(self._tool)
-            validator.reject_patch_from_commit_queue(patch.id(), self._error_message_for_bug(task, patch, e))
+            if self._can_access_bug(patch.bug_id()):
+                validator = CommitterValidator(self._tool)
+                validator.reject_patch_from_commit_queue(patch.id(), self._error_message_for_bug(task, patch, e))
             results_archive = task.results_archive_from_patch_test_run(patch)
             if results_archive:
                 self._upload_results_archive_for_patch(patch, results_archive)
@@ -508,4 +535,4 @@ class StyleQueue(AbstractReviewQueue, StyleQueueTaskDelegate):
         return None
 
     def refetch_patch(self, patch):
-        return self._tool.bugs.fetch_attachment(patch.id())
+        return super(StyleQueue, self)._refetch_patch(patch)
