@@ -65,8 +65,8 @@ void CallSite::finishCreation(JSC::ExecState * exec, JSCStackFrame& stackFrame, 
     const auto * sourcePositions = stackFrame.getSourcePositions();
     if (sourcePositions)
     {
-        m_lineNumber = JSC::jsNumber(sourcePositions->line.oneBasedInt());
-        m_columnNumber = JSC::jsNumber(sourcePositions->startColumn.oneBasedInt());
+        m_lineNumber = sourcePositions->line.oneBasedInt();
+        m_columnNumber = sourcePositions->startColumn.oneBasedInt();
     }
 
     if (stackFrame.isEval()) 

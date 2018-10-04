@@ -50,18 +50,18 @@ public:
 
 private:
 	JSC::VM& m_vm;
-	JSC::JSCell * m_callee;
+	JSC::Strong<JSC::JSCell> m_callee;
 
 	// May be null
 	JSC::ExecState * m_callFrame;
 	
 	// May be null
-	JSC::CodeBlock * m_codeBlock;
+	JSC::Strong<JSC::CodeBlock> m_codeBlock;
 	unsigned m_bytecodeOffset;
 
 	// Lazy-initialized
-	JSC::JSString * m_sourceURL;
-	JSC::JSString * m_functionName;
+	JSC::Strong<JSC::JSString> m_sourceURL;
+	JSC::Strong<JSC::JSString> m_functionName;
 
 	// m_wasmFunctionIndexOrName has meaning only when m_isWasmFrame is set
 	JSC::Wasm::IndexOrName m_wasmFunctionIndexOrName;
@@ -81,9 +81,9 @@ public:
 	JSCStackFrame(JSC::VM& vm, JSC::StackVisitor& visitor);
 	JSCStackFrame(JSC::VM& vm, const JSC::StackFrame& frame);
 
-	JSC::JSCell * callee() const { return m_callee; }
+	JSC::JSCell * callee() const { return m_callee.get(); }
 	JSC::ExecState * callFrame() const { return m_callFrame; }
-	JSC::CodeBlock * codeBlock() const { return m_codeBlock; }
+	JSC::CodeBlock * codeBlock() const { return m_codeBlock.get(); }
 	
 	intptr_t sourceID() const;
 	JSC::JSString * sourceURL();

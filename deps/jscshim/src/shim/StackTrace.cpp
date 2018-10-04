@@ -24,31 +24,36 @@ void StackTrace::finishCreation(JSC::VM& vm, JSC::ExecState * exec, JSCStackTrac
 	JSC::Structure * stackFrameStructure = global->shimStackFrameStructure();
 
 	size_t frameCount = stackTrace.size();
-	
-	m_frames.reserveInitialCapacity(frameCount);
-	for (unsigned int i = 0; i < frameCount; ++i)
-	{
-		JSCStackFrame& frame = stackTrace.at(i);
-		
-		/* v8 doesn't include native (non js and non wasm) frames in the stack trace
-		 * This is based on what JSC::StackVisitor::Frame::isNativeFrame does. */
-		if (frame.codeBlock() || frame.isWasmFrame())
-		{
-			m_frames.constructAndAppend(vm, this, StackFrame::create(vm, stackFrameStructure, frame));
-		}
-	}
+    {
+        auto locker = holdLock(cellLock());
+        m_frames.reserveInitialCapacity(frameCount);
+        for (unsigned int i = 0; i < frameCount; ++i)
+        {
+            JSCStackFrame& frame = stackTrace.at(i);
+            
+            /* v8 doesn't include native (non js and non wasm) frames in the stack trace
+             * This is based on what JSC::StackVisitor::Frame::isNativeFrame does. */
+            if (frame.codeBlock() || frame.isWasmFrame())
+            {
+                m_frames.constructAndAppend(vm, this, StackFrame::create(vm, stackFrameStructure, frame));
+            }
+        }
+    }
 }
 
 void StackTrace::visitChildren(JSC::JSCell* cell, JSC::SlotVisitor& visitor)
 {
 	Base::visitChildren(cell, visitor);
 
-	StackTrace * thisObject = JSC::jsCast<StackTrace *>(cell);
-	for (auto& frame : thisObject->m_frames)
-	{
-		// Note: Using "append" causes a compilation error
-		visitor.append(frame);
-	}
+    {
+        StackTrace * thisObject = JSC::jsCast<StackTrace *>(cell);
+        auto locker = holdLock(thisObject->cellLock());
+        for (auto& frame : thisObject->m_frames)
+        {
+            // Note: Using "append" causes a compilation error
+            visitor.append(frame);
+        }
+    }
 }
 
 /* Note that at first I've allocated jscshim::StackFrame instances while walking the JSC stack. This failed 
@@ -63,12 +68,15 @@ void StackTrace::captureCurrentStackTrace(JSC::VM& vm, JSC::ExecState * exec, si
 	size_t framesCount = stackFrames.size();
 
 	// Create our StackFrames for each JSC frame
-	m_frames.reserveInitialCapacity(framesCount);
-	JSC::Structure * stackFrameStructure = jscshim::GetGlobalObject(exec)->shimStackFrameStructure();
-	for (size_t i = 0; i < framesCount; i++)
-	{
-		m_frames.constructAndAppend(vm, this, StackFrame::create(vm, stackFrameStructure, stackFrames.at(i)));
-	}
+    {
+        auto locker = holdLock(cellLock());
+        m_frames.reserveInitialCapacity(framesCount);
+        JSC::Structure * stackFrameStructure = jscshim::GetGlobalObject(exec)->shimStackFrameStructure();
+        for (size_t i = 0; i < framesCount; i++)
+        {
+            m_frames.constructAndAppend(vm, this, StackFrame::create(vm, stackFrameStructure, stackFrames.at(i)));
+        }
+    }
 }
 
 }} // v8::jscshim

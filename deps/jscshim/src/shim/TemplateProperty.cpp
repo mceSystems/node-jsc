@@ -95,9 +95,9 @@ TemplateAccessorProperty::TemplateAccessorProperty(JSC::ExecState			* exec,
 	}
 }
 
-void TemplateAccessorProperty::visitChildren(JSC::SlotVisitor& visitor)
+void TemplateAccessorProperty::visitAggregate(JSC::SlotVisitor& visitor)
 {
-	TemplateProperty::visitChildren(visitor);
+	TemplateProperty::visitAggregate(visitor);
 
 	// Note: Using "append" causes a compilation error
 	visitor.append(m_getter);
@@ -149,9 +149,9 @@ TemplateAccessor::TemplateAccessor(JSC::ExecState				  * exec,
 	m_signature.setMayBeNull(vm, owner, signature);
 }
 
-void TemplateAccessor::visitChildren(JSC::SlotVisitor& visitor)
+void TemplateAccessor::visitAggregate(JSC::SlotVisitor& visitor)
 {
-	TemplateProperty::visitChildren(visitor);
+	TemplateProperty::visitAggregate(visitor);
 
 	// Note: Using "append" for m_signature causes a compilation error
 	visitor.append(m_data);

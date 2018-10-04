@@ -10,6 +10,7 @@
 #include <JavaScriptCore/DebuggerPrimitives.h>
 #include <JavaScriptCore/Exception.h>
 #include <JavaScriptCore/JSCInlines.h>
+#include <JavaScriptCore/StrongInlines.h>
 
 namespace v8 { namespace jscshim
 {
@@ -121,14 +122,11 @@ JSCStackTrace JSCStackTrace::getStackTraceForThrownValue(JSC::VM& vm, JSC::JSVal
 
 JSCStackFrame::JSCStackFrame(JSC::VM& vm, JSC::StackVisitor& visitor) :
 	m_vm(vm),
-	m_codeBlock(nullptr),
 	m_bytecodeOffset(UINT_MAX),
-	m_sourceURL(nullptr),
-	m_functionName(nullptr),
 	m_isWasmFrame(false),
 	m_sourcePositionsState(SourcePositionsState::NotCalculated)
 {
-	m_callee = visitor->callee().asCell();
+	m_callee.set(vm, visitor->callee().asCell());
 	m_callFrame = visitor->callFrame();
 
 	// Based on JSC's GetStackTraceFunctor (Interpreter.cpp)
@@ -139,7 +137,7 @@ JSCStackFrame::JSCStackFrame(JSC::VM& vm, JSC::StackVisitor& visitor) :
 	}
 	else if (!!visitor->codeBlock() && !visitor->codeBlock()->unlinkedCodeBlock()->isBuiltinFunction())
 	{
-		m_codeBlock = visitor->codeBlock();
+		m_codeBlock.set(vm, visitor->codeBlock());
 		m_bytecodeOffset = visitor->bytecodeOffset();
 	}
 }
@@ -147,14 +145,11 @@ JSCStackFrame::JSCStackFrame(JSC::VM& vm, JSC::StackVisitor& visitor) :
 JSCStackFrame::JSCStackFrame(JSC::VM& vm, const JSC::StackFrame& frame) : 
 	m_vm(vm),
 	m_callFrame(nullptr),
-	m_codeBlock(nullptr),
 	m_bytecodeOffset(UINT_MAX),
-	m_sourceURL(nullptr),
-	m_functionName(nullptr),
 	m_isWasmFrame(false),
 	m_sourcePositionsState(SourcePositionsState::NotCalculated)
 {
-	m_callee = frame.callee();
+	m_callee.set(vm, frame.callee());
 
 	// Based on JSC's GetStackTraceFunctor (Interpreter.cpp)
 	if (frame.isWasmFrame())
@@ -164,7 +159,7 @@ JSCStackFrame::JSCStackFrame(JSC::VM& vm, const JSC::StackFrame& frame) :
 	}
 	else
 	{
-		m_codeBlock = frame.codeBlock();
+		m_codeBlock.set(vm, frame.codeBlock());
 		if (frame.hasBytecodeOffset())
 		{
 			m_bytecodeOffset = frame.bytecodeOffset();
@@ -181,20 +176,20 @@ JSC::JSString * JSCStackFrame::sourceURL()
 {
 	if (!m_sourceURL)
 	{
-		m_sourceURL = retrieveSourceURL();
+		m_sourceURL.set(m_vm, retrieveSourceURL());
 	}
 
-	return m_sourceURL;
+	return m_sourceURL.get();
 }
 
 JSC::JSString * JSCStackFrame::functionName()
 {
 	if (!m_functionName)
 	{
-		m_functionName = retrieveFunctionName();
+		m_functionName.set(m_vm, retrieveFunctionName());
 	}
 
-	return m_functionName;
+	return m_functionName.get();
 }
 
 JSCStackFrame::SourcePositions * JSCStackFrame::getSourcePositions()
@@ -255,7 +250,7 @@ ALWAYS_INLINE JSC::JSString * JSCStackFrame::retrieveFunctionName()
 		return m_vm.smallStrings.emptyString();
 	}
 
-	JSC::JSObject * calleeAsObject = JSC::jsCast<JSC::JSObject *>(m_callee);
+	JSC::JSObject * calleeAsObject = JSC::jsCast<JSC::JSObject *>(m_callee.get());
 
 	// First, try the "displayName" property
 	JSC::JSValue displayName = calleeAsObject->getDirect(m_vm, m_vm.propertyNames->displayName);

@@ -27,8 +27,8 @@ private:
 	JSC::WriteBarrier<JSC::Unknown> m_function;
 	JSC::WriteBarrier<JSC::Unknown> m_functionName;
 	JSC::WriteBarrier<JSC::Unknown> m_sourceURL;
-	JSC::JSValue m_lineNumber;
-	JSC::JSValue m_columnNumber;
+	int m_lineNumber { -1 };
+	int m_columnNumber { -1 };
 	unsigned int m_flags;
 
 public:
@@ -53,8 +53,8 @@ public:
 	JSC::JSValue function() const { return m_function.get(); }
 	JSC::JSValue functionName() const { return m_functionName.get(); }
 	JSC::JSValue sourceURL() const { return m_sourceURL.get(); }
-	JSC::JSValue lineNumber() const { return m_lineNumber; }
-	JSC::JSValue columnNumber() const { return m_columnNumber; }
+	JSC::JSValue lineNumber() const { return JSC::jsNumber(m_lineNumber); }
+	JSC::JSValue columnNumber() const { return JSC::jsNumber(m_columnNumber); }
 	bool isEval() const { return m_flags & static_cast<unsigned int>(Flags::IsEval); }
 	bool isConstructor() const { return m_flags & static_cast<unsigned int>(Flags::IsConstructor); }
 	bool isStrict() const { return m_flags & static_cast<unsigned int>(Flags::IsStrict); }
@@ -62,9 +62,7 @@ public:
 private:
 	/* Note that v8's JSStackFrame::GetLineNumber & JSStackFrame::GetColumnNumber (messages.cc) fallback to -1, 
 	 * so we'll do the same */
-	CallSite(JSC::VM& vm, JSC::Structure * structure) : Base(vm, structure),
-		m_lineNumber(-1),
-		m_columnNumber(-1)
+	CallSite(JSC::VM& vm, JSC::Structure * structure) : Base(vm, structure)
 	{
 	}
 

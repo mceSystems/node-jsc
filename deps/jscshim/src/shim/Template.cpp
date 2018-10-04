@@ -35,7 +35,10 @@ void Template::SetProperty(JSC::ExecState * exec, JSC::JSCell * name, JSC::JSVal
 		}
 	}
 
-	m_properties.append(std::make_unique<TemplateValueProperty>(exec, this, name, attributes, value));
+	{
+		auto locker = holdLock(cellLock());
+		m_properties.append(std::make_unique<TemplateValueProperty>(exec, this, name, attributes, value));
+	}
 }
 
 void Template::SetAccessorProperty(JSC::ExecState			 * exec,
@@ -44,6 +47,7 @@ void Template::SetAccessorProperty(JSC::ExecState			 * exec,
 								   jscshim::FunctionTemplate * setter,
 								   int						 attributes)
 {
+	auto locker = holdLock(cellLock());
 	m_properties.append(std::make_unique<TemplateAccessorProperty>(exec,
 																   this,
 																   name,
@@ -61,6 +65,7 @@ void Template::SetAccessor(JSC::ExecState				  * exec,
 						   int							  attributes,
 						   bool							  isSpecialDataProperty)
 {
+	auto locker = holdLock(cellLock());
 	m_properties.append(std::make_unique<TemplateAccessor>(exec,
 														   this,
 														   name,
@@ -165,10 +170,13 @@ void Template::visitChildren(JSC::JSCell* cell, JSC::SlotVisitor& visitor)
 	Template * thisObject = JSC::jsCast<Template *>(cell);
 
 	visitor.append(thisObject->m_callAsFunctionCallbackData);
-	for (auto& property : thisObject->m_properties)
 	{
-		property->visitChildren(visitor);
-	}	
+		auto locker = holdLock(thisObject->cellLock());
+		for (auto& property : thisObject->m_properties)
+		{
+			property->visitAggregate(visitor);
+		}
+	}
 }
 
 void Template::ensureNotInstantiated(const char * v8Caller) const

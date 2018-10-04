@@ -22,7 +22,7 @@ protected:
 	unsigned int m_attributes;
 
 public:
-	virtual void visitChildren(JSC::SlotVisitor& visitor)
+	virtual void visitAggregate(JSC::SlotVisitor& visitor)
 	{
 		// Note: Using "append" causes a compilation error
 		visitor.append(m_name);
@@ -37,7 +37,7 @@ protected:
 	TemplateProperty(JSC::ExecState * exec, JSC::JSCell * owner, JSC::JSCell * name, unsigned int attributes);
 };
 
-class TemplateValueProperty : public TemplateProperty
+class TemplateValueProperty final : public TemplateProperty
 {
 private:
 	JSC::WriteBarrier<JSC::Unknown> m_value;
@@ -49,9 +49,9 @@ public:
 						  unsigned int	 attributes, 
 						  JSC::JSValue	 value);
 
-	virtual void visitChildren(JSC::SlotVisitor& visitor) override
+	virtual void visitAggregate(JSC::SlotVisitor& visitor) override
 	{
-		TemplateProperty::visitChildren(visitor);
+		TemplateProperty::visitAggregate(visitor);
 
 		// Note: Using "append" causes a compilation error
 		visitor.append(m_value);
@@ -60,7 +60,7 @@ public:
 	virtual JSC::JSValue instantiate(JSC::VM& vm, JSC::ExecState * exec, bool isHiddenPrototype) override;
 };
 
-class TemplateAccessorProperty : public TemplateProperty
+class TemplateAccessorProperty final : public TemplateProperty
 {
 private:
 	JSC::WriteBarrier<jscshim::FunctionTemplate> m_setter;
@@ -74,12 +74,12 @@ public:
 							 jscshim::FunctionTemplate	* getter, 
 							 jscshim::FunctionTemplate	* setter);
 
-	virtual void visitChildren(JSC::SlotVisitor& visitor) override;
+	virtual void visitAggregate(JSC::SlotVisitor& visitor) override;
 
 	virtual JSC::JSValue instantiate(JSC::VM& vm, JSC::ExecState * exec, bool isHiddenPrototype) override;
 };
 
-class TemplateAccessor : public TemplateProperty
+class TemplateAccessor final : public TemplateProperty
 {
 private:
 	// TODO: Poison?
@@ -100,7 +100,7 @@ public:
 					 FunctionTemplate				* signature,
 					 bool							isSpecialDataProperty);
 
-	virtual void visitChildren(JSC::SlotVisitor& visitor) override;
+	virtual void visitAggregate(JSC::SlotVisitor& visitor) override;
 
 	virtual JSC::JSValue instantiate(JSC::VM& vm, JSC::ExecState * exec, bool isHiddenPrototype) override;
 };

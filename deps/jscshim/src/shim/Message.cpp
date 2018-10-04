@@ -94,8 +94,10 @@ void Message::visitChildren(JSC::JSCell * cell, JSC::SlotVisitor& visitor)
 
 	Message * thisMessage = JSC::jsCast<Message *>(cell);
 	visitor.append(thisMessage->m_message);
+	visitor.append(thisMessage->m_resourceName);
 	visitor.append(thisMessage->m_sourceLine);
 	visitor.append(thisMessage->m_stackTrace);
+	visitor.append(thisMessage->m_sourceMapUrl);
 }
 
 // General flow here is based on JSC's appendSourceToError (ErrorInstance.cpp)

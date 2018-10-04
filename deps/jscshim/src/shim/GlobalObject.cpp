@@ -96,6 +96,7 @@ void GlobalObject::visitChildren(JSC::JSCell* cell, JSC::SlotVisitor& visitor)
 	visitor.append(thisObject->m_shimExternalStructure);
 	thisObject->m_shimStackTraceStructure.visit(visitor);
 	thisObject->m_shimStackFrameStructure.visit(visitor);
+	thisObject->m_shimMessageStructure.visit(visitor);
 	thisObject->m_callSiteStructure.visit(visitor);
 	thisObject->m_callSitePrototype.visit(visitor);
 

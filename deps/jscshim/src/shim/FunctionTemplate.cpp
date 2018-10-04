@@ -214,6 +214,7 @@ void FunctionTemplate::visitChildren(JSC::JSCell* cell, JSC::SlotVisitor& visito
 	visitor.append(thisObject->m_prototypeProviderTemplate);
 	visitor.append(thisObject->m_prototypeTemplate);
 	visitor.append(thisObject->m_instanceTemplate);
+	visitor.append(thisObject->m_signature);
 	visitor.append(thisObject->m_templateClassName);
 }
 

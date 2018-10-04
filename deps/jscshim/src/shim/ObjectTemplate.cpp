@@ -31,6 +31,7 @@ void ObjectTemplate::visitChildren(JSC::JSCell* cell, JSC::SlotVisitor& visitor)
 
 	ObjectTemplate * thisTemplate = JSC::jsCast<ObjectTemplate *>(cell);
 	visitor.append(thisTemplate->m_objectStructure);
+	visitor.append(thisTemplate->m_constructor);
 }
 
 // TODO: Handle hidden prototypes
