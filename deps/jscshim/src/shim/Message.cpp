@@ -95,7 +95,7 @@ void Message::visitChildren(JSC::JSCell * cell, JSC::SlotVisitor& visitor)
 	Message * thisMessage = JSC::jsCast<Message *>(cell);
 	visitor.append(thisMessage->m_message);
 	visitor.append(thisMessage->m_sourceLine);
-	visitor.appendUnbarriered(thisMessage->m_stackTrace.get());
+	visitor.append(thisMessage->m_stackTrace);
 }
 
 // General flow here is based on JSC's appendSourceToError (ErrorInstance.cpp)

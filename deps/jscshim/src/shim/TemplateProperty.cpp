@@ -100,8 +100,8 @@ void TemplateAccessorProperty::visitChildren(JSC::SlotVisitor& visitor)
 	TemplateProperty::visitChildren(visitor);
 
 	// Note: Using "append" causes a compilation error
-	visitor.appendUnbarriered(m_getter.get());
-	visitor.appendUnbarriered(m_setter.get());
+	visitor.append(m_getter);
+	visitor.append(m_setter);
 }
 
 JSC::JSValue TemplateAccessorProperty::instantiate(JSC::VM& vm, JSC::ExecState * exec, bool isHiddenPrototype)
@@ -155,7 +155,7 @@ void TemplateAccessor::visitChildren(JSC::SlotVisitor& visitor)
 
 	// Note: Using "append" for m_signature causes a compilation error
 	visitor.append(m_data);
-	visitor.appendUnbarriered(m_signature.get());
+	visitor.append(m_signature);
 }
 
 JSC::JSValue TemplateAccessor::instantiate(JSC::VM& vm, JSC::ExecState * exec, bool isHiddenPrototype)

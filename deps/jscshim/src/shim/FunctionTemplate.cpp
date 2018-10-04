@@ -210,10 +210,10 @@ void FunctionTemplate::visitChildren(JSC::JSCell* cell, JSC::SlotVisitor& visito
 	Base::visitChildren(cell, visitor);
 
 	FunctionTemplate * thisObject = JSC::jsCast<FunctionTemplate *>(cell);
-	visitor.appendUnbarriered(thisObject->m_parentTemplate.get());
-	visitor.appendUnbarriered(thisObject->m_prototypeProviderTemplate.get());
-	visitor.appendUnbarriered(thisObject->m_prototypeTemplate.get());
-	visitor.appendUnbarriered(thisObject->m_instanceTemplate.get());
+	visitor.append(thisObject->m_parentTemplate);
+	visitor.append(thisObject->m_prototypeProviderTemplate);
+	visitor.append(thisObject->m_prototypeTemplate);
+	visitor.append(thisObject->m_instanceTemplate);
 	visitor.append(thisObject->m_templateClassName);
 }
 

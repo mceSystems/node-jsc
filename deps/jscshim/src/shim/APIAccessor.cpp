@@ -33,7 +33,7 @@ void APIAccessor::visitChildren(JSC::JSCell * cell, JSC::SlotVisitor& visitor)
 	APIAccessor * thisObject = JSC::jsCast<APIAccessor *>(cell);
 	visitor.append(thisObject->m_name);
 	visitor.append(thisObject->m_data);
-	visitor.appendUnbarriered(thisObject->m_signature.get());
+	visitor.append(thisObject->m_signature);
 }
 
 /* TODO: Should we call Isolate::HandleThrownException in getter\setter? If we're being called from JS, 

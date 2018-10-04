@@ -33,7 +33,7 @@ void Object::visitChildren(JSC::JSCell * cell, JSC::SlotVisitor& visitor)
 	Base::visitChildren(cell, visitor);
 
 	Object * thisObject = JSC::jsCast<Object *>(cell);
-	visitor.appendUnbarriered(thisObject->m_template.get());
+	visitor.append(thisObject->m_template);
 }
 
 JSC::CallType Object::getCallData(JSC::JSCell * cell, JSC::CallData& callData)

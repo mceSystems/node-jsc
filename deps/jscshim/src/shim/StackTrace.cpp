@@ -47,7 +47,7 @@ void StackTrace::visitChildren(JSC::JSCell* cell, JSC::SlotVisitor& visitor)
 	for (auto& frame : thisObject->m_frames)
 	{
 		// Note: Using "append" causes a compilation error
-		visitor.appendUnbarriered(frame.get());
+		visitor.append(frame);
 	}
 }
 

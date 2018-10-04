@@ -25,7 +25,7 @@ public:
 	virtual void visitChildren(JSC::SlotVisitor& visitor)
 	{
 		// Note: Using "append" causes a compilation error
-		visitor.appendUnbarriered(m_name.get());
+		visitor.append(m_name);
 	}
 
 	virtual JSC::JSValue instantiate(JSC::VM& vm, JSC::ExecState * exec, bool isHiddenPrototype) = 0;
@@ -54,7 +54,7 @@ public:
 		TemplateProperty::visitChildren(visitor);
 
 		// Note: Using "append" causes a compilation error
-		visitor.appendUnbarriered(m_value.get());
+		visitor.append(m_value);
 	}
 
 	virtual JSC::JSValue instantiate(JSC::VM& vm, JSC::ExecState * exec, bool isHiddenPrototype) override;

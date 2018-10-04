@@ -44,7 +44,7 @@ void PromiseResolver::visitChildren(JSC::JSCell* cell, JSC::SlotVisitor& visitor
 	Base::visitChildren(cell, visitor);
 
 	PromiseResolver * thisObject = JSC::jsCast<PromiseResolver *>(cell);
-	visitor.appendUnbarriered(thisObject->m_promise.get());
+	visitor.append(thisObject->m_promise);
 	visitor.append(thisObject->m_resolver);
 	visitor.append(thisObject->m_rejector);
 }
