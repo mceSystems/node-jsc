@@ -29,7 +29,7 @@ namespace v8 { namespace jscshim
 thread_local std::stack<Isolate *> Isolate::s_isolateStack;
 
 #ifdef DEBUG
-std::atomic<size_t> Isolate::s_nonDisposedIsolates = 0;
+std::atomic<size_t> Isolate::s_nonDisposedIsolates { 0 };
 #endif
 
 Isolate::Isolate(JSC::VM * vm, v8::ArrayBuffer::Allocator * arrayBufferAllocator) :
