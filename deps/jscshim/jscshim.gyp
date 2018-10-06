@@ -36,6 +36,7 @@
         ],
       }],
       ['OS in "linux"', {
+        'cflags': [ '-Wno-expansion-to-defined' ],
         'cflags_cc': [ '-fexceptions', '-std=gnu++14' ],
       }],
       ['OS in "mac ios"', {
@@ -123,6 +124,7 @@
         ]
       }],
       ['OS in "linux"', {
+        'cflags': [ '-Wno-expansion-to-defined' ],
         'cflags_cc': [ '-fexceptions', '-std=gnu++14' ],
         'link_settings': {
           'libraries': [ '-ldl' ],
@@ -363,6 +365,7 @@
         ]
       }],
       ['OS in "linux"', {
+        'cflags': [ '-Wno-expansion-to-defined' ],
         'cflags_cc': [ '-fexceptions', '-std=gnu++14' ],
         'link_settings': {
           'libraries': [ '-ldl' ],
