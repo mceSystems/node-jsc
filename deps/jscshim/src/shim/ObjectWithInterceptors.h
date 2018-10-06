@@ -147,6 +147,8 @@ private:
 	static void getOwnNonIndexPropertyNames(JSC::JSObject *, JSC::ExecState *, JSC::PropertyNameArray&, JSC::EnumerationMode);
 
 	static uint32_t getEnumerableLength(JSC::ExecState * exec, JSC::JSObject * object);
+
+	static void destroy(JSC::JSCell*);
 	
 	// Taken from JSC's ProxyObject
 	static NO_RETURN_DUE_TO_CRASH void getStructurePropertyNames(JSC::JSObject *, JSC::ExecState *, JSC::PropertyNameArray&, JSC::EnumerationMode);

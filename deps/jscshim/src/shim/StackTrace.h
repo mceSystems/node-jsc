@@ -77,6 +77,7 @@ private:
 	void finishCreation(JSC::VM& vm, JSC::ExecState * exec, JSCStackTrace& stackTrace);
 
 	static void visitChildren(JSC::JSCell*, JSC::SlotVisitor&);
+	static void destroy(JSC::JSCell*);
 
 	// TODO: Rename as an overload to finishCreation?
 	void captureCurrentStackTrace(JSC::VM& vm, JSC::ExecState * exec, size_t frameLimit);

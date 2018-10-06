@@ -79,6 +79,7 @@ private:
 
 	void finishCreation(JSC::VM& vm, FunctionTemplate * constructor);
 	static void visitChildren(JSC::JSCell*, JSC::SlotVisitor&);
+	static void destroy(JSC::JSCell*);
 
 	static JSC::EncodedJSValue JSC_HOST_CALL instanceFunctionCall(JSC::ExecState * exec);
 	static JSC::EncodedJSValue JSC_HOST_CALL instanceConstructorCall(JSC::ExecState * exec);

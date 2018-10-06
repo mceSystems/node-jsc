@@ -6,13 +6,13 @@
 #pragma once
 
 #include <v8.h>
-#include <JavaScriptCore/JSDestructibleObject.h>
+#include <JavaScriptCore/JSObject.h>
 #include <JavaScriptCore/JSString.h>
 
 namespace v8 { namespace jscshim
 {
 
-class Script : public JSC::JSDestructibleObject {
+class Script : public JSC::JSNonFinalObject {
 private:
 	JSC::WriteBarrier<JSC::JSString> m_source;
 	JSC::WriteBarrier<JSC::JSString> m_resourceName;
@@ -21,7 +21,7 @@ private:
 	unsigned int m_resourceColumn;
 
 public:
-	typedef JSDestructibleObject Base;
+	using Base = JSC::JSNonFinalObject;
 
 	static Script * create(JSC::VM&		  vm, 
 						   JSC::Structure * structure, 

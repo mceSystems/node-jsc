@@ -5,18 +5,18 @@
 
 #pragma once
 
-#include <JavaScriptCore/JSDestructibleObject.h>
+#include <JavaScriptCore/JSObject.h>
 #include <JavaScriptCore/JSGlobalObject.h>
 
 namespace v8 { namespace jscshim
 {
 
-class External : public JSC::JSDestructibleObject {
+class External : public JSC::JSNonFinalObject {
 private:
 	void * m_value;
 
 public:
-	typedef JSDestructibleObject Base;
+	using Base = JSNonFinalObject;
 
 	static External* create(JSC::VM& vm, JSC::ExecState * exec, JSC::Structure * structure, void * value)
 	{

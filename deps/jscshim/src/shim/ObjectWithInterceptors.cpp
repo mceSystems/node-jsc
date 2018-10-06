@@ -462,6 +462,11 @@ uint32_t ObjectWithInterceptors::getEnumerableLength(JSC::ExecState * exec, JSC:
 	return Base::getEnumerableLength(exec, object);
 }
 
+void ObjectWithInterceptors::destroy(JSC::JSCell* cell)
+{
+	static_cast<ObjectWithInterceptors*>(cell)->~ObjectWithInterceptors();
+}
+
 template <typename InterceptorsType, typename JscPropertyNameType, typename v8PropertyNameType, typename DefaultHandlerType>
 bool ObjectWithInterceptors::performGetProperty(JSC::ExecState			   * exec,
 												InterceptorsType		   * interceptors,

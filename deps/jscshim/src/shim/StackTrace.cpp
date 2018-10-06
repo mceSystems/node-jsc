@@ -51,6 +51,11 @@ void StackTrace::visitChildren(JSC::JSCell* cell, JSC::SlotVisitor& visitor)
 	}
 }
 
+void StackTrace::destroy(JSC::JSCell* cell)
+{
+	static_cast<StackTrace*>(cell)->~StackTrace();
+}
+
 /* Note that at first I've allocated jscshim::StackFrame instances while walking the JSC stack. This failed 
  * because of an ASSERT in JSC's tryAllocateCellHelper, because of the JSC::DisallowGC used (which was there 
  * in JSC::Interpreter::getStackTrace). One possible solution is to use a JSC::GCDeferralContext, but besides needing

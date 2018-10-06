@@ -33,6 +33,11 @@ void ObjectTemplate::visitChildren(JSC::JSCell* cell, JSC::SlotVisitor& visitor)
 	visitor.append(thisTemplate->m_objectStructure);
 }
 
+void ObjectTemplate::destroy(JSC::JSCell* cell)
+{
+	static_cast<ObjectTemplate*>(cell)->~ObjectTemplate();
+}
+
 // TODO: Handle hidden prototypes
 Object * ObjectTemplate::makeNewObjectInstance(JSC::ExecState * exec, JSC::JSValue newTarget, Function * constructorInstance)
 {

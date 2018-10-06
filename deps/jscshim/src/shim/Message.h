@@ -9,12 +9,12 @@
 #include "StackTrace.h"
 #include "JSCStackTrace.h"
 
-#include <JavaScriptCore/JSDestructibleObject.h>
+#include <JavaScriptCore/JSObject.h>
 
 namespace v8 { namespace jscshim
 {
 
-class Message : public JSC::JSDestructibleObject {
+class Message : public JSC::JSNonFinalObject {
 private:
 	JSC::WriteBarrier<JSC::JSString> m_message;
 	JSC::WriteBarrier<JSC::JSString> m_resourceName;
@@ -32,7 +32,7 @@ private:
 	int m_expressionStop;
 
 public:
-	typedef JSDestructibleObject Base;
+	using Base = JSC::JSNonFinalObject;
 
 	static Message * create(JSC::ExecState * exec, JSC::Structure * structure, JSC::Exception * exception, bool storeStackTrace)
 	{
