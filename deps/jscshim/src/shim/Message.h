@@ -14,7 +14,7 @@
 namespace v8 { namespace jscshim
 {
 
-class Message : public JSC::JSNonFinalObject {
+class Message final : public JSC::JSNonFinalObject {
 private:
 	JSC::WriteBarrier<JSC::JSString> m_message;
 	JSC::WriteBarrier<JSC::JSString> m_resourceName;

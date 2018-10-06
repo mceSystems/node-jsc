@@ -14,7 +14,7 @@
 namespace v8 { namespace jscshim
 {
 
-class StackFrame : public JSC::JSNonFinalObject {
+class StackFrame final : public JSC::JSNonFinalObject {
 private:
 	/* m_line and m_column are one based
 	 * TODO: Use WTF::OrdinalNumber? */

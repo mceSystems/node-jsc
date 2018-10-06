@@ -11,7 +11,7 @@
 namespace v8 { namespace jscshim
 {
 
-class External : public JSC::JSNonFinalObject {
+class External final : public JSC::JSNonFinalObject {
 private:
 	void * m_value;
 

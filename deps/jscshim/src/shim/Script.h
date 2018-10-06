@@ -12,7 +12,7 @@
 namespace v8 { namespace jscshim
 {
 
-class Script : public JSC::JSNonFinalObject {
+class Script final : public JSC::JSNonFinalObject {
 private:
 	JSC::WriteBarrier<JSC::JSString> m_source;
 	JSC::WriteBarrier<JSC::JSString> m_resourceName;

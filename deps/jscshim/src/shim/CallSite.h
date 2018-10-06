@@ -13,7 +13,7 @@
 namespace v8 { namespace jscshim
 {
 
-class CallSite : public JSC::JSNonFinalObject {
+class CallSite final : public JSC::JSNonFinalObject {
 public:
 	enum class Flags
 	{

@@ -17,7 +17,7 @@
 namespace v8 { namespace jscshim
 {
 
-class StackTrace : public JSC::JSDestructibleObject {
+class StackTrace final : public JSC::JSDestructibleObject {
 private:
 	WTF::Vector<JSC::WriteBarrier<StackFrame>> m_frames;
 

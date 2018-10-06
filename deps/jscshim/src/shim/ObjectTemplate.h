@@ -16,7 +16,7 @@ namespace v8 { namespace jscshim
 class FunctionTemplate;
 class Object;
 
-class ObjectTemplate : public Template {
+class ObjectTemplate final : public Template {
 private:
 	friend class Object;
 	friend class ObjectWithInterceptors;

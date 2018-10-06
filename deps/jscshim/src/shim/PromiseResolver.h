@@ -16,7 +16,7 @@ namespace v8 { namespace jscshim
 {
 
 // PromiseResolver is a shim for v8::PromiseResolver, which also acts the promise's executor (to get the resolve\reject callbacks)
-class PromiseResolver : public JSC::InternalFunction
+class PromiseResolver final : public JSC::InternalFunction
 {
 private:
 	JSC::WriteBarrier<JSC::JSPromise> m_promise;
