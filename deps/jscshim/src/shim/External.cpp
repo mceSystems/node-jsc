@@ -11,6 +11,6 @@
 namespace v8 { namespace jscshim
 {
 
-const JSC::ClassInfo External::s_info = { "JSCShimAPIAccessor", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(External) };
+const JSC::ClassInfo External::s_info = { "JSCShimExternal", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(External) };
 
 }} // v8::jscshim

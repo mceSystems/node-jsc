@@ -16,7 +16,7 @@ namespace v8 { namespace jscshim
 class Isolate;
 class JSCStackTrace;
 
-class GlobalObject : public JSC::JSGlobalObject {
+class GlobalObject final : public JSC::JSGlobalObject {
 private:
 	// v8 reserves the first slot to itself, and node uses another one (in node_contextify.cc)
 	static int constexpr EMBEDDER_DATA_INITIAL_SIZE = 2;

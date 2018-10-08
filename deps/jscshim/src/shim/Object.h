@@ -65,6 +65,8 @@ protected:
 
 	static void visitChildren(JSC::JSCell*, JSC::SlotVisitor&);
 
+	static void destroy(JSC::JSCell*);
+
 	static WTF::String className(const JSObject * object, JSC::VM& vm);
 };
 

@@ -16,7 +16,7 @@
 namespace
 {
 
-class PersistentBaseWeakHandleOwner : public JSC::WeakHandleOwner
+class PersistentBaseWeakHandleOwner final : public JSC::WeakHandleOwner
 {
 public:
 	PersistentBaseWeakHandleOwner() {}

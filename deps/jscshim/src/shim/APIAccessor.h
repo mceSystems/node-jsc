@@ -36,7 +36,7 @@ class FunctionTemplate;
  * There's also a comment in v8's https://github.com/v8/v8/commit/1da951ad0bd1a3c2247863060b87adeaef68fbd8
  * commit, saying "properties set by SetNativeDataProperty without kReadOnly flag can be replaced".
  * So basically, it seems that SetNativeDataProperty properties are "just" replaceables accessors. */
-class APIAccessor : public JSC::CustomAPIValue
+class APIAccessor final : public JSC::CustomAPIValue
 {
 private:
 	// TODO: Poison

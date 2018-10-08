@@ -14,7 +14,7 @@
 namespace v8 { namespace jscshim
 {
 
-class Function : public JSC::InternalFunction
+class Function final : public JSC::InternalFunction
 {
 private:
 	JSC::WriteBarrier<FunctionTemplate> m_functionTemplate;

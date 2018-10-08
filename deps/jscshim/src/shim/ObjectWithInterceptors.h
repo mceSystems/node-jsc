@@ -13,7 +13,7 @@
 namespace v8 { namespace jscshim
 {
 
-class ObjectWithInterceptors : public jscshim::Object {
+class ObjectWithInterceptors final : public jscshim::Object {
 private:
 	/* A helper for creating and passing a local v8::PropertyCallbackInfo instance and a JSValue return value.
 	 * Regarding "this" and "holder" values, From v8's docs: 
@@ -147,6 +147,8 @@ private:
 	static void getOwnNonIndexPropertyNames(JSC::JSObject *, JSC::ExecState *, JSC::PropertyNameArray&, JSC::EnumerationMode);
 
 	static uint32_t getEnumerableLength(JSC::ExecState * exec, JSC::JSObject * object);
+
+	static void destroy(JSC::JSCell*);
 	
 	// Taken from JSC's ProxyObject
 	static NO_RETURN_DUE_TO_CRASH void getStructurePropertyNames(JSC::JSObject *, JSC::ExecState *, JSC::PropertyNameArray&, JSC::EnumerationMode);

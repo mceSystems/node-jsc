@@ -8,13 +8,13 @@
 #include <v8.h>
 #include "JSCStackTrace.h"
 
-#include <JavaScriptCore/JSDestructibleObject.h>
+#include <JavaScriptCore/JSObject.h>
 #include <JavaScriptCore/JSString.h>
 
 namespace v8 { namespace jscshim
 {
 
-class StackFrame : public JSC::JSDestructibleObject {
+class StackFrame final : public JSC::JSNonFinalObject {
 private:
 	/* m_line and m_column are one based
 	 * TODO: Use WTF::OrdinalNumber? */
@@ -27,7 +27,7 @@ private:
 	JSC::WriteBarrier<JSC::JSString> m_scriptName;
 
 public:
-	typedef JSDestructibleObject Base;
+	using Base = JSC::JSNonFinalObject;
 
 	static StackFrame* create(JSC::VM& vm, JSC::Structure* structure, JSCStackFrame& jsFrame)
 	{

@@ -12,7 +12,7 @@
 namespace v8 { namespace jscshim
 {
 
-class CallSitePrototype : public JSC::JSNonFinalObject {
+class CallSitePrototype final : public JSC::JSNonFinalObject {
 public:
 	typedef JSNonFinalObject Base;
 

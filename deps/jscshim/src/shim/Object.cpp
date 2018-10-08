@@ -36,6 +36,11 @@ void Object::visitChildren(JSC::JSCell * cell, JSC::SlotVisitor& visitor)
 	visitor.appendUnbarriered(thisObject->m_template.get());
 }
 
+void Object::destroy(JSC::JSCell* cell)
+{
+	static_cast<Object*>(cell)->~Object();
+}
+
 JSC::CallType Object::getCallData(JSC::JSCell * cell, JSC::CallData& callData)
 {
 	Object * object = JSC::jsCast<Object*>(cell);

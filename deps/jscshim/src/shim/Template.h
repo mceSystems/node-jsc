@@ -74,6 +74,7 @@ protected:
 	void finishCreation(JSC::VM& vm, const WTF::String& name);
 
 	static void visitChildren(JSC::JSCell*, JSC::SlotVisitor&);
+	static void destroy(JSC::JSCell*);
 
 	void applyPropertiesToInstance(JSC::ExecState * exec, JSC::JSObject * instance);
 

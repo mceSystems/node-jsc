@@ -171,6 +171,11 @@ void Template::visitChildren(JSC::JSCell* cell, JSC::SlotVisitor& visitor)
 	}	
 }
 
+void Template::destroy(JSC::JSCell* cell)
+{
+	static_cast<Template*>(cell)->~Template();
+}
+
 void Template::ensureNotInstantiated(const char * v8Caller) const
 {
 	if (m_instantiated)
