@@ -29,10 +29,7 @@ public:
 	template<typename CellType>
 	static JSC::IsoSubspace * subspaceFor(JSC::VM& vm)
 	{
-		jscshim::Isolate * currentIsolate = jscshim::Isolate::GetCurrent();
-		RELEASE_ASSERT(&currentIsolate->VM() == &vm);
-
-		return currentIsolate->PromiseResolverSpace();
+		return static_cast<jscshim::Isolate*>(vm.clientData)->PromiseResolverSpace();
 	}
 
 	static PromiseResolver* create(JSC::VM& vm, JSC::Structure* structure, JSC::ExecState * exec)

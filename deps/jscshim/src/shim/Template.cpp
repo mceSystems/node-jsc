@@ -146,7 +146,7 @@ JSC::JSValue Template::forwardCallToCallback(JSC::ExecState		  * exec,
 													 Local<Value>(newTarget),
 													 isConstructorCall,
 													 Local<Value>(m_callAsFunctionCallbackData.get()),
-													 reinterpret_cast<v8::Isolate *>(m_isolate),
+													 reinterpret_cast<v8::Isolate *>(GetIsolate(exec->vm())),
 													 &returnValue);
 	m_callAsFunctionCallback(callbackInfo);
 

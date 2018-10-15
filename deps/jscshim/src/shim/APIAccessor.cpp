@@ -7,6 +7,7 @@
 #include "APIAccessor.h"
 
 #include "FunctionTemplate.h"
+#include "GlobalObjectInlines.h"
 #include "helpers.h"
 
 #include <CatchScope.h>
@@ -46,7 +47,8 @@ JSC::JSValue APIAccessor::getter(Base				* thisApiValue,
 								 JSC::JSValue		receiver, 
 								 JSC::PropertyName	propertyName)
 {
-	APIAccessor * accessorInstance = JSC::jsDynamicCast<APIAccessor *>(exec->vm(), thisApiValue);
+	JSC::VM& vm = exec->vm();
+	APIAccessor * accessorInstance = JSC::jsDynamicCast<APIAccessor *>(vm, thisApiValue);
 	ASSERT(accessorInstance);
 
 	// Get "this" value and verify it with our signature (if needed)
@@ -66,11 +68,10 @@ JSC::JSValue APIAccessor::getter(Base				* thisApiValue,
 	
 	// Build the PropertyCallbackInfo for the callback
 	JSC::JSValue returnValue = JSC::jsUndefined();
-	v8::Isolate * isolate = reinterpret_cast<v8::Isolate *>(jscshim::GetGlobalObject(exec)->isolate());
 	v8::PropertyCallbackInfo<v8::Value> callbackInfo(Local<v8::Object>(thisValue),
 													 Local<v8::Object>(JSC::JSValue(slotBase)),
 													 Local<Value>(accessorInstance->m_data.get()),
-													 isolate,
+													 reinterpret_cast<v8::Isolate *>(GetIsolate(vm)),
 													 &returnValue,
 													 false); // Always false for getters according to v8's docs
 
@@ -89,7 +90,8 @@ bool APIAccessor::setter(Base				* thisApiValue,
 						 JSC::JSValue		value,
 						 bool				isStrictMode)
 {
-	APIAccessor * accessorInstance = JSC::jsDynamicCast<APIAccessor *>(exec->vm(), thisApiValue);
+	JSC::VM& vm = exec->vm();
+	APIAccessor * accessorInstance = JSC::jsDynamicCast<APIAccessor *>(vm, thisApiValue);
 	ASSERT(accessorInstance);
 
 	// Get "this" value and verify it with our signature (if needed)
@@ -111,11 +113,10 @@ bool APIAccessor::setter(Base				* thisApiValue,
 	/* Build the PropertyCallbackInfo for the callback.
 	 * Note that according to v8's docs, setters should "throw on error" in strict mode. */
 	JSC::JSValue returnValue = JSC::jsUndefined();
-	v8::Isolate * isolate = reinterpret_cast<v8::Isolate *>(jscshim::GetGlobalObject(exec)->isolate());
 	v8::PropertyCallbackInfo<void> callbackInfo(Local<v8::Object>(thisValue),
 												Local<v8::Object>(JSC::JSValue(slotBase)),
 												Local<Value>(accessorInstance->m_data.get()),
-												isolate,
+												reinterpret_cast<v8::Isolate *>(GetIsolate(vm)),
 												&returnValue,
 												isStrictMode);
 
@@ -146,7 +147,7 @@ JSC::JSValue APIAccessor::throwIncompatibleMethodReceiverError(JSC::ExecState * 
 
 	/* v8's Object::GetPropertyWithAccessor\SetPropertyWithAccessor will throw a type error.
 	 * The error message was also taken from v8 (kIncompatibleMethodReceiver in messages.h) */
-	auto scope = DECLARE_THROW_SCOPE(exec->vm());
+	auto scope = DECLARE_THROW_SCOPE(vm);
 
 	WTF::String accessorName = JSC::JSValue(m_name.get()).toWTFString(exec);
 	WTF::String receiverName = receiver.toWTFString(exec);

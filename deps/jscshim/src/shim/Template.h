@@ -23,7 +23,6 @@ class FunctionTemplate;
 
 class Template : public JSC::InternalFunction {
 protected:
-	Isolate * m_isolate;
 	bool m_forceFunctionInstantiation;
 
 	v8::FunctionCallback m_callAsFunctionCallback;
@@ -61,10 +60,8 @@ public:
 protected:
 	Template(JSC::VM&			 vm,
 			 JSC::Structure		 * structure,
-			 Isolate			 * isolate,
 			 JSC::NativeFunction functionForCall,
 			 JSC::NativeFunction functionForConstruct) : Base(vm, structure, functionForCall, functionForConstruct),
-		m_isolate(isolate),
 		m_forceFunctionInstantiation(false),
 		m_callAsFunctionCallback(nullptr),
 		m_instantiated(false)

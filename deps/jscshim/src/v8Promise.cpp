@@ -97,7 +97,7 @@ bool Promise::HasHandler()
 {
 	JSC::JSPromise * thisPromise = GET_JSC_THIS_PROMISE();
 	JSC::VM& vm = *thisPromise->vm();
-	DECLARE_SHIM_EXCEPTION_SCOPE(jscshim::Isolate::GetCurrent());
+	DECLARE_SHIM_EXCEPTION_SCOPE(jscshim::GetIsolate(vm));
 
 	return thisPromise->isHandled(vm);
 }
@@ -106,7 +106,7 @@ Local<Value> Promise::Result()
 {
 	JSC::JSPromise * thisPromise = GET_JSC_THIS_PROMISE();
 	JSC::VM& vm = *thisPromise->vm();
-	DECLARE_SHIM_EXCEPTION_SCOPE(jscshim::Isolate::GetCurrent());
+	DECLARE_SHIM_EXCEPTION_SCOPE(jscshim::GetIsolate(vm));
 
 	jscshim::ApiCheck(JSC::JSPromise::Status::Pending != thisPromise->status(vm), 
 					  "v8_Promise_Result",
@@ -119,7 +119,7 @@ Promise::PromiseState Promise::State()
 {
 	JSC::JSPromise * thisPromise = GET_JSC_THIS_PROMISE();
 	JSC::VM& vm = *thisPromise->vm();
-	DECLARE_SHIM_EXCEPTION_SCOPE(jscshim::Isolate::GetCurrent());
+	DECLARE_SHIM_EXCEPTION_SCOPE(jscshim::GetIsolate(vm));
 
 	JSC::JSPromise::Status state = thisPromise->status(vm);
 

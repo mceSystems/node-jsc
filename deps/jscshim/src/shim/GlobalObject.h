@@ -23,8 +23,6 @@ private:
 
 	template<typename T> using Initializer = typename JSC::LazyProperty<GlobalObject, T>::Initializer;
 
-	Isolate * m_isolate;
-
 	/* In jscshim, a v8::Context is actually just the global object. But in v8 they're different
 	 * entities. They also have different internal\embedded fields: Contexts have auto-growing 
 	 * "embedder" data, while global objects might have internal fields (if they were created
@@ -60,7 +58,7 @@ private:
 public:
 	typedef JSC::JSGlobalObject Base;
 
-	static GlobalObject * create(JSC::VM& vm, JSC::Structure * structure, Isolate * isolate, int globalInternalFieldCount);
+	static GlobalObject * create(JSC::VM& vm, JSC::Structure * structure, int globalInternalFieldCount);
 
 	static const bool needsDestruction = true;
 
@@ -91,7 +89,7 @@ public:
 
 	JSC::JSValue objectProtoToString() const { return m_objectProtoToString.get(); }
 	
-	Isolate * isolate() const { return m_isolate; }
+	Isolate * isolate() const;
 	JSC::ExecState * v8ContextExec() const { return m_contextExec; }
 
 	EmbeddedFieldsContainer<false>& globalInternalFields() { return m_globalInternalFields; }
@@ -105,7 +103,7 @@ public:
 	void setAlignedPointerInEmbedderData(int index, void * value);
 
 private:
-	GlobalObject(JSC::VM& vm, JSC::Structure * structure, Isolate * isolate, int globalInternalFieldCount);
+	GlobalObject(JSC::VM& vm, JSC::Structure * structure, int globalInternalFieldCount);
 
 	~GlobalObject() {}
 

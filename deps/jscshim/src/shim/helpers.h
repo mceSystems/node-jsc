@@ -6,7 +6,7 @@
 #pragma once
 
 #include "Isolate.h"
-#include "GlobalObject.h"
+#include "GlobalObjectInlines.h"
 #include "exceptions.h"
 
 #include <JavaScriptCore/CodeBlock.h>
@@ -79,6 +79,11 @@ inline JSC::ExecState * GetExecStateForV8Context(v8::Context * context)
 inline JSC::VM& GetCurrentVM()
 {
 	return reinterpret_cast<jscshim::Isolate *>(v8::Isolate::GetCurrent())->VM();
+}
+
+inline jscshim::Isolate* GetIsolate(JSC::VM& vm)
+{
+	return static_cast<jscshim::Isolate*>(vm.clientData);
 }
 
 inline JSC::ExecState * GetCurrentExecState()

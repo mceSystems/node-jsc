@@ -7,7 +7,7 @@
 #include "v8.h"
 
 #include "shim/helpers.h"
-#include "shim/GlobalObject.h"
+#include "shim/GlobalObjectInlines.h"
 #include "shim/FunctionTemplate.h"
 #include "shim/Object.h"
 #include "shim/ObjectTemplate.h"
@@ -76,14 +76,12 @@ Local<Context> Context::New(Isolate* isolate,
 
 		globalObject = jscshim::GlobalObject::create(vm,
 													 jscshim::GlobalObject::createStructure(vm, globalObjectPrototype),
-													 jscIsolate,
 													 globalObjectTemplate->internalFieldCount());
 	}
 	else
 	{
 		globalObject = jscshim::GlobalObject::create(vm,
 													 jscshim::GlobalObject::createStructure(vm, JSC::jsNull()),
-													 jscIsolate,
 													 0);
 	}
 

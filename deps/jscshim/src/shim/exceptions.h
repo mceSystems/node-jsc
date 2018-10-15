@@ -6,7 +6,7 @@
 #pragma once
 
 #include "Isolate.h"
-#include "GlobalObject.h"
+#include "GlobalObjectInlines.h"
 
 #include <JavaScriptCore/ThrowScope.h>
 #include <JavaScriptCore/CatchScope.h>

@@ -222,6 +222,7 @@
       'src/shim/FunctionTemplate.h',
       'src/shim/GlobalObject.cpp',
       'src/shim/GlobalObject.h',
+      'src/shim/GlobalObjectInlines.h',
       'src/shim/helpers.h',
       'src/shim/InterceptorInfo.h',
       'src/shim/Isolate.cpp',

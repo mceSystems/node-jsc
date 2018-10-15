@@ -70,9 +70,9 @@ const JSC::GlobalObjectMethodTable GlobalObject::globalObjectMethodTable = {
 	nullptr  // instantiateStreaming
 };
 
-GlobalObject * GlobalObject::create(JSC::VM& vm, JSC::Structure * structure, Isolate * isolate, int globalInternalFieldCount)
+GlobalObject * GlobalObject::create(JSC::VM& vm, JSC::Structure * structure, int globalInternalFieldCount)
 {
-	GlobalObject * global = new (NotNull, JSC::allocateCell<GlobalObject>(vm.heap)) GlobalObject(vm, structure, isolate, globalInternalFieldCount);
+	GlobalObject * global = new (NotNull, JSC::allocateCell<GlobalObject>(vm.heap)) GlobalObject(vm, structure, globalInternalFieldCount);
 	global->finishCreation(vm);
 	return global;
 }
@@ -126,8 +126,7 @@ void GlobalObject::setAlignedPointerInEmbedderData(int index, void * value)
 	m_contextEmbedderData.SetAlignedPointer(index, value);
 }
 
-GlobalObject::GlobalObject(JSC::VM& vm, JSC::Structure * structure, Isolate * isolate, int globalInternalFieldCount) : JSGlobalObject(vm, structure, &globalObjectMethodTable),
-	m_isolate(isolate),
+GlobalObject::GlobalObject(JSC::VM& vm, JSC::Structure * structure, int globalInternalFieldCount) : JSGlobalObject(vm, structure, &globalObjectMethodTable),
 	m_contextEmbedderData(EMBEDDER_DATA_INITIAL_SIZE),
 	m_globalInternalFields(globalInternalFieldCount)
 {
@@ -229,9 +228,10 @@ void GlobalObject::setupObjectProtoAccessor(JSC::VM& vm)
 
 void GlobalObject::promiseRejectionTracker(JSGlobalObject * jsGlobalObject, JSC::ExecState* exec, JSC::JSPromise* promise, JSC::JSPromiseRejectionOperation operation)
 {
+	JSC::VM& vm = exec->vm();
 	GlobalObject * self = JSC::jsCast<GlobalObject *>(jsGlobalObject);
 
-	v8::PromiseRejectCallback userCallback = self->m_isolate->PromiseRejectCallback();
+	v8::PromiseRejectCallback userCallback = GetIsolate(vm)->PromiseRejectCallback();
 	if (nullptr == userCallback)
 	{
 		return;

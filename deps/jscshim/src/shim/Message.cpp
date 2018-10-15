@@ -5,6 +5,8 @@
 
 #include "config.h"
 #include "Message.h"
+
+#include "GlobalObjectInlines.h"
 #include "helpers.h"
 
 #include <JavaScriptCore/Exception.h>

@@ -33,17 +33,12 @@ public:
 	template<typename CellType>
 	static JSC::IsoSubspace * subspaceFor(JSC::VM& vm)
 	{
-		jscshim::Isolate * currentIsolate = jscshim::Isolate::GetCurrent();
-		RELEASE_ASSERT(&currentIsolate->VM() == &vm);
-
-		return currentIsolate->ObjectTemplateSpace();
+		return static_cast<jscshim::Isolate*>(vm.clientData)->ObjectTemplateSpace();
 	}
 
 	static ObjectTemplate* create(JSC::VM& vm, JSC::Structure * structure, JSC::ExecState * exec, FunctionTemplate * constructor)
 	{
-		GlobalObject * global = GetGlobalObject(exec);
-
-		ObjectTemplate* newTemplate = new (NotNull, JSC::allocateCell<ObjectTemplate>(vm.heap)) ObjectTemplate(vm, structure, global->isolate());
+		ObjectTemplate* newTemplate = new (NotNull, JSC::allocateCell<ObjectTemplate>(vm.heap)) ObjectTemplate(vm, structure);
 		newTemplate->finishCreation(vm, constructor);
 		return newTemplate;
 	}
@@ -70,7 +65,7 @@ public:
 
 private:
 	// TODO: Function pointers
-	ObjectTemplate(JSC::VM& vm, JSC::Structure * structure, Isolate * isolate) : Base(vm, structure, isolate, DummyCallback, DummyCallback),
+	ObjectTemplate(JSC::VM& vm, JSC::Structure * structure) : Base(vm, structure, DummyCallback, DummyCallback),
 		m_internalFieldCount(0)
 	{
 	}

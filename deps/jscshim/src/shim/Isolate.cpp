@@ -244,7 +244,6 @@ jscshim::GlobalObject * Isolate::GetCurrentGlobalOrDefault()
 		JSC::JSLockHolder locker(m_vm.get());
 		m_defaultGlobal = jscshim::GlobalObject::create(*m_vm,
 														jscshim::GlobalObject::createStructure(*m_vm, JSC::jsNull()),
-														this,
 														0);
 		JSC::gcProtect(m_defaultGlobal);
 	}

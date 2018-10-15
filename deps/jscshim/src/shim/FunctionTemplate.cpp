@@ -81,7 +81,7 @@ bool FunctionTemplate::isTemplateFor(jscshim::Object * object)
 
 bool FunctionTemplate::isTemplateFor(JSC::JSValue value)
 {
-	jscshim::Object * object = JSC::jsDynamicCast<jscshim::Object *>(m_isolate->VM(), value);
+	jscshim::Object * object = JSC::jsDynamicCast<jscshim::Object *>(*vm(), value);
 	if (nullptr == object)
 	{
 		return false;
