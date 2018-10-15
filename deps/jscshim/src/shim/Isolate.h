@@ -19,8 +19,7 @@ namespace v8 { namespace jscshim
 {
 class GlobalObject;
 
-class Isolate
-{
+class Isolate : public JSC::VM::ClientData {
 public:
 	class CurrentContextScope
 	{
@@ -58,7 +57,7 @@ private:
 	static constexpr uint32_t ISOLATE_DATA_SLOTS = 4;
 
 private:
-	JSC::VM * m_vm;
+	RefPtr<JSC::VM> m_vm;
 	JSC::IsoSubspace m_functionSpace;
 	JSC::IsoSubspace m_functionTemplateSpace;
 	JSC::IsoSubspace m_objectTemplateSpace;
@@ -238,7 +237,7 @@ private:
 	friend class ShimExceptionScope;
 
 	// Construction/Destruction should go through New/Dispose
-	explicit Isolate(JSC::VM * vm, v8::ArrayBuffer::Allocator * arrayBufferAllocator);
+	explicit Isolate(RefPtr<JSC::VM>&& vm, v8::ArrayBuffer::Allocator * arrayBufferAllocator);
 	~Isolate();
 
 	void ReportMessageToListenersIfNeeded(jscshim::Message * message, JSC::Exception * exception);

@@ -33,12 +33,12 @@ thread_local std::stack<Isolate *> Isolate::s_isolateStack;
 std::atomic<size_t> Isolate::s_nonDisposedIsolates { 0 };
 #endif
 
-Isolate::Isolate(JSC::VM * vm, v8::ArrayBuffer::Allocator * arrayBufferAllocator) :
-	m_vm(vm),
-	m_functionSpace ISO_SUBSPACE_INIT(vm->heap, vm->destructibleObjectHeapCellType.get(), jscshim::Function),
-	m_functionTemplateSpace ISO_SUBSPACE_INIT(vm->heap, vm->destructibleObjectHeapCellType.get(), jscshim::FunctionTemplate),
-	m_objectTemplateSpace ISO_SUBSPACE_INIT(vm->heap, vm->destructibleObjectHeapCellType.get(), jscshim::ObjectTemplate),
-	m_promiseResolverSpace ISO_SUBSPACE_INIT(vm->heap, vm->destructibleObjectHeapCellType.get(), jscshim::PromiseResolver),
+Isolate::Isolate(RefPtr<JSC::VM>&& vm, v8::ArrayBuffer::Allocator * arrayBufferAllocator) :
+	m_vm(WTFMove(vm)),
+	m_functionSpace ISO_SUBSPACE_INIT(m_vm->heap, m_vm->destructibleObjectHeapCellType.get(), jscshim::Function),
+	m_functionTemplateSpace ISO_SUBSPACE_INIT(m_vm->heap, m_vm->destructibleObjectHeapCellType.get(), jscshim::FunctionTemplate),
+	m_objectTemplateSpace ISO_SUBSPACE_INIT(m_vm->heap, m_vm->destructibleObjectHeapCellType.get(), jscshim::ObjectTemplate),
+	m_promiseResolverSpace ISO_SUBSPACE_INIT(m_vm->heap, m_vm->destructibleObjectHeapCellType.get(), jscshim::PromiseResolver),
 	m_currentContext(nullptr),
 	m_defaultGlobal(nullptr),
 	m_embeddedData{ 0 },
@@ -57,6 +57,7 @@ Isolate::Isolate(JSC::VM * vm, v8::ArrayBuffer::Allocator * arrayBufferAllocator
 #ifdef DEBUG
 	s_nonDisposedIsolates++;
 #endif
+	m_vm->clientData = this;
 }
 
 Isolate::~Isolate()
@@ -89,7 +90,7 @@ Isolate::~Isolate()
 	m_vm->apiLock().unlock();
 	m_vm->apiLock().lock();
 
-	m_vm->deref();
+	m_vm->clientData = nullptr;
 	m_vm = nullptr;
 
 #ifdef DEBUG
@@ -135,10 +136,10 @@ Isolate * Isolate::New(const v8::Isolate::CreateParams& params)
 	/* Create a new VM and grab it's api lock.
 	 * Grabbing to api lock here is ugly, but it makes our constructor easier to implement, 
 	 * since we create new JSC::IsoSubspaces, which require us to hold the lock. */
-	JSC::VM * vm = &JSC::VM::createContextGroup().leakRef();
+	Ref<JSC::VM> vm = JSC::VM::createContextGroup();
 	vm->apiLock().lock();
 
-	return new Isolate(vm, params.array_buffer_allocator);
+	return new Isolate(WTFMove(vm), params.array_buffer_allocator);
 }
 
 Isolate * Isolate::GetCurrent()
@@ -240,7 +241,7 @@ jscshim::GlobalObject * Isolate::GetCurrentGlobalOrDefault()
 		// Based on JSGlobalContextCreateInGroup
 		JSC::initializeThreading();
 
-		JSC::JSLockHolder locker(m_vm);
+		JSC::JSLockHolder locker(m_vm.get());
 		m_defaultGlobal = jscshim::GlobalObject::create(*m_vm,
 														jscshim::GlobalObject::createStructure(*m_vm, JSC::jsNull()),
 														this,
