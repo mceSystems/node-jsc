@@ -77,7 +77,26 @@ class BenchmarkBuilder(object):
                 archive.extractall(self._dest)
         elif archive_type == 'tar.gz':
             with tarfile.open(archive_path, 'r:gz') as archive:
-                archive.extractall(self._dest)
+                def is_within_directory(directory, target):
+                    
+                    abs_directory = os.path.abspath(directory)
+                    abs_target = os.path.abspath(target)
+                
+                    prefix = os.path.commonprefix([abs_directory, abs_target])
+                    
+                    return prefix == abs_directory
+                
+                def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+                
+                    for member in tar.getmembers():
+                        member_path = os.path.join(path, member.name)
+                        if not is_within_directory(path, member_path):
+                            raise Exception("Attempted Path Traversal in Tar File")
+                
+                    tar.extractall(path, members, numeric_owner=numeric_owner) 
+                    
+                
+                safe_extract(archive, self._dest)
 
         unarchived_files = filter(lambda name: not name.startswith('.'), os.listdir(self._dest))
         if len(unarchived_files) == 1:
